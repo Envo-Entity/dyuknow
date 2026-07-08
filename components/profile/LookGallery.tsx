@@ -11,7 +11,7 @@ export function LookGallery({ look }: { look: LookPhoto[] }) {
           mono={t.mono}
           monoSize={58}
           className={cn(
-            "h-[300px] flex-none rounded-[26px] shadow-[0_12px_34px_rgba(5,5,5,0.09)] lg:h-auto lg:w-full",
+            "h-[300px] flex-none rounded-[26px] shadow-[0_12px_34px_rgba(5,5,5,0.09)] lg:w-full",
             i === 0 ? "w-[236px] lg:h-[480px]" : "w-[210px] lg:h-[420px]"
           )}
         />

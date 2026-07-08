@@ -21,6 +21,30 @@ export const ME = {
   },
 } as const;
 
+export const VENUE_PROFILE = {
+  name: "The Larkspur",
+  pedigree: "One Michelin star · Mayfair",
+  spec: "Modern British · wood grill",
+  mono: "L",
+  verified: true,
+  chips: [
+    ["Covers", "42 nightly"],
+    ["Brigade", "14 chefs"],
+    ["Michelin", "One star"],
+    ["Area", "Mayfair"],
+  ] as [string, string][],
+  look: [{ mono: "L" }, { mono: "01" }, { mono: "02" }, { mono: "03" }],
+  about:
+    "Forty-two covers, counter seats at the pass, a wood grill that anchors the menu. A one-star room in Mayfair, built around fire and quiet precision.",
+  reviews: [
+    {
+      q: "The room gave me the pass and got out of the way — fire, precision, and a brigade that trusted me by service two.",
+      a: "Camille Aubert · Guest Head Chef",
+    },
+    { q: "Forty-two covers and never once out of rhythm.", a: "Elodie Marchetti · Sommelier" },
+  ],
+};
+
 export const PROP = {
   role: "Guest Head Chef",
   dates: "Fri 12 – Sun 14 Sep",

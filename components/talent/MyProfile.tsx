@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Page } from "@/components/layout/Page";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { LookGallery } from "@/components/profile/LookGallery";
@@ -10,6 +11,7 @@ import { TALENT } from "@/lib/data";
 import { computeDays, useAppStore } from "@/lib/store";
 
 export function MyProfile() {
+  const router = useRouter();
   const { data, toggleAvailDay } = useAppStore();
   const pt = TALENT.camille;
   const booked = data.proposal === "accepted";
@@ -35,7 +37,7 @@ export function MyProfile() {
           <LookGallery look={pt.look} />
         </div>
 
-        <div className="mt-[18px] flex flex-col gap-[18px]">
+        <div className="mt-[18px] flex flex-col gap-[18px] lg:sticky lg:top-11">
           <div className="rounded-[26px] bg-paper px-[18px] pb-4 pt-[18px] shadow-[0_14px_40px_rgba(5,5,5,0.09)]">
             <div className="flex items-baseline justify-between gap-2.5">
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
@@ -56,6 +58,14 @@ export function MyProfile() {
           <p className="m-0 text-[14.5px] leading-[1.6] text-[#4a4a4a]">{pt.about}</p>
 
           <ReviewsList reviews={pt.reviews} />
+
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="cursor-pointer self-start rounded-full border-none bg-ink px-5 py-3.5 text-sm font-semibold text-white"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </Page>

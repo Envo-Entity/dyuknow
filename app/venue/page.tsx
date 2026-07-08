@@ -11,7 +11,7 @@ export default function VenueHomePage() {
       <h1 className="mt-3.5 font-serif text-[clamp(42px,8.5vw,92px)] font-normal leading-[0.98] tracking-[-0.015em]">
         Who do you
         <br />
-        need tonight?
+        need today?
       </h1>
       <RoleMosaic />
     </Page>

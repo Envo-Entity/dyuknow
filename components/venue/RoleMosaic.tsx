@@ -41,7 +41,7 @@ export function RoleMosaic() {
         </Link>
       ))}
       <div className="col-span-2 flex min-h-[118px] flex-col justify-center gap-1 rounded-[26px] bg-ink px-6 py-5 text-white lg:col-[4] lg:row-[3]">
-        <div className="font-serif text-[25px] leading-[1.12]">Membership by referral only.</div>
+        <div className="font-serif text-[25px] leading-[1.12]">Every member, vetted.</div>
         <div className="text-xs text-faint">142 vetted members · London</div>
       </div>
     </div>

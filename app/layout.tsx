@@ -20,7 +20,7 @@ const instrumentSans = Instrument_Sans({
 
 export const metadata: Metadata = {
   title: "Dyuknow",
-  description: "Membership by referral only — book vetted hospitality talent, or take the pass at rooms worth your name.",
+  description: "Book vetted hospitality talent, or take the pass at rooms worth your name.",
 };
 
 export default function RootLayout({

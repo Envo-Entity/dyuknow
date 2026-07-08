@@ -13,8 +13,6 @@ interface NavRailProps {
   meMono: string;
   msgBadge: boolean;
   bookBadge: boolean;
-  acctOpen: boolean;
-  onAccountClick: () => void;
 }
 
 function NavButton({
@@ -22,14 +20,12 @@ function NavButton({
   active,
   title,
   badge,
-  onClick,
   children,
 }: {
-  href?: string;
+  href: string;
   active: boolean;
   title: string;
   badge?: boolean;
-  onClick?: () => void;
   children: React.ReactNode;
 }) {
   const classes = cn(
@@ -41,23 +37,15 @@ function NavButton({
     <span className="absolute right-[3px] top-[3px] h-[10px] w-[10px] rounded-full border-2 border-white bg-sage" />
   ) : null;
 
-  if (href) {
-    return (
-      <Link href={href} title={title} className={classes}>
-        {children}
-        {badgeDot}
-      </Link>
-    );
-  }
   return (
-    <button type="button" title={title} onClick={onClick} className={cn(classes, "cursor-pointer")}>
+    <Link href={href} title={title} className={classes}>
       {children}
       {badgeDot}
-    </button>
+    </Link>
   );
 }
 
-export function NavRail({ side, meName, meMono, msgBadge, bookBadge, acctOpen, onAccountClick }: NavRailProps) {
+export function NavRail({ side, meName, meMono, msgBadge, bookBadge }: NavRailProps) {
   const { isHome, isBookings, isMessages, isChat, isMyProfile } = useRouteFlags();
   const messagesActive = isMessages || isChat;
 
@@ -71,9 +59,9 @@ export function NavRail({ side, meName, meMono, msgBadge, bookBadge, acctOpen, o
       )}
     >
       <div className="mb-3 hidden flex-col items-center gap-[5px] text-center lg:flex">
-        <button type="button" onClick={onAccountClick} className="cursor-pointer">
+        <Link href={`/${side}/me`}>
           <Avatar mono={meMono} size={46} className="shadow-[0_8px_24px_rgba(5,5,5,0.12)]" />
-        </button>
+        </Link>
         <div className="max-w-[86px] text-[11.5px] font-semibold leading-tight">{meName}</div>
         <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-label">{side}</div>
       </div>
@@ -86,7 +74,7 @@ export function NavRail({ side, meName, meMono, msgBadge, bookBadge, acctOpen, o
       <NavButton href={`/${side}/messages`} active={messagesActive} title="Messages" badge={msgBadge}>
         <MessagesIcon />
       </NavButton>
-      <NavButton active={isMyProfile || acctOpen} title="Account" onClick={onAccountClick}>
+      <NavButton href={`/${side}/me`} active={isMyProfile} title="Profile">
         <AccountIcon />
       </NavButton>
     </div>

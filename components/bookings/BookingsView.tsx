@@ -14,7 +14,7 @@ export function BookingsView({ side }: { side: Side }) {
   const isVenue = side === "venue";
   const booked = data.proposal === "accepted";
   const past = PAST[side];
-  const emptyCtaLabel = isVenue ? "Who do you need tonight?" : "See venues booking near you";
+  const emptyCtaLabel = isVenue ? "Who do you need today?" : "See venues booking near you";
 
   useEffect(() => {
     markSeenBooking(side);
