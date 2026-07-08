@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { CONVOS, DAY_DEFS, PROP, defaultAppData } from "./data";
-import type { AppData, DayCode, Side } from "./types";
+import { CONVOS, DAY_DEFS, ME, PROP, defaultAppData } from "./data";
+import type { AppData, DayCode, Side, TalentIdentity, VenueIdentity } from "./types";
 
 const STORAGE_KEY = "dyuknow_v1";
 
@@ -17,7 +17,14 @@ interface AppStore {
   requestIntro: (id: string) => void;
   markRead: (side: Side, chatId: string) => void;
   markSeenBooking: (side: Side) => void;
+  completeOnboarding: (side: Side) => void;
+  setVenueIdentity: (patch: Partial<VenueIdentity>) => void;
+  setTalentIdentity: (patch: Partial<TalentIdentity>) => void;
+  setAvailWindow: (from: string, to: string) => void;
 }
+
+const EMPTY_VENUE_IDENTITY: VenueIdentity = { name: "", bio: "", photo: null, needs: [] };
+const EMPTY_TALENT_IDENTITY: TalentIdentity = { name: "", role: "", bio: "", photo: null };
 
 const AppStoreContext = createContext<AppStore | null>(null);
 
@@ -141,6 +148,25 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const completeOnboarding = useCallback((side: Side) => {
+    setData((d) => {
+      if (d.onboarded[side] === true) return d;
+      return { ...d, onboarded: { ...d.onboarded, [side]: true } };
+    });
+  }, []);
+
+  const setVenueIdentity = useCallback((patch: Partial<VenueIdentity>) => {
+    setData((d) => ({ ...d, venueIdentity: { ...EMPTY_VENUE_IDENTITY, ...d.venueIdentity, ...patch } }));
+  }, []);
+
+  const setTalentIdentity = useCallback((patch: Partial<TalentIdentity>) => {
+    setData((d) => ({ ...d, talentIdentity: { ...EMPTY_TALENT_IDENTITY, ...d.talentIdentity, ...patch } }));
+  }, []);
+
+  const setAvailWindow = useCallback((from: string, to: string) => {
+    setData((d) => ({ ...d, availWindow: { from, to } }));
+  }, []);
+
   const value: AppStore = {
     data,
     sendMessage,
@@ -152,6 +178,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     requestIntro,
     markRead,
     markSeenBooking,
+    completeOnboarding,
+    setVenueIdentity,
+    setTalentIdentity,
+    setAvailWindow,
   };
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
@@ -165,6 +195,15 @@ export function useAppStore() {
 
 export function otherSide(side: Side): Side {
   return side === "venue" ? "talent" : "venue";
+}
+
+export function displayIdentity(side: Side, data: AppData): { name: string; mono: string; photo: string | null } {
+  const identity = side === "venue" ? data.venueIdentity : data.talentIdentity;
+  const name = identity?.name.trim();
+  if (name) {
+    return { name, mono: name.charAt(0).toUpperCase(), photo: identity?.photo ?? null };
+  }
+  return { name: ME[side].name, mono: ME[side].mono, photo: null };
 }
 
 export function availabilityOf(talentId: string, data: AppData) {

@@ -2,20 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/layout/Page";
+import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { LookGallery } from "@/components/profile/LookGallery";
 import { ChipsGrid } from "@/components/profile/ChipsGrid";
 import { ReviewsList } from "@/components/profile/ReviewsList";
 import { AvailabilityStrip } from "@/components/profile/AvailabilityStrip";
+import { TimeRangePicker } from "@/components/profile/TimeRangePicker";
 import { TALENT } from "@/lib/data";
-import { computeDays, useAppStore } from "@/lib/store";
+import { computeDays, displayIdentity, useAppStore } from "@/lib/store";
 
 export function MyProfile() {
   const router = useRouter();
-  const { data, toggleAvailDay } = useAppStore();
+  const { data, toggleAvailDay, setAvailWindow } = useAppStore();
   const pt = TALENT.camille;
   const booked = data.proposal === "accepted";
   const days = computeDays(data);
+  const me = displayIdentity("talent", data);
+  const bio = data.talentIdentity?.bio || pt.pedigree;
+  const roleLine = data.talentIdentity?.role || pt.role;
 
   return (
     <Page>
@@ -23,13 +28,14 @@ export function MyProfile() {
         My profile · visible to member venues
       </div>
       <div className="mt-3.5 flex flex-wrap items-center gap-3">
+        <Avatar mono={me.mono} photoUrl={me.photo} size={56} />
         <h1 className="font-serif text-[clamp(40px,8vw,76px)] font-normal leading-none tracking-[-0.015em]">
-          {pt.name}
+          {me.name}
         </h1>
         <VerifiedBadge size={24} />
       </div>
       <div className="mt-2.5 text-sm text-muted">
-        {pt.pedigree} · {pt.spec}
+        {roleLine} · {bio}
       </div>
 
       <div className="lg:mt-[30px] lg:grid lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:gap-[52px]">
@@ -50,6 +56,9 @@ export function MyProfile() {
             </div>
             <div className="mt-[11px] text-[11px] text-faint">
               Tap a day to open or hold it. Sage means open to book — venues see this live.
+            </div>
+            <div className="mt-[13px] border-t border-border-soft pt-[13px]">
+              <TimeRangePicker from={data.availWindow.from} to={data.availWindow.to} onChange={setAvailWindow} />
             </div>
           </div>
 

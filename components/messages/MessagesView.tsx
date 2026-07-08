@@ -3,8 +3,8 @@
 import { Page } from "@/components/layout/Page";
 import { ConversationRow } from "./ConversationRow";
 import { StatusCard } from "./StatusCard";
-import { CONVOS, ME, PROP, TALENT } from "@/lib/data";
-import { convoIdsForSide, lastMessagePreview, proposalStatus, useAppStore } from "@/lib/store";
+import { CONVOS, PROP, TALENT } from "@/lib/data";
+import { convoIdsForSide, displayIdentity, lastMessagePreview, proposalStatus, useAppStore } from "@/lib/store";
 import type { Side } from "@/lib/types";
 
 const FIXED_TIME: Record<string, string> = {
@@ -18,11 +18,12 @@ export function MessagesView({ side }: { side: Side }) {
   const isVenue = side === "venue";
   const convoIds = convoIdsForSide(side);
   const status = proposalStatus(data.proposal);
+  const me = displayIdentity(side, data);
 
   return (
     <Page>
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
-        Conversations · {ME[side].name}
+        Conversations · {me.name}
       </div>
       <h1 className="mt-3.5 font-serif text-[clamp(40px,8.5vw,84px)] font-normal leading-none tracking-[-0.015em]">
         Messages

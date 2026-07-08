@@ -3,15 +3,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/layout/Page";
+import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { LookGallery } from "@/components/profile/LookGallery";
 import { ChipsGrid } from "@/components/profile/ChipsGrid";
 import { ReviewsList } from "@/components/profile/ReviewsList";
 import { ROLES, VENUE_PROFILE } from "@/lib/data";
+import { displayIdentity, useAppStore } from "@/lib/store";
 
 export function VenueProfile() {
   const router = useRouter();
+  const { data } = useAppStore();
   const v = VENUE_PROFILE;
+  const me = displayIdentity("venue", data);
+  const bio = data.venueIdentity?.bio || `${v.pedigree} · ${v.spec}`;
 
   return (
     <Page>
@@ -19,14 +24,13 @@ export function VenueProfile() {
         My venue · visible to member talent
       </div>
       <div className="mt-3.5 flex flex-wrap items-center gap-3">
+        <Avatar mono={me.mono} photoUrl={me.photo} size={56} tone="dark" />
         <h1 className="font-serif text-[clamp(40px,8vw,76px)] font-normal leading-none tracking-[-0.015em]">
-          {v.name}
+          {me.name}
         </h1>
         {v.verified && <VerifiedBadge size={24} />}
       </div>
-      <div className="mt-2.5 text-sm text-muted">
-        {v.pedigree} · {v.spec}
-      </div>
+      <div className="mt-2.5 text-sm text-muted">{bio}</div>
 
       <div className="lg:mt-[30px] lg:grid lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:gap-[52px]">
         <div>

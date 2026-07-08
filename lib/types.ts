@@ -78,6 +78,20 @@ export interface PastEntry {
   mono: string;
 }
 
+export interface VenueIdentity {
+  name: string;
+  bio: string;
+  photo: string | null;
+  needs: string[];
+}
+
+export interface TalentIdentity {
+  name: string;
+  role: string;
+  bio: string;
+  photo: string | null;
+}
+
 export interface AppData {
   proposal: ProposalState;
   avail: Record<DayCode, boolean>;
@@ -86,4 +100,8 @@ export interface AppData {
   seenBooking: Record<Side, boolean>;
   saved: Record<string, boolean>;
   intros: Record<string, boolean>;
+  onboarded: Record<Side, boolean>;
+  venueIdentity: VenueIdentity | null;
+  talentIdentity: TalentIdentity | null;
+  availWindow: { from: string; to: string };
 }

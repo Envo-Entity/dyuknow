@@ -15,6 +15,7 @@ export function useRouteFlags() {
   const isBookings = pathname.endsWith("/bookings");
   const isMessages = pathname.endsWith("/messages");
   const isMyProfile = pathname === "/talent/me" || pathname === "/venue/me";
+  const isOnboarding = pathname.endsWith("/onboarding");
   const isHome =
     !!side &&
     (pathname === `/${side}` ||
@@ -22,5 +23,5 @@ export function useRouteFlags() {
       pathname.startsWith(`/${side}/t/`) ||
       pathname.startsWith(`/${side}/venue/`));
 
-  return { pathname, side, isChat, isBookings, isMessages, isMyProfile, isHome };
+  return { pathname, side, isChat, isBookings, isMessages, isMyProfile, isOnboarding, isHome };
 }

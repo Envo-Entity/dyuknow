@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { ArrowRightIcon } from "@/components/icons";
 import { cn } from "@/lib/cn";
 
 interface ForkPanelProps {
-  href: string;
+  onClick: () => void;
   dark?: boolean;
   eyebrow: string;
   heading: React.ReactNode;
@@ -14,12 +13,13 @@ interface ForkPanelProps {
   subLabel: string;
 }
 
-export function ForkPanel({ href, dark = false, eyebrow, heading, body, avatarMono, continueLabel, subLabel }: ForkPanelProps) {
+export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avatarMono, continueLabel, subLabel }: ForkPanelProps) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
-        "group flex flex-1 grow basis-0 flex-col justify-between gap-7 rounded-[30px] p-7 transition-[flex-grow,box-shadow] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:grow-[1.35] lg:p-[46px]",
+        "group flex flex-1 grow basis-0 cursor-pointer flex-col justify-between gap-7 rounded-[30px] p-7 text-left transition-[flex-grow,box-shadow] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:grow-[1.35] lg:p-[46px]",
         dark
           ? "bg-ink text-white shadow-[0_16px_48px_rgba(5,5,5,0.22)] hover:shadow-[0_30px_80px_rgba(5,5,5,0.30)]"
           : "bg-mist text-ink shadow-[0_12px_40px_rgba(5,5,5,0.05)] hover:shadow-[0_28px_74px_rgba(5,5,5,0.10)]"
@@ -51,6 +51,6 @@ export function ForkPanel({ href, dark = false, eyebrow, heading, body, avatarMo
           <ArrowRightIcon />
         </div>
       </div>
-    </Link>
+    </button>
   );
 }

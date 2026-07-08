@@ -435,5 +435,9 @@ export function defaultAppData(): AppData {
     seenBooking: { venue: true, talent: true },
     saved: {},
     intros: {},
+    onboarded: { venue: false, talent: false },
+    venueIdentity: null,
+    talentIdentity: null,
+    availWindow: { from: "12:00", to: "23:00" },
   };
 }

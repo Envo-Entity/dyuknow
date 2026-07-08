@@ -5,9 +5,10 @@ interface AvatarProps {
   size?: number;
   tone?: "light" | "dark";
   className?: string;
+  photoUrl?: string | null;
 }
 
-export function Avatar({ mono, size = 44, tone = "light", className }: AvatarProps) {
+export function Avatar({ mono, size = 44, tone = "light", className, photoUrl }: AvatarProps) {
   return (
     <div
       className={cn(
@@ -17,12 +18,17 @@ export function Avatar({ mono, size = 44, tone = "light", className }: AvatarPro
       )}
       style={{ width: size, height: size }}
     >
-      <div
-        className="ph-mono absolute inset-0 flex items-center justify-center font-serif"
-        style={{ fontSize: size * 0.46 }}
-      >
-        {mono}
-      </div>
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div
+          className="ph-mono absolute inset-0 flex items-center justify-center font-serif"
+          style={{ fontSize: size * 0.46 }}
+        >
+          {mono}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,23 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ForkPanel } from "@/components/fork/ForkPanel";
+import { GoogleSignInModal } from "@/components/fork/GoogleSignInModal";
+import { useAppStore } from "@/lib/store";
+import type { Side } from "@/lib/types";
 
 export default function ForkPage() {
+  const [activeSide, setActiveSide] = useState<Side | null>(null);
+  const { data } = useAppStore();
+  const router = useRouter();
+
+  function handleContinue() {
+    if (!activeSide) return;
+    const target = data.onboarded[activeSide] ? `/${activeSide}` : `/${activeSide}/onboarding`;
+    router.push(target);
+  }
+
   return (
     <div className="animate-view-in flex min-h-screen flex-col bg-paper">
       <div className="flex flex-col items-center gap-[7px] px-6 pb-2 pt-[30px]">
@@ -9,7 +26,7 @@ export default function ForkPage() {
       </div>
       <div className="flex flex-1 flex-col gap-3.5 px-4 pb-[26px] pt-[18px] lg:flex-row lg:gap-5 lg:px-8 lg:pb-9">
         <ForkPanel
-          href="/venue"
+          onClick={() => setActiveSide("venue")}
           eyebrow="Venue"
           heading="I'm short for service"
           body="Book vetted, verified talent — a Guest Head Chef for the weekend, a Sommelier for one service, a residency."
@@ -18,7 +35,7 @@ export default function ForkPage() {
           subLabel="One Michelin star · Mayfair"
         />
         <ForkPanel
-          href="/talent"
+          onClick={() => setActiveSide("talent")}
           dark
           eyebrow="Talent"
           heading={
@@ -34,6 +51,9 @@ export default function ForkPage() {
           subLabel="Head Chef · Verified member"
         />
       </div>
+      {activeSide && (
+        <GoogleSignInModal side={activeSide} onClose={() => setActiveSide(null)} onContinue={handleContinue} />
+      )}
     </div>
   );
 }

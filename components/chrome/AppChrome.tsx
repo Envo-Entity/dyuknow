@@ -2,26 +2,25 @@
 
 import { IdentityPill } from "./IdentityPill";
 import { NavRail } from "./NavRail";
-import { ME } from "@/lib/data";
-import { useAppStore, unreadForSide } from "@/lib/store";
+import { useAppStore, unreadForSide, displayIdentity } from "@/lib/store";
 import { useRouteFlags } from "@/lib/useRoute";
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
-  const { side } = useRouteFlags();
+  const { side, isOnboarding } = useRouteFlags();
   const { data } = useAppStore();
 
-  if (!side) {
+  if (!side || isOnboarding) {
     return <>{children}</>;
   }
 
-  const me = ME[side];
+  const me = displayIdentity(side, data);
   const msgBadge = unreadForSide(side, data);
   const bookBadge = data.seenBooking[side] === false;
 
   return (
     <>
-      <IdentityPill side={side} meName={me.name} meMono={me.mono} />
-      <NavRail side={side} meName={me.name} meMono={me.mono} msgBadge={msgBadge} bookBadge={bookBadge} />
+      <IdentityPill side={side} meName={me.name} meMono={me.mono} mePhoto={me.photo} />
+      <NavRail side={side} meName={me.name} meMono={me.mono} mePhoto={me.photo} msgBadge={msgBadge} bookBadge={bookBadge} />
       {children}
     </>
   );

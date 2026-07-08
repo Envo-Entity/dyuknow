@@ -10,9 +10,10 @@ interface IdentityPillProps {
   side: Side;
   meName: string;
   meMono: string;
+  mePhoto?: string | null;
 }
 
-export function IdentityPill({ side, meName, meMono }: IdentityPillProps) {
+export function IdentityPill({ side, meName, meMono, mePhoto }: IdentityPillProps) {
   const { isChat } = useRouteFlags();
 
   return (
@@ -23,7 +24,7 @@ export function IdentityPill({ side, meName, meMono }: IdentityPillProps) {
         isChat && "hidden"
       )}
     >
-      <Avatar mono={meMono} size={28} />
+      <Avatar mono={meMono} size={28} photoUrl={mePhoto} />
       <span className="text-[13px] font-semibold">{meName}</span>
       <span className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-label">{side}</span>
     </Link>

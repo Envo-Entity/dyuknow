@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Page } from "@/components/layout/Page";
 import { BookingCard } from "./BookingCard";
 import { PastRow } from "./PastRow";
-import { ME, PAST, PROP, TALENT } from "@/lib/data";
-import { useAppStore } from "@/lib/store";
+import { PAST, PROP, TALENT } from "@/lib/data";
+import { displayIdentity, useAppStore } from "@/lib/store";
 import type { Side } from "@/lib/types";
 
 export function BookingsView({ side }: { side: Side }) {
@@ -15,6 +15,7 @@ export function BookingsView({ side }: { side: Side }) {
   const booked = data.proposal === "accepted";
   const past = PAST[side];
   const emptyCtaLabel = isVenue ? "Who do you need today?" : "See venues booking near you";
+  const me = displayIdentity(side, data);
 
   useEffect(() => {
     markSeenBooking(side);
@@ -23,7 +24,7 @@ export function BookingsView({ side }: { side: Side }) {
   return (
     <Page>
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
-        {ME[side].name} · the ledger
+        {me.name} · the ledger
       </div>
       <h1 className="mt-3.5 font-serif text-[clamp(40px,8.5vw,84px)] font-normal leading-none tracking-[-0.015em]">
         Bookings
