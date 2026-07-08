@@ -130,3 +130,26 @@
 .animate-panel-in {
   animation: panel-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+
+@keyframes sage-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-sage) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--color-sage) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-sage) 0%, transparent);
+  }
+}
+
+.dot-pulse {
+  animation: sage-pulse 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-pulse {
+    animation: none;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-sage) 30%, transparent);
+  }
+}

@@ -21,7 +21,7 @@ export function FeedCard({ item, showScarcity, large = false, className }: FeedC
     >
       <PhotoTile mono={item.mono} monoSize={64} className="aspect-[16/10]">
         {item.isNew && (
-          <span className="absolute left-[11px] top-[11px] rounded-full bg-sage px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
+          <span className="absolute left-[11px] top-[11px] rounded-full bg-sage px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
             New · 12 min
           </span>
         )}

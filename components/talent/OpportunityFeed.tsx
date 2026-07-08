@@ -19,7 +19,7 @@ export function OpportunityFeed({ showScarcity }: { showScarcity: boolean }) {
 
   return (
     <>
-      <div className="-mx-5 mt-5 flex gap-2 overflow-x-auto px-5 pb-2 pt-1 lg:mx-0 lg:mt-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0">
+      <div className="-mx-5 mt-5 flex gap-2 overflow-x-auto px-5 pb-2 pt-1 lg:mx-0 lg:mt-7 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0">
         {CHIPS.map((c) => (
           <Chip key={c} active={filter === c} onClick={() => setFilter(c)}>
             {c}

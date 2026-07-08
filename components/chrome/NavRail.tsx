@@ -34,7 +34,7 @@ function NavButton({
     active ? "bg-ink text-white" : "bg-paper text-ink"
   );
   const badgeDot = badge ? (
-    <span className="absolute right-[3px] top-[3px] h-[10px] w-[10px] rounded-full border-2 border-white bg-sage" />
+    <span className="dot-pulse absolute right-[2px] top-[2px] h-[12px] w-[12px] rounded-full border-2 border-white bg-sage" />
   ) : null;
 
   return (

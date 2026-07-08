@@ -31,7 +31,7 @@ export function VenueDetailContent({ feedId, variant = "page" }: VenueDetailCont
       >
         <PhotoTile mono={vf.mono} monoSize={84} className="h-full w-full">
           {vf.isNew && (
-            <span className="absolute left-3 top-3 rounded-full bg-sage px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
+            <span className="absolute left-3 top-3 rounded-full bg-sage px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
               New · 12 min
             </span>
           )}

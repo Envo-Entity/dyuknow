@@ -9,8 +9,8 @@ export function Chip({ active = false, className, ...props }: ChipProps) {
     <button
       type="button"
       className={cn(
-        "flex-none cursor-pointer rounded-full border px-4 py-2 text-[12.5px] font-semibold transition-colors",
-        active ? "border-ink bg-ink text-white" : "border-border bg-paper text-ink",
+        "flex-none cursor-pointer rounded-full border px-5 py-2.5 text-[12.5px] font-semibold transition-colors",
+        active ? "border-sage bg-sage text-ink" : "border-border bg-paper text-ink",
         className
       )}
       {...props}

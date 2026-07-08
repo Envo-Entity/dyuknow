@@ -26,7 +26,7 @@ export function ConversationRow({ href, mono, name, sub, time, preview, unread }
         <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-faint">{sub}</span>
         <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-[#5a5a5a]">{preview}</span>
       </div>
-      {unread && <span className="h-2.5 w-2.5 flex-none rounded-full bg-sage" />}
+      {unread && <span className="dot-pulse h-3 w-3 flex-none rounded-full bg-sage" />}
     </Link>
   );
 }
