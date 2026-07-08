@@ -1,65 +1,48 @@
-import Image from "next/image";
+import { ForkPanel } from "@/components/fork/ForkPanel";
 
-export default function Home() {
+export default function ForkPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="animate-view-in flex min-h-screen flex-col bg-paper">
+      <div className="flex flex-col items-center gap-[7px] px-6 pb-2 pt-[30px]">
+        <div className="font-serif text-[29px] tracking-[-0.01em]">Dyuknow</div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-label">
+          Membership by referral only
+        </div>
+        <div className="mt-3.5 font-serif text-[19px] italic text-muted">Who are you today?</div>
+      </div>
+      <div className="flex flex-1 flex-col gap-3.5 px-4 pb-[26px] pt-[18px] lg:flex-row lg:gap-5 lg:px-8 lg:pb-9">
+        <ForkPanel
+          href="/venue"
+          eyebrow="Venue"
+          heading={
+            <>
+              I have a room
+              <br />
+              to fill
+            </>
+          }
+          body="Book vetted, verified talent — a Guest Head Chef for the weekend, a Sommelier for one service, a residency."
+          avatarMono="L"
+          continueLabel="Continue as The Larkspur"
+          subLabel="One Michelin star · Mayfair"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <ForkPanel
+          href="/talent"
+          dark
+          eyebrow="Talent"
+          heading={
+            <>
+              I&rsquo;m available
+              <br />
+              to work
+            </>
+          }
+          body="Take the pass at rooms worth your name — a service, a weekend, a residency. Never a job board."
+          avatarMono="C"
+          continueLabel="Continue as Camille Aubert"
+          subLabel="Head Chef · Verified member"
+        />
+      </div>
     </div>
   );
 }
