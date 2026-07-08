@@ -153,3 +153,93 @@
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-sage) 30%, transparent);
   }
 }
+
+/*
+ * Fork-screen intro: the wordmark and tagline build up together, centered
+ * on a blank page — wordmark first, tagline beneath it — then that whole
+ * header group rises as one unit into its actual top-of-page position
+ * before the choice panels rise in underneath it. `--intro-header-offset`
+ * is how far above its natural resting spot the header group sits while
+ * centered in the viewport.
+ */
+@keyframes intro-header-rise {
+  0% {
+    transform: translateY(calc(50vh - var(--intro-header-offset)));
+    animation-timing-function: linear;
+  }
+  65% {
+    transform: translateY(calc(50vh - var(--intro-header-offset)));
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-text-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-panels {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
+  99% {
+    pointer-events: none;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
+.intro-header {
+  --intro-header-offset: 70px;
+  animation: intro-header-rise 2s both 150ms;
+}
+
+.intro-wordmark {
+  opacity: 0;
+  animation: intro-text-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
+}
+
+.intro-tagline {
+  opacity: 0;
+  animation: intro-text-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) 700ms both;
+}
+
+.intro-panels {
+  animation: intro-panels 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) 2250ms both;
+}
+
+.no-intro .intro-header,
+.no-intro .intro-tagline,
+.no-intro .intro-wordmark,
+.no-intro .intro-panels {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-header,
+  .intro-tagline,
+  .intro-wordmark,
+  .intro-panels {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}

@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { ForkPanel } from "@/components/fork/ForkPanel";
 import { GoogleSignInModal } from "@/components/fork/GoogleSignInModal";
 import { useAppStore } from "@/lib/store";
+import { cn } from "@/lib/cn";
 import type { Side } from "@/lib/types";
+
+// TODO: re-enable the once-per-tab-session gate (see git history) once the
+// intro animation itself is signed off.
+const skipIntro = false;
 
 export default function ForkPage() {
   const [activeSide, setActiveSide] = useState<Side | null>(null);
@@ -19,12 +24,14 @@ export default function ForkPage() {
   }
 
   return (
-    <div className="animate-view-in flex min-h-screen flex-col bg-paper">
-      <div className="flex flex-col items-center gap-[7px] px-6 pb-2 pt-[30px]">
-        <div className="font-serif text-[29px] tracking-[-0.01em]">Dyuknow</div>
-        <div className="mt-3.5 font-serif text-[19px] italic text-muted">Which side of the pass are you on?</div>
+    <div className={cn("flex min-h-screen flex-col bg-paper", skipIntro && "no-intro")}>
+      <div className="intro-header flex flex-col items-center gap-[7px] px-6 pb-2 pt-[30px]">
+        <div className="intro-wordmark font-serif text-[29px] tracking-[-0.01em]">Dyuknow</div>
+        <div className="intro-tagline mt-3.5 font-serif text-[19px] italic text-muted">
+          Which side of the pass are you on?
+        </div>
       </div>
-      <div className="flex flex-1 flex-col gap-3.5 px-4 pb-[26px] pt-[18px] lg:flex-row lg:gap-5 lg:px-8 lg:pb-9">
+      <div className="intro-panels flex flex-1 flex-col gap-3.5 px-4 pb-[26px] pt-[18px] lg:flex-row lg:gap-5 lg:px-8 lg:pb-9">
         <ForkPanel
           onClick={() => setActiveSide("venue")}
           eyebrow="Venue"
