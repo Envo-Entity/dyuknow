@@ -6,6 +6,7 @@ export type ProposalState = "none" | "sent" | "accepted" | "declined";
 
 export interface LookPhoto {
   mono: string;
+  photo?: string;
 }
 
 export interface Talent {
@@ -14,6 +15,7 @@ export interface Talent {
   short: string;
   role: string;
   mono: string;
+  photo?: string;
   verified: boolean;
   pedigree: string;
   spec: string;
@@ -30,6 +32,7 @@ export interface RoleDef {
   id: string;
   name: string;
   mono: string;
+  photo?: string;
   metric: string;
   sub: string;
   top: string | null;
@@ -41,6 +44,7 @@ export interface FeedItem {
   venue: string;
   area: string;
   mono: string;
+  photo?: string;
   role: string;
   dates: string;
   rate: string;
@@ -59,6 +63,7 @@ export interface ConvoMeta {
   venue: string;
   venueSub: string;
   venueMono: string;
+  venuePhoto?: string;
   talent: string;
   hasProposal: boolean;
 }
@@ -76,6 +81,7 @@ export interface PastEntry {
   sub: string;
   dates: string;
   mono: string;
+  photo?: string;
 }
 
 export interface VenueIdentity {

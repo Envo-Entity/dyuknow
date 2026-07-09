@@ -26,6 +26,7 @@ export function RoleMosaic() {
         >
           <PhotoTile
             mono={r.mono}
+            photoUrl={r.photo}
             monoSize={76}
             className="h-full w-full"
           >

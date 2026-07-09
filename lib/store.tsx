@@ -203,7 +203,7 @@ export function displayIdentity(side: Side, data: AppData): { name: string; mono
   if (name) {
     return { name, mono: name.charAt(0).toUpperCase(), photo: identity?.photo ?? null };
   }
-  return { name: ME[side].name, mono: ME[side].mono, photo: null };
+  return { name: ME[side].name, mono: ME[side].mono, photo: ME[side].photo };
 }
 
 export function availabilityOf(talentId: string, data: AppData) {

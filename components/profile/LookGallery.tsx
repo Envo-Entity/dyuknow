@@ -9,6 +9,7 @@ export function LookGallery({ look }: { look: LookPhoto[] }) {
         <PhotoTile
           key={i}
           mono={t.mono}
+          photoUrl={t.photo}
           monoSize={58}
           className={cn(
             "h-[300px] flex-none rounded-[26px] shadow-[0_12px_34px_rgba(5,5,5,0.09)] lg:w-full",

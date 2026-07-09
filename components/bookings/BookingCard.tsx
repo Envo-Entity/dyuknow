@@ -4,16 +4,17 @@ import { PhotoTile } from "@/components/ui/PhotoTile";
 interface BookingCardProps {
   href: string;
   mono: string;
+  photo?: string;
   title: string;
   sub: string;
   dates: string;
   rate: string;
 }
 
-export function BookingCard({ href, mono, title, sub, dates, rate }: BookingCardProps) {
+export function BookingCard({ href, mono, photo, title, sub, dates, rate }: BookingCardProps) {
   return (
     <div className="mt-3 flex flex-col overflow-hidden rounded-[28px] bg-paper shadow-[0_16px_46px_rgba(5,5,5,0.10)] lg:flex-row">
-      <PhotoTile mono={mono} monoSize={44} className="h-[170px] w-full flex-none lg:h-auto lg:w-[120px]" />
+      <PhotoTile mono={mono} photoUrl={photo} monoSize={44} className="h-[170px] w-full flex-none lg:h-auto lg:w-[120px]" />
       <div className="flex flex-1 flex-col gap-1.5 px-5 py-[18px]">
         <span className="self-start rounded-full bg-sage px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink">
           Booked · Fri – Sun

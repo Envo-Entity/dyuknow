@@ -3,7 +3,7 @@
 import { Page } from "@/components/layout/Page";
 import { ConversationRow } from "./ConversationRow";
 import { StatusCard } from "./StatusCard";
-import { CONVOS, PROP, TALENT } from "@/lib/data";
+import { CONVOS, ME, PROP, TALENT } from "@/lib/data";
 import { convoIdsForSide, displayIdentity, lastMessagePreview, proposalStatus, useAppStore } from "@/lib/store";
 import type { Side } from "@/lib/types";
 
@@ -38,6 +38,7 @@ export function MessagesView({ side }: { side: Side }) {
                 key={id}
                 href={`/${side}/chat/${id}`}
                 mono={isVenue ? t.mono : c.venueMono}
+                photo={isVenue ? t.photo : c.venuePhoto}
                 name={isVenue ? t.name : c.venue}
                 sub={isVenue ? `${t.role} · ${t.pedigree}` : c.venueSub}
                 preview={lastMessagePreview(id, data)}
@@ -51,6 +52,7 @@ export function MessagesView({ side }: { side: Side }) {
           <StatusCard
             href={`/${side}/chat/larkspur-camille`}
             mono={isVenue ? "C" : "L"}
+            photo={isVenue ? TALENT.camille.photo : ME.venue.photo}
             title="This weekend"
             line={isVenue ? "Camille Aubert · Guest Head Chef" : "The Larkspur · Guest Head Chef"}
             dates={PROP.dates}

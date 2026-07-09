@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { ME } from "@/lib/data";
 import type { Side } from "@/lib/types";
 
-const PERSONA: Record<Side, { name: string; email: string; mono: string }> = {
+const PERSONA: Record<Side, { name: string; email: string; mono: string; photo?: string }> = {
   venue: {
     name: "Jonathan Reeve",
     email: "jonathan@thelarkspur.co.uk",
     mono: "J",
+    photo: ME.venue.photo,
   },
   talent: {
     name: "Camille Aubert",
     email: "camille.aubert@gmail.com",
     mono: "C",
+    photo: ME.talent.photo,
   },
 };
 
@@ -80,7 +83,7 @@ export function GoogleSignInModal({ side, onClose, onContinue }: GoogleSignInMod
                 onClick={handleContinue}
                 className="mt-7 flex w-full cursor-pointer items-center gap-3 rounded-[14px] border border-border px-4 py-3 text-left transition-colors hover:bg-mist"
               >
-                <Avatar mono={persona.mono} size={38} />
+                <Avatar mono={persona.mono} photoUrl={persona.photo} size={38} />
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-semibold text-ink">{persona.name}</span>
                   <span className="truncate text-[12.5px] text-muted">{persona.email}</span>

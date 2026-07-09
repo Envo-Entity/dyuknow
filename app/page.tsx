@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ForkPanel } from "@/components/fork/ForkPanel";
 import { GoogleSignInModal } from "@/components/fork/GoogleSignInModal";
+import { ME } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 import type { Side } from "@/lib/types";
@@ -38,6 +39,7 @@ export default function ForkPage() {
           heading="I'm short for service"
           body="Book vetted, verified talent — a Guest Head Chef for the weekend, a Sommelier for one service, a residency."
           avatarMono="L"
+          avatarPhoto={ME.venue.photo}
           continueLabel="Continue as The Larkspur"
           subLabel="One Michelin star · Mayfair"
         />
@@ -54,6 +56,7 @@ export default function ForkPage() {
           }
           body="Take the pass at rooms worth your name — a service, a weekend, a residency. Never a job board."
           avatarMono="C"
+          avatarPhoto={ME.talent.photo}
           continueLabel="Continue as Camille Aubert"
           subLabel="Head Chef · Verified member"
         />

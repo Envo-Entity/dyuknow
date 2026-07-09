@@ -25,6 +25,7 @@ export function ChatView({ side, chatId }: { side: Side; chatId: string }) {
   const chatName = isVenue ? talent.name : meta.venue;
   const chatSub = isVenue ? `${talent.role} · Verified` : meta.venueSub;
   const chatMono = isVenue ? talent.mono : meta.venueMono;
+  const chatPhoto = isVenue ? talent.photo : meta.venuePhoto;
   const messages = data.convos[chatId] ?? [];
   const status = proposalStatus(data.proposal);
   const isPrimaryConvo = chatId === "larkspur-camille";
@@ -53,6 +54,7 @@ export function ChatView({ side, chatId }: { side: Side; chatId: string }) {
       <div className="lg:grid lg:h-[calc(100vh-150px)] lg:grid-cols-[minmax(0,1fr)_540px] lg:items-stretch lg:gap-10">
         <ChatContextPanel
           mono={isVenue ? chatMono : feedForChat(chatId).mono}
+          photo={isVenue ? chatPhoto : feedForChat(chatId).photo}
           name={chatName}
           pedigree={isVenue ? talent.pedigree : feedForChat(chatId).area}
           chips={ctxChips}
@@ -62,7 +64,7 @@ export function ChatView({ side, chatId }: { side: Side; chatId: string }) {
         <div className="flex h-full flex-col overflow-hidden lg:rounded-[30px] lg:bg-paper lg:px-[26px] lg:pb-5 lg:pt-3.5 lg:shadow-[0_24px_70px_rgba(5,5,5,0.10)]">
           <div className="flex items-center gap-3 border-b border-border-soft py-1.5 pb-[13px]">
             <BackButton fallback={`/${side}/messages`} />
-            <PhotoTile mono={chatMono} monoSize={19} className="h-[42px] w-[42px] flex-none rounded-full" />
+            <PhotoTile mono={chatMono} photoUrl={chatPhoto} monoSize={19} className="h-[42px] w-[42px] flex-none rounded-full" />
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="font-serif text-xl leading-none">{chatName}</span>
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.1em] text-label">

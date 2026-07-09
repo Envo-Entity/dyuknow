@@ -9,11 +9,12 @@ interface ForkPanelProps {
   heading: React.ReactNode;
   body: string;
   avatarMono: string;
+  avatarPhoto?: string;
   continueLabel: string;
   subLabel: string;
 }
 
-export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avatarMono, continueLabel, subLabel }: ForkPanelProps) {
+export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avatarMono, avatarPhoto, continueLabel, subLabel }: ForkPanelProps) {
   return (
     <button
       type="button"
@@ -35,7 +36,7 @@ export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avata
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Avatar mono={avatarMono} size={42} tone={dark ? "dark" : "light"} className={dark ? "" : "bg-[#e8e8e8]"} />
+        <Avatar mono={avatarMono} photoUrl={avatarPhoto} size={42} tone={dark ? "dark" : "light"} className={dark ? "" : "bg-[#e8e8e8]"} />
         <div className="flex flex-col gap-0.5">
           <div className="text-sm font-semibold">{continueLabel}</div>
           <div className={cn("text-[11px] font-semibold uppercase tracking-[0.08em]", dark ? "text-faint" : "text-label")}>

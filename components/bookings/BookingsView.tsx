@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Page } from "@/components/layout/Page";
 import { BookingCard } from "./BookingCard";
 import { PastRow } from "./PastRow";
-import { PAST, PROP, TALENT } from "@/lib/data";
+import { ME, PAST, PROP, TALENT } from "@/lib/data";
 import { displayIdentity, useAppStore } from "@/lib/store";
 import type { Side } from "@/lib/types";
 
@@ -36,6 +36,7 @@ export function BookingsView({ side }: { side: Side }) {
             <BookingCard
               href={`/${side}/chat/larkspur-camille`}
               mono={isVenue ? TALENT.camille.mono : "L"}
+              photo={isVenue ? TALENT.camille.photo : ME.venue.photo}
               title={isVenue ? "Camille Aubert" : "The Larkspur"}
               sub={isVenue ? "Guest Head Chef · covers the pass" : "You’re booked · Guest Head Chef"}
               dates={PROP.dates}

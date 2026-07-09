@@ -2,6 +2,7 @@ import { cn } from "@/lib/cn";
 
 interface PhotoTileProps {
   mono: string;
+  photoUrl?: string;
   monoSize?: number;
   className?: string;
   dark?: boolean;
@@ -9,11 +10,10 @@ interface PhotoTileProps {
 }
 
 /**
- * Stands in for member/venue photography. The source design ships every
- * photo slot as a tiny placeholder asset meant to be replaced later, so
- * this renders the same grayscale monogram treatment instead of a broken image.
+ * Renders member/venue photography when available. Slots without a photo
+ * fall back to the grayscale monogram treatment.
  */
-export function PhotoTile({ mono, monoSize = 64, className, dark = false, children }: PhotoTileProps) {
+export function PhotoTile({ mono, photoUrl, monoSize = 64, className, dark = false, children }: PhotoTileProps) {
   return (
     <div
       className={cn(
@@ -22,12 +22,17 @@ export function PhotoTile({ mono, monoSize = 64, className, dark = false, childr
         className
       )}
     >
-      <div
-        className="ph-mono absolute inset-0 flex items-center justify-center font-serif"
-        style={{ fontSize: monoSize }}
-      >
-        {mono}
-      </div>
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div
+          className="ph-mono absolute inset-0 flex items-center justify-center font-serif"
+          style={{ fontSize: monoSize }}
+        >
+          {mono}
+        </div>
+      )}
       {children}
     </div>
   );
