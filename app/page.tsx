@@ -37,7 +37,7 @@ export default function ForkPage() {
           onClick={() => setActiveSide("venue")}
           eyebrow="Venue"
           heading="I'm short for service"
-          body="Book vetted, verified talent — a Guest Head Chef for the weekend, a Sommelier for one service, a residency."
+          body="Book vetted, verified talent — a Guest Chef Everywhere for the weekend, a Sommelier for one service, a residency."
           avatarMono="L"
           avatarPhoto={ME.venue.photo}
           continueLabel="Continue as The Larkspur"
@@ -58,7 +58,7 @@ export default function ForkPage() {
           avatarMono="C"
           avatarPhoto={ME.talent.photo}
           continueLabel="Continue as Camille Aubert"
-          subLabel="Head Chef · Verified member"
+          subLabel="Chef Everywhere · Verified member"
         />
       </div>
       {activeSide && (

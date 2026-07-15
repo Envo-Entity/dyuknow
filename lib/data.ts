@@ -21,7 +21,7 @@ export const ME = {
   },
   talent: {
     name: "Camille Aubert",
-    sub: "Head Chef · Verified member",
+    sub: "Chef Everywhere · Verified member",
     mono: "C",
     photo: asset("talent-camille-portrait"),
   },
@@ -51,14 +51,14 @@ export const VENUE_PROFILE = {
   reviews: [
     {
       q: "The room gave me the pass and got out of the way — fire, precision, and a brigade that trusted me by service two.",
-      a: "Camille Aubert · Guest Head Chef",
+      a: "Camille Aubert · Guest Chef Everywhere",
     },
     { q: "Forty-two covers and never once out of rhythm.", a: "Elodie Marchetti · Sommelier" },
   ],
 };
 
 export const PROP = {
-  role: "Guest Head Chef",
+  role: "Guest Chef Everywhere",
   dates: "Fri 12 – Sun 14 Sep",
   rate: "£750 / day",
   venue: "The Larkspur · Mayfair",
@@ -69,7 +69,7 @@ export const TALENT: Record<string, Talent> = {
     id: "camille",
     name: "Camille Aubert",
     short: "Camille",
-    role: "Head Chef",
+    role: "Chef Everywhere",
     mono: "C",
     photo: asset("talent-camille-portrait"),
     verified: true,
@@ -104,7 +104,7 @@ export const TALENT: Record<string, Talent> = {
     id: "theo",
     name: "Theo Marchetti",
     short: "Theo",
-    role: "Head Chef",
+    role: "Chef Everywhere",
     mono: "T",
     photo: asset("talent-chef-2"),
     verified: true,
@@ -126,7 +126,7 @@ export const TALENT: Record<string, Talent> = {
     id: "aiden",
     name: "Aiden Clarke",
     short: "Aiden",
-    role: "Head Chef",
+    role: "Chef Everywhere",
     mono: "A",
     photo: asset("talent-chef-3"),
     verified: true,
@@ -148,7 +148,7 @@ export const TALENT: Record<string, Talent> = {
     id: "ines",
     name: "Inès Moreau",
     short: "Inès",
-    role: "Head Chef",
+    role: "Chef Everywhere",
     mono: "I",
     photo: asset("talent-chef-4"),
     verified: true,
@@ -263,7 +263,7 @@ export const TALENT: Record<string, Talent> = {
 export const ROLES: RoleDef[] = [
   {
     id: "head-chef",
-    name: "Head Chef",
+    name: "Chef Everywhere",
     mono: "H",
     photo: asset("role-headchef-tile"),
     metric: "6 available this weekend",
@@ -320,7 +320,7 @@ export const FEED: FeedItem[] = [
     area: "Mayfair · One Michelin star",
     mono: "L",
     photo: asset("venue-larkspur-dining"),
-    role: "Guest Head Chef",
+    role: "Guest Chef Everywhere",
     dates: "Fri 12 – Sun 14 Sep",
     rate: "£750 / day",
     tag: "Modern British",
@@ -339,7 +339,7 @@ export const FEED: FeedItem[] = [
     area: "St James’s · Members’ club",
     mono: "M",
     photo: asset("venue-members-club"),
-    role: "Guest Head Chef",
+    role: "Guest Chef Everywhere",
     dates: "Tue 16 – Thu 18 Sep",
     rate: "£680 / day",
     tag: "French",
@@ -431,7 +431,7 @@ export const PAST: Record<"venue" | "talent", PastEntry[]> = {
     },
     {
       title: "Aiden Clarke",
-      sub: "Guest Head Chef · two services",
+      sub: "Guest Chef Everywhere · two services",
       dates: "Fri 2 – Sat 3 May",
       mono: "A",
       photo: asset("talent-chef-3"),
@@ -441,7 +441,7 @@ export const PAST: Record<"venue" | "talent", PastEntry[]> = {
     { title: "Halcyon House", sub: "Residency · one week", dates: "Mon 3 – Sun 9 Mar", mono: "H" },
     {
       title: "The Meridian",
-      sub: "Guest Head Chef · one service",
+      sub: "Guest Chef Everywhere · one service",
       dates: "Sat 14 Feb",
       mono: "M",
       photo: asset("venue-members-club"),
