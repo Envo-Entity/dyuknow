@@ -13,6 +13,7 @@ const SPAN_DESKTOP: Record<string, string> = {
   "pastry-chef": "lg:col-[4] lg:row-[1]",
   bartender: "lg:col-[4] lg:row-[2]",
   "maitre-d": "lg:col-[3] lg:row-[3]",
+  mixologist: "lg:col-[4] lg:row-[3]",
 };
 
 export function RoleMosaic() {

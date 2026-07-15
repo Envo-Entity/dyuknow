@@ -5,7 +5,8 @@ export function AvailabilityBadge({ text, sage, className }: { text: string; sag
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[7px] rounded-full bg-mist px-[13px] py-2 text-[11.5px] font-bold",
+        "inline-flex items-center gap-[7px] rounded-full px-[13px] py-2 text-[11.5px] font-bold",
+        sage ? "bg-sage/25" : "bg-mist",
         className
       )}
     >

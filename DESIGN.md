@@ -15,9 +15,16 @@ energy — see `PRODUCT.md` for the language rules this implies.
 If a view only looks good once colour is added, the structure has failed —
 fix the structure, never lean on paint. Every screen must read as premium in
 pure greyscale first. Layout is the star: asymmetric bento mosaics,
-content-as-tile cards, floating chrome, sticky context panels. Sage green is
-the one accent, and it is semantic, not decorative — at most one sage element
-doing a specific job per view (availability, "new", "verified", "booked").
+content-as-tile cards, floating chrome, sticky context panels.
+
+**2026 refresh:** pure greyscale-first was read as too monotone, so sage now
+gets one additional job on top of its semantic ones — a single bold panel
+fill as the hero moment of a view (the Fork screen's light-side panel, see
+`ForkPanel`), mirroring the marketing site's black/sage two-up split. This is
+still one sage element per view, just a larger one in that one spot; every
+other sage usage stays a small semantic accent (see Colour below). Structure
+still has to work in greyscale first — the sage fill should read as "the
+premium panel" in mono too, not just as paint.
 
 ### Banned, on every viewport
 
@@ -52,34 +59,63 @@ Tailwind v4 via `@theme inline` so they're usable as `bg-*` / `text-*` /
 Nothing exists outside this palette. No second accent, no gradients, no
 tinted surfaces per role/category.
 
-**Sage's jobs, and only these:** the "pass is open" dot on Venue Home, the
-availability dot + pill on talent cards/profiles, the "Verified" mark, the
-"NEW · 12 min" badge on fresh feed items, the unread-message dot, the active
-filter chip, the accepted-booking confirmation. If you reach for sage for
-anything decorative, stop.
+**Sage's jobs:** the "pass is open" dot on Venue Home, the availability dot +
+pill on talent cards/profiles (the pill itself now gets a faint sage tint —
+`bg-sage/25` — when available, see `AvailabilityBadge`), the "Verified" mark,
+the "NEW · 12 min" badge on fresh feed items, the unread-message dot, the
+active filter chip, the accepted-booking confirmation, and — as of the 2026
+refresh — the Fork screen's light-side panel fill (`ForkPanel`'s non-dark
+variant). Outside of that one hero-panel exception, sage stays a small
+semantic accent; if you reach for it for anything else decorative, stop.
 
 **CTA rule:** primary action = solid `bg-ink` pill with white text, one per
 screen. Secondary = hairline `border-border` outline pill, or a circular
-outline icon button (save/bookmark). On the dark Talent fork panel the
-primary CTA still reads correctly because it's a filled white circle with a
-black arrow — never invert the whole palette per-surface beyond that.
+outline icon button (save/bookmark). The two Fork panels invert their arrow
+circle to borrow the *other* panel's colour — dark (ink) panel gets a sage
+circle, sage panel gets an ink circle — so each CTA still reads as "the
+accent action" against its own background. Never invert the whole palette
+per-surface beyond that pair.
 
 ## Typography
 
-Two font families, loaded via `next/font/google` in `app/layout.tsx`:
+Two font families — this is the pairing used across all of Dyuknow's apps,
+matching the marketing site:
 
-- **Instrument Serif** (`--font-serif`, weight 400, italic available) — every
-  display headline, person/venue name, and the one italic accent line
-  ("Who are you today?"). Used large: `clamp(...)` fluid sizing on every H1,
-  scaling genuinely large on desktop (up to `92px`) rather than timidly.
-- **Instrument Sans** (`--font-sans`, weights 400–700) — all UI text: labels,
-  body copy, buttons, chips, chat.
+- **Instrument Serif** (`--font-serif`, weight 400, italic available, loaded
+  via `next/font/google` in `app/layout.tsx`) — person/venue names, quotes,
+  and the italic-emphasis phrase inside a hero headline (see below). Used
+  large: `clamp(...)` fluid sizing, scaling genuinely large on desktop (up to
+  `92px`) rather than timidly.
+- **Helvetica** (`--font-sans`, system stack: `"Helvetica Neue", Helvetica,
+  Arial, sans-serif` — no webfont to load, it's a system font) — all UI text:
+  labels, body copy, buttons, chips, chat, and the bold base of hero
+  headlines.
+
+**Hero headline pattern (2026 refresh):** the true hero headline of a screen
+(Fork panels, Venue Home, Talent Home) is no longer set entirely in serif.
+It's bold Helvetica for the base clause, with one closing phrase swapped to
+`font-serif italic font-normal` for emphasis — e.g. "Who do you need
+*today?*", "I'm short for *service*". This mirrors the marketing site's
+mixed-weight headlines. Don't apply this to names, single-word page titles
+("Messages", "Bookings"), or role labels — those stay plain serif, unsplit.
+
+**Hero caption pattern (2026 refresh):** the one-line contextual caption
+above a hero headline (Venue Home's "The pass is open · …", Talent Home's
+"Good evening, Camille · …") is a small sage dot + `font-serif italic`
+caption (`~15px`, `text-ink-soft`), not the uppercase-tracked Eyebrow style.
+This is distinct from `Eyebrow` — structural/functional labels elsewhere
+(breadcrumbs, section labels, filter states) keep the uppercase-tracked
+convention below; only true hero captions get the italic-serif treatment.
 
 Conventions:
-- Eyebrows/labels are always `11px`, `font-semibold`, `uppercase`,
-  `tracking-[0.14em]`, colour `text-label`. See `components/ui/Eyebrow.tsx`.
+- Eyebrows/labels (structural, not hero captions) are always `11px`,
+  `font-semibold`, `uppercase`, `tracking-[0.14em]`, colour `text-label`. See
+  `components/ui/Eyebrow.tsx`.
 - Quotes (reviews, venue notes) are serif *italic*, `~17–17.5px`.
 - Body copy (about text, room descriptions) is `14.5px/1.6`, `text-[#4a4a4a]`.
+- On the sage Fork panel specifically, swap `text-label`/`text-muted` for
+  `text-ink`/`text-ink-soft` — the grey label/muted tones don't hit 4.5:1
+  against sage.
 
 ## Shape & elevation
 

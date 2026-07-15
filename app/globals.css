@@ -31,7 +31,7 @@
   --color-sage: var(--color-sage);
   --color-dot-inactive: var(--color-dot-inactive);
   --font-serif: var(--font-instrument-serif), Georgia, serif;
-  --font-sans: var(--font-instrument-sans), -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 /*

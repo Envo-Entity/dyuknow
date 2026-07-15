@@ -36,8 +36,12 @@ export default function ForkPage() {
         <ForkPanel
           onClick={() => setActiveSide("venue")}
           eyebrow="Venue"
-          heading="I'm short for service"
-          body="Book vetted, verified talent — a Guest Chef Everywhere for the weekend, a Sommelier for one service, a residency."
+          heading={
+            <>
+              I&rsquo;m short for <span className="font-serif italic font-normal">service</span>
+            </>
+          }
+          body="Book vetted, verified talent — a Guest Chef for the weekend, a Sommelier for one service, a residency."
           avatarMono="L"
           avatarPhoto={ME.venue.photo}
           continueLabel="Continue as The Larkspur"
@@ -49,16 +53,14 @@ export default function ForkPage() {
           eyebrow="Talent"
           heading={
             <>
-              I&rsquo;m available
-              <br />
-              to work
+              I&rsquo;m available <span className="font-serif italic font-normal">to work</span>
             </>
           }
           body="Take the pass at rooms worth your name — a service, a weekend, a residency. Never a job board."
           avatarMono="C"
           avatarPhoto={ME.talent.photo}
           continueLabel="Continue as Camille Aubert"
-          subLabel="Chef Everywhere · Verified member"
+          subLabel="Chef · Verified member"
         />
       </div>
       {activeSide && (

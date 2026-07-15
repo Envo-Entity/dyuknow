@@ -4,14 +4,14 @@ import { RoleMosaic } from "@/components/venue/RoleMosaic";
 export default function VenueHomePage() {
   return (
     <Page>
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
-        <span className="dot-pulse inline-block h-2.5 w-2.5 rounded-full bg-sage" />
+      <div className="flex items-center gap-2 font-serif text-[15px] italic text-ink-soft">
+        <span className="dot-pulse inline-block h-2 w-2 flex-none rounded-full bg-sage" />
         <span>The pass is open · Fri 12 – Sun 14 Sep</span>
       </div>
-      <h1 className="mt-3.5 font-serif text-[clamp(42px,8.5vw,92px)] font-normal leading-[0.98] tracking-[-0.015em]">
+      <h1 className="mt-3.5 font-sans text-[clamp(42px,8.5vw,92px)] font-bold leading-[0.98] tracking-[-0.015em]">
         Who do you
         <br />
-        need today?
+        <span className="font-serif font-normal italic">need today?</span>
       </h1>
       <RoleMosaic />
     </Page>

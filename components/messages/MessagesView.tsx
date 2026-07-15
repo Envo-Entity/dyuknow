@@ -54,7 +54,7 @@ export function MessagesView({ side }: { side: Side }) {
             mono={isVenue ? "C" : "L"}
             photo={isVenue ? TALENT.camille.photo : ME.venue.photo}
             title="This weekend"
-            line={isVenue ? "Camille Aubert · Guest Chef Everywhere" : "The Larkspur · Guest Chef Everywhere"}
+            line={isVenue ? "Camille Aubert · Guest Chef" : "The Larkspur · Guest Chef"}
             dates={PROP.dates}
             rate={PROP.rate}
             state={status.text}

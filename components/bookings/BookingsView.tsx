@@ -38,7 +38,7 @@ export function BookingsView({ side }: { side: Side }) {
               mono={isVenue ? TALENT.camille.mono : "L"}
               photo={isVenue ? TALENT.camille.photo : ME.venue.photo}
               title={isVenue ? "Camille Aubert" : "The Larkspur"}
-              sub={isVenue ? "Guest Chef Everywhere · covers the pass" : "You’re booked · Guest Chef Everywhere"}
+              sub={isVenue ? "Guest Chef · covers the pass" : "You’re booked · Guest Chef"}
               dates={PROP.dates}
               rate={PROP.rate}
             />
