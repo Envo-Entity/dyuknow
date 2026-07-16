@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { Chip } from "@/components/ui/Chip";
-import { FeedCard } from "./FeedCard";
+import { PhotoMosaic } from "@/components/ui/PhotoMosaic";
 import { CHIPS, FEED } from "@/lib/data";
 
-const SPAN_DESKTOP: Record<string, string> = {
-  larkspur: "lg:col-[1/span_2] lg:row-[1/span_2]",
-  meridian: "lg:col-[3] lg:row-[1/span_2]",
-  ansley: "lg:col-[1] lg:row-[3]",
-  belgravia: "lg:col-[2/span_2] lg:row-[3]",
-};
+// Same rule as RoleMosaic: tall on phone (so the photo has room to breathe
+// under a dense text overlay), relaxing to landscape at md — no per-venue
+// tuning needed, any feed length keeps repeating it.
+const ASPECT_PATTERN = [
+  "aspect-[4/5] md:aspect-[16/10]",
+  "aspect-[3/4] md:aspect-[4/3]",
+  "aspect-square",
+  "aspect-[5/6] md:aspect-[3/2]",
+];
 
-export function OpportunityFeed({ showScarcity }: { showScarcity: boolean }) {
+export function OpportunityFeed() {
   const [filter, setFilter] = useState<string>("All");
   const feed = FEED.filter((f) => filter === "All" || f.tag === filter);
-  const unfiltered = filter === "All";
+  const items = feed.map((item) => ({ ...item, href: `/talent/venue/${item.id}` }));
 
   return (
     <>
@@ -26,18 +29,28 @@ export function OpportunityFeed({ showScarcity }: { showScarcity: boolean }) {
           </Chip>
         ))}
       </div>
-      {feed.length > 0 ? (
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:auto-rows-[190px] lg:gap-[18px]">
-          {feed.map((item) => (
-            <FeedCard
-              key={item.id}
-              item={item}
-              showScarcity={showScarcity}
-              large={item.id === "larkspur"}
-              className={unfiltered ? SPAN_DESKTOP[item.id] : undefined}
-            />
-          ))}
-        </div>
+      {items.length > 0 ? (
+        <PhotoMosaic
+          className="mt-4"
+          items={items}
+          aspectPattern={ASPECT_PATTERN}
+          renderBadge={(item) =>
+            item.isNew ? (
+              <span className="absolute left-[11px] top-[11px] rounded-full bg-sage px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink">
+                New · 12 min
+              </span>
+            ) : null
+          }
+          renderOverlay={(item) => (
+            <>
+              <div className="truncate font-serif text-[19px] leading-[1.05] md:text-[22px]">{item.venue}</div>
+              <div className="truncate text-[12.5px] font-semibold">
+                {item.role} · {item.dates}
+              </div>
+              <div className="truncate text-[11.5px] text-muted">{item.rate}</div>
+            </>
+          )}
+        />
       ) : (
         <div className="mt-4 flex items-center justify-center rounded-[26px] bg-mist p-6 font-serif text-lg italic text-muted">
           Nothing in this register tonight.

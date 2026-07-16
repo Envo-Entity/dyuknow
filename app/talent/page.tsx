@@ -13,7 +13,7 @@ export default function TalentHomePage() {
         <br />
         <span className="font-serif font-normal italic">near you</span>
       </h1>
-      <OpportunityFeed showScarcity />
+      <OpportunityFeed />
     </Page>
   );
 }
