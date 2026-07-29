@@ -25,6 +25,7 @@ import {
   VENUE_TYPES,
 } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
+import { submitVenueOnboarding } from "@/lib/onboardingSubmit";
 
 const TOTAL_STEPS = 8;
 
@@ -80,6 +81,7 @@ export function VenueOnboarding() {
   }
 
   function finish() {
+    if (identity) void submitVenueOnboarding(identity);
     completeOnboarding("venue");
     router.push("/app/venue");
   }

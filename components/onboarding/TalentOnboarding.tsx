@@ -31,6 +31,7 @@ import {
   knownForOptions,
 } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
+import { submitTalentOnboarding } from "@/lib/onboardingSubmit";
 
 const TOTAL_STEPS = 9;
 
@@ -98,6 +99,7 @@ export function TalentOnboarding() {
   }
 
   function finish() {
+    if (identity) void submitTalentOnboarding(identity);
     completeOnboarding("talent");
     router.push("/app/talent");
   }
