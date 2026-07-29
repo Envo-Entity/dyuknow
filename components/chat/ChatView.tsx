@@ -63,7 +63,7 @@ export function ChatView({ side, chatId }: { side: Side; chatId: string }) {
         />
         <div className="flex h-full flex-col overflow-hidden lg:rounded-[30px] lg:bg-paper lg:px-[26px] lg:pb-5 lg:pt-3.5 lg:shadow-[0_24px_70px_rgba(5,5,5,0.10)]">
           <div className="flex items-center gap-3 border-b border-border-soft py-1.5 pb-[13px]">
-            <BackButton fallback={`/${side}/messages`} />
+            <BackButton fallback={`/app/${side}/messages`} />
             <PhotoTile mono={chatMono} photoUrl={chatPhoto} monoSize={19} className="h-[42px] w-[42px] flex-none rounded-full" />
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="font-serif text-xl leading-none">{chatName}</span>

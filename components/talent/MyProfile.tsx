@@ -70,7 +70,7 @@ export function MyProfile() {
 
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/app")}
             className="cursor-pointer self-start rounded-full border-none bg-ink px-5 py-3.5 text-sm font-semibold text-white"
           >
             Sign out

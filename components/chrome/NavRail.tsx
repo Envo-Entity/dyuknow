@@ -60,22 +60,22 @@ export function NavRail({ side, meName, meMono, mePhoto, msgBadge, bookBadge }: 
       )}
     >
       <div className="mb-3 hidden flex-col items-center gap-[5px] text-center lg:flex">
-        <Link href={`/${side}/me`}>
+        <Link href={`/app/${side}/me`}>
           <Avatar mono={meMono} size={46} photoUrl={mePhoto} className="shadow-[0_8px_24px_rgba(5,5,5,0.12)]" />
         </Link>
         <div className="max-w-[86px] text-[11.5px] font-semibold leading-tight">{meName}</div>
         <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-label">{side}</div>
       </div>
-      <NavButton href={`/${side}`} active={isHome} title="Home">
+      <NavButton href={`/app/${side}`} active={isHome} title="Home">
         <HomeIcon />
       </NavButton>
-      <NavButton href={`/${side}/bookings`} active={isBookings} title="Bookings" badge={bookBadge}>
+      <NavButton href={`/app/${side}/bookings`} active={isBookings} title="Bookings" badge={bookBadge}>
         <BookingsIcon />
       </NavButton>
-      <NavButton href={`/${side}/messages`} active={messagesActive} title="Messages" badge={msgBadge}>
+      <NavButton href={`/app/${side}/messages`} active={messagesActive} title="Messages" badge={msgBadge}>
         <MessagesIcon />
       </NavButton>
-      <NavButton href={`/${side}/me`} active={isMyProfile} title="Profile">
+      <NavButton href={`/app/${side}/me`} active={isMyProfile} title="Profile">
         <AccountIcon />
       </NavButton>
     </div>

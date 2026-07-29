@@ -18,7 +18,7 @@ export function IdentityPill({ side, meName, meMono, mePhoto }: IdentityPillProp
 
   return (
     <Link
-      href={`/${side}/me`}
+      href={`/app/${side}/me`}
       className={cn(
         "fixed right-4 top-3.5 z-[70] flex items-center gap-[9px] rounded-full bg-white/94 py-1.5 pl-1.5 pr-[13px] shadow-[0_8px_28px_rgba(5,5,5,0.12)] backdrop-blur-md lg:hidden",
         isChat && "hidden"

@@ -13,7 +13,7 @@ export default function VenueDetailPage() {
   return (
     <Page variant="detail">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/talent" />
+        <BackButton fallback="/app/talent" />
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">{vf.role}</span>
       </div>
       <VenueDetailContent feedId={params.feedId} variant="page" />

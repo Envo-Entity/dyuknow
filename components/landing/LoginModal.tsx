@@ -1,35 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar } from "@/components/ui/Avatar";
 import { GoogleG } from "@/components/ui/GoogleG";
-import { ME } from "@/lib/data";
-import type { Side } from "@/lib/types";
 
-const PERSONA: Record<Side, { name: string; email: string; mono: string; photo?: string }> = {
-  venue: {
-    name: "Jonathan Reeve",
-    email: "jonathan@thelarkspur.co.uk",
-    mono: "J",
-    photo: ME.venue.photo,
-  },
-  talent: {
-    name: "Camille Aubert",
-    email: "camille.aubert@gmail.com",
-    mono: "C",
-    photo: ME.talent.photo,
-  },
-};
-
-interface GoogleSignInModalProps {
-  side: Side;
+interface LoginModalProps {
   onClose: () => void;
   onContinue: () => void;
 }
 
-export function GoogleSignInModal({ side, onClose, onContinue }: GoogleSignInModalProps) {
+export function LoginModal({ onClose, onContinue }: LoginModalProps) {
   const [signingIn, setSigningIn] = useState(false);
-  const persona = PERSONA[side];
 
   function handleContinue() {
     setSigningIn(true);
@@ -59,13 +39,9 @@ export function GoogleSignInModal({ side, onClose, onContinue }: GoogleSignInMod
               <button
                 type="button"
                 onClick={handleContinue}
-                className="mt-7 flex w-full cursor-pointer items-center gap-3 rounded-[14px] border border-border px-4 py-3 text-left transition-colors hover:bg-mist"
+                className="mt-7 w-full cursor-pointer rounded-[14px] bg-ink px-4 py-3.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
               >
-                <Avatar mono={persona.mono} photoUrl={persona.photo} size={38} />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold text-ink">{persona.name}</span>
-                  <span className="truncate text-[12.5px] text-muted">{persona.email}</span>
-                </div>
+                Continue with Google
               </button>
               <div className="mt-6 text-[11.5px] leading-[1.5] text-faint">
                 By continuing, Google will share your name, email address and profile picture with Dyuknow.

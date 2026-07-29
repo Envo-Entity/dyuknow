@@ -18,7 +18,7 @@ const ASPECT_PATTERN = [
 export function OpportunityFeed() {
   const [filter, setFilter] = useState<string>("All");
   const feed = FEED.filter((f) => filter === "All" || f.tag === filter);
-  const items = feed.map((item) => ({ ...item, href: `/talent/venue/${item.id}` }));
+  const items = feed.map((item) => ({ ...item, href: `/app/talent/venue/${item.id}` }));
 
   return (
     <>

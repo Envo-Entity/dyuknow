@@ -14,7 +14,7 @@ interface TalentCardProps {
 export function TalentCard({ talent, availText, availSage, showAvail }: TalentCardProps) {
   return (
     <Link
-      href={`/venue/t/${talent.id}`}
+      href={`/app/venue/t/${talent.id}`}
       className="group flex flex-col overflow-hidden rounded-[26px] bg-paper shadow-[0_12px_36px_rgba(5,5,5,0.08)] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(5,5,5,0.14)]"
     >
       <PhotoTile mono={talent.mono} photoUrl={talent.photo} monoSize={64} className="aspect-[4/3]">

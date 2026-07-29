@@ -12,7 +12,7 @@ const ASPECT_PATTERN = [
 ];
 
 export function RoleMosaic({ roles = ROLES }: { roles?: RoleDef[] }) {
-  const items = roles.map((role) => ({ ...role, href: `/venue/role/${role.id}` }));
+  const items = roles.map((role) => ({ ...role, href: `/app/venue/role/${role.id}` }));
 
   return (
     <PhotoMosaic

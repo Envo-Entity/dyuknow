@@ -28,18 +28,18 @@ export function TalentOnboarding() {
   const mono = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
 
   useEffect(() => {
-    if (data.onboarded.talent) router.replace("/talent");
+    if (data.onboarded.talent) router.replace("/app/talent");
   }, [data.onboarded.talent, router]);
 
   if (data.onboarded.talent) return null;
 
   function finish() {
     completeOnboarding("talent");
-    router.push("/talent");
+    router.push("/app/talent");
   }
 
   return (
-    <OnboardingShell step={step} total={TOTAL_STEPS} onBack={() => (step === 0 ? router.push("/") : setStep(step - 1))}>
+    <OnboardingShell step={step} total={TOTAL_STEPS} onBack={() => (step === 0 ? router.push("/app") : setStep(step - 1))}>
       {step === 0 && (
         <div className="flex flex-col gap-6">
           <div>

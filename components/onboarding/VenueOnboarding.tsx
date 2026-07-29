@@ -26,7 +26,7 @@ export function VenueOnboarding() {
   const mono = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
 
   useEffect(() => {
-    if (data.onboarded.venue) router.replace("/venue");
+    if (data.onboarded.venue) router.replace("/app/venue");
   }, [data.onboarded.venue, router]);
 
   if (data.onboarded.venue) return null;
@@ -38,11 +38,11 @@ export function VenueOnboarding() {
 
   function finish() {
     completeOnboarding("venue");
-    router.push("/venue");
+    router.push("/app/venue");
   }
 
   return (
-    <OnboardingShell step={step} total={TOTAL_STEPS} onBack={() => (step === 0 ? router.push("/") : setStep(step - 1))}>
+    <OnboardingShell step={step} total={TOTAL_STEPS} onBack={() => (step === 0 ? router.push("/app") : setStep(step - 1))}>
       {step === 0 && (
         <div className="flex flex-col gap-6">
           <div>

@@ -69,16 +69,22 @@ throughout: *"4 viewing · closes 20:00"*, *"2 other venues viewing"*,
 
 | Screen | Route(s) | What it's for |
 |---|---|---|
-| Fork | `/` | "Who are you today?" — choose Venue or Talent |
-| Venue Home | `/venue` | Role mosaic — "Who do you need tonight?" |
-| Role Grid | `/venue/role/[roleId]` | Talent available for one role |
-| Talent Profile (venue view) | `/venue/t/[talentId]` | Full profile, message/request-intro CTA |
-| Talent Home | `/talent` | Opportunities feed — "Venues booking near you," filterable by cuisine tag |
-| Venue Request Detail | `/talent/venue/[feedId]` (+ intercepted modal on desktop) | One venue's request: room, dates, rate, GM note |
-| Messages | `/venue/messages`, `/talent/messages` | Conversation list; desktop also shows a booking status card |
-| Chat + Proposal | `/venue/chat/[chatId]`, `/talent/chat/[chatId]` | Real-time-feeling thread; booking proposal lives as a structured card inside it |
-| Bookings Hub | `/venue/bookings`, `/talent/bookings` | Upcoming (confirmed) + Past bookings, visible from both sides |
-| My Profile & Availability | `/talent/me` | Camille's own profile, with an editable 7-day availability strip |
+| Landing | `/` | Public marketing page (adapted from the standalone `dyuknow-landing` site) — single **Login** CTA, no unauthenticated access to the product beyond this |
+| Fork | `/app` | "Who are you today?" — choose Venue or Talent, reached after Login |
+| Venue Home | `/app/venue` | Role mosaic — "Who do you need tonight?" |
+| Role Grid | `/app/venue/role/[roleId]` | Talent available for one role |
+| Talent Profile (venue view) | `/app/venue/t/[talentId]` | Full profile, message/request-intro CTA |
+| Talent Home | `/app/talent` | Opportunities feed — "Venues booking near you," filterable by cuisine tag |
+| Venue Request Detail | `/app/talent/venue/[feedId]` (+ intercepted modal on desktop) | One venue's request: room, dates, rate, GM note |
+| Messages | `/app/venue/messages`, `/app/talent/messages` | Conversation list; desktop also shows a booking status card |
+| Chat + Proposal | `/app/venue/chat/[chatId]`, `/app/talent/chat/[chatId]` | Real-time-feeling thread; booking proposal lives as a structured card inside it |
+| Bookings Hub | `/app/venue/bookings`, `/app/talent/bookings` | Upcoming (confirmed) + Past bookings, visible from both sides |
+| My Profile & Availability | `/app/talent/me` | Camille's own profile, with an editable 7-day availability strip |
+
+The landing page's "Login" is still mocked (see below) — it opens the same
+Google-sign-in-style modal pattern as the Fork screen, then always lands on
+the Fork. It exists only to gate entry into `/app`, not to select an
+identity; that still happens on the Fork screen itself.
 
 Persistent chrome (identity pill + nav rail + account sheet) wraps every
 signed-in screen; see `components/chrome/AppChrome.tsx`.
@@ -153,8 +159,10 @@ routing, the booking-proposal state machine, chat messages (both sides can
 receipts, availability toggling, save/bookmark, request-intro, filtering the
 opportunities feed.
 
-**Mocked / not built:** authentication (no login — the two identities are
-fixed), any identity other than The Larkspur / Camille, a real backend
+**Mocked / not built:** authentication (the landing page's Login button and
+the Fork's per-side Google sign-in are both a scripted spinner-then-continue,
+not real auth — the two identities are fixed regardless of what's "signed
+into"), any identity other than The Larkspur / Camille, a real backend
 (everything is `localStorage` on one device — Venue and Talent "seeing each
 other's" messages only works because they share the same browser storage),
 payments/rates beyond display text, the concierge/referral vetting process
@@ -167,3 +175,11 @@ This app was rebuilt 1:1 (then adapted to idiomatic Next.js — see
 prototype. The original creative brief — full layout law, banned patterns,
 responsive transformation spec, and colour/shape rules — is preserved in
 `DESIGN.md`; treat that file as the canonical design reference going forward.
+
+The `/` landing page (`components/landing/LandingPage.tsx`) was similarly
+ported from a separate static prototype, `dyuknow-landing/` (a standalone
+site, not part of this app — kept in-repo only temporarily as a design
+reference and expected to be deleted). Its marketing copy was kept close to
+that prototype's own wording rather than conformed to this file's language
+system above, since the landing page is a distinct, pre-product-market
+marketing surface, not the booking product itself.

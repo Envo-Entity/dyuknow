@@ -88,7 +88,7 @@ export function VenueDetailContent({ feedId, variant = "page" }: VenueDetailCont
         <button
           type="button"
           onClick={() => {
-            if (vf.convo) router.push(`/talent/chat/${vf.convo}`);
+            if (vf.convo) router.push(`/app/talent/chat/${vf.convo}`);
             else requestIntro(vf.id);
           }}
           className={cn(

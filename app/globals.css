@@ -155,6 +155,26 @@
 }
 
 /*
+ * Landing page marquees (stat ticker, photo strip): track content is
+ * rendered twice back-to-back, so translating exactly -50% loops seamlessly
+ * regardless of how wide the (duplicated) content actually is.
+ */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee-track {
+    animation: none !important;
+  }
+}
+
+/*
  * Fork-screen intro: the wordmark and tagline build up together, centered
  * on a blank page — wordmark first, tagline beneath it — then that whole
  * header group rises as one unit into its actual top-of-page position

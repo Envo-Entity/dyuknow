@@ -28,7 +28,7 @@ export function TalentProfile({ talentId }: { talentId: string }) {
   return (
     <Page variant="detail">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/venue" />
+        <BackButton fallback="/app/venue" />
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">{pt.spec}</span>
       </div>
 
@@ -73,7 +73,7 @@ export function TalentProfile({ talentId }: { talentId: string }) {
             <button
               type="button"
               onClick={() => {
-                if (pt.convo) router.push(`/venue/chat/${pt.convo}`);
+                if (pt.convo) router.push(`/app/venue/chat/${pt.convo}`);
                 else requestIntro(pt.id);
               }}
               className={`flex-1 cursor-pointer rounded-full border-none px-[22px] py-[17px] text-[15px] font-semibold shadow-[0_16px_44px_rgba(5,5,5,0.22)] ${

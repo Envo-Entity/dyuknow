@@ -50,7 +50,7 @@ export function VenueProfile() {
               {ROLES.map((r) => (
                 <Link
                   key={r.id}
-                  href={`/venue/role/${r.id}`}
+                  href={`/app/venue/role/${r.id}`}
                   className="flex items-center justify-between rounded-2xl bg-mist px-4 py-3"
                 >
                   <span className="text-sm font-semibold">{r.name}</span>
@@ -64,7 +64,7 @@ export function VenueProfile() {
 
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/app")}
             className="cursor-pointer self-start rounded-full border-none bg-ink px-5 py-3.5 text-sm font-semibold text-white"
           >
             Sign out

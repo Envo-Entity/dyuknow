@@ -14,7 +14,7 @@ export function RoleGrid({ roleId }: { roleId: string }) {
   return (
     <Page variant="detail">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/venue" />
+        <BackButton fallback="/app/venue" />
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">{role.sub}</span>
       </div>
       <h1 className="mt-4 font-serif text-[clamp(40px,8vw,80px)] font-normal leading-none tracking-[-0.015em]">
