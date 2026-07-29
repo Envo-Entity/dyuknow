@@ -21,7 +21,7 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
       setError(null);
       onPhoto(dataUrl);
     } catch {
-      setError("Couldn't read that image — try another.");
+      setError("Couldn't read that image — try another, or take a new photo.");
     }
   }
 
@@ -43,7 +43,7 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />

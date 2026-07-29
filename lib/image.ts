@@ -1,5 +1,21 @@
 const MAX_COMPRESSED_BYTES = 200 * 1024;
 const QUALITY_STEPS = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35];
+const HEIC_TYPES = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
+
+/** iOS shoots HEIC by default; browsers other than Safari can't decode it
+ * in a canvas/<img>. `file.type` is sometimes blank for HEIC picked via a
+ * file input, so we also fall back to the extension. */
+export function isHeicFile(file: File): boolean {
+  if (HEIC_TYPES.has(file.type.toLowerCase())) return true;
+  const name = file.name.toLowerCase();
+  return name.endsWith(".heic") || name.endsWith(".heif");
+}
+
+async function convertHeicToJpeg(file: File): Promise<Blob> {
+  const heic2any = (await import("heic2any")).default;
+  const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  return Array.isArray(result) ? result[0] : result;
+}
 
 function loadImage(file: File | Blob): Promise<{ img: HTMLImageElement; revoke: () => void }> {
   return new Promise((resolve, reject) => {
@@ -25,7 +41,8 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob 
  * smallest attempt if it can't get there.
  */
 export async function compressImageToJpeg(file: File, maxBytes = MAX_COMPRESSED_BYTES): Promise<Blob> {
-  const { img, revoke } = await loadImage(file);
+  const source = isHeicFile(file) ? await convertHeicToJpeg(file) : file;
+  const { img, revoke } = await loadImage(source);
   try {
     let maxDim = 1600;
     let smallest: Blob | null = null;
@@ -88,7 +105,7 @@ function readAsDataUrl(file: File): Promise<string> {
 /** Documents (Right to Work, Food Safety Certificate, CV) — images get
  * compressed the same way photos do; PDFs pass through untouched. */
 export async function fileToRawDataUrl(file: File): Promise<string> {
-  if (file.type.startsWith("image/")) {
+  if (file.type.startsWith("image/") || isHeicFile(file)) {
     return blobToDataUrl(await compressImageToJpeg(file));
   }
   return readAsDataUrl(file);

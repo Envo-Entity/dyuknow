@@ -45,7 +45,7 @@ export function UploadRow({ label, optional, value, onChange }: UploadRowProps) 
           {value ? "Change" : "Upload"}
         </span>
       </button>
-      <input ref={inputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+      <input ref={inputRef} type="file" accept="image/*,.heic,.heif,.pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
       {error && <div className="text-[12.5px] font-semibold text-ink">{error}</div>}
     </div>
   );
