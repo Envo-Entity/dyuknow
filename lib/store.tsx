@@ -23,8 +23,60 @@ interface AppStore {
   setAvailWindow: (from: string, to: string) => void;
 }
 
-const EMPTY_VENUE_IDENTITY: VenueIdentity = { name: "", bio: "", photo: null, needs: [] };
-const EMPTY_TALENT_IDENTITY: TalentIdentity = { name: "", role: "", bio: "", photo: null };
+const EMPTY_VENUE_IDENTITY: VenueIdentity = {
+  name: "",
+  bio: "",
+  photo: null,
+  needs: [],
+  tradingName: "",
+  registeredCompany: "",
+  website: "",
+  instagram: "",
+  contactName: "",
+  contactPosition: "",
+  contactPhone: "",
+  contactEmail: "",
+  venueType: [],
+  cuisine: [],
+  covers: "",
+  teamSize: "",
+  typicalShifts: [],
+  typicalNotice: [],
+  dressCode: "",
+  uniformProvided: null,
+  staffMeal: null,
+  rateChef: "",
+  rateFoh: "",
+  knownFor: [],
+  agreedCommunity: [],
+};
+
+const EMPTY_TALENT_IDENTITY: TalentIdentity = {
+  name: "",
+  role: "",
+  bio: "",
+  photo: null,
+  mobile: "",
+  email: "",
+  postcode: "",
+  dob: "",
+  category: "",
+  position: "",
+  skills: [],
+  yearsBand: "",
+  employers: [],
+  availableToday: false,
+  preferredShifts: [],
+  maxTravel: "",
+  preferredAreas: [],
+  preferredRate: "",
+  minSameDayRate: "",
+  rightToWork: null,
+  foodSafetyCert: null,
+  cv: null,
+  knownFor: [],
+  agreedCommunity: [],
+};
 
 const AppStoreContext = createContext<AppStore | null>(null);
 

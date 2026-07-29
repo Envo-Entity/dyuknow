@@ -84,11 +84,43 @@ export interface PastEntry {
   photo?: string;
 }
 
+export interface UploadedFile {
+  name: string;
+  dataUrl: string;
+}
+
+export interface EmployerEntry {
+  restaurant: string;
+  position: string;
+  dates: string;
+}
+
 export interface VenueIdentity {
   name: string;
   bio: string;
   photo: string | null;
   needs: string[];
+  tradingName: string;
+  registeredCompany: string;
+  website: string;
+  instagram: string;
+  contactName: string;
+  contactPosition: string;
+  contactPhone: string;
+  contactEmail: string;
+  venueType: string[];
+  cuisine: string[];
+  covers: string;
+  teamSize: string;
+  typicalShifts: string[];
+  typicalNotice: string[];
+  dressCode: string;
+  uniformProvided: boolean | null;
+  staffMeal: boolean | null;
+  rateChef: string;
+  rateFoh: string;
+  knownFor: string[];
+  agreedCommunity: string[];
 }
 
 export interface TalentIdentity {
@@ -96,6 +128,26 @@ export interface TalentIdentity {
   role: string;
   bio: string;
   photo: string | null;
+  mobile: string;
+  email: string;
+  postcode: string;
+  dob: string;
+  category: string;
+  position: string;
+  skills: string[];
+  yearsBand: string;
+  employers: EmployerEntry[];
+  availableToday: boolean;
+  preferredShifts: string[];
+  maxTravel: string;
+  preferredAreas: string[];
+  preferredRate: string;
+  minSameDayRate: string;
+  rightToWork: UploadedFile | null;
+  foodSafetyCert: UploadedFile | null;
+  cv: UploadedFile | null;
+  knownFor: string[];
+  agreedCommunity: string[];
 }
 
 export interface AppData {

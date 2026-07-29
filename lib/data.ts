@@ -282,6 +282,164 @@ export const TALENT: Record<string, Talent> = {
   },
 };
 
+export const TEAM_CATEGORIES = ["Chef", "Front of House", "Bar", "Events", "Management"];
+
+export const CHEF_POSITIONS = [
+  "Demi CDP",
+  "CDP",
+  "Senior CDP",
+  "Junior Sous",
+  "Sous Chef",
+  "Head Chef",
+  "Executive Chef",
+  "Pastry Chef",
+];
+
+export const FOH_POSITIONS = ["Waiter", "Section Waiter", "Supervisor", "Restaurant Manager", "Bartender", "Host", "Mixologist"];
+
+export const CHEF_SKILLS = [
+  "Grill",
+  "Fish",
+  "Meat",
+  "Pasta",
+  "Pastry",
+  "Bakery",
+  "Breakfast",
+  "High Volume",
+  "Fine Dining",
+  "Open Fire",
+  "Wood Oven",
+  "Sushi / Fish Specialist",
+  "Butchery",
+  "Events",
+  "Private Dining",
+  "Production Kitchen",
+];
+
+export const FOH_SKILLS = [
+  "Wine Service",
+  "Cocktails",
+  "Coffee",
+  "Silver Service",
+  "Events",
+  "Hotel",
+  "Fine Dining",
+  "High Volume",
+  "Reservations",
+  "Barista",
+];
+
+export const YEARS_BANDS = ["0–2", "3–5", "5–10", "10+"];
+
+export const SHIFT_TYPES = ["Breakfast", "Lunch", "Dinner", "Late", "Weekdays", "Weekends"];
+
+export const MAX_TRAVEL_OPTIONS = ["3 miles", "5 miles", "10 miles", "Anywhere"];
+
+export const LONDON_AREAS = ["West London", "East London", "Central", "North", "South"];
+
+export const HOURLY_RATE_OPTIONS = ["£18", "£20", "£22+"];
+
+export const CHEF_KNOWN_FOR = [
+  "Calm under pressure",
+  "Strong organiser",
+  "Great on service",
+  "Excellent prep",
+  "Fast learner",
+  "Clean worker",
+  "Team player",
+  "Great with junior chefs",
+  "Reliable",
+  "Problem solver",
+  "Creative",
+  "Strong palate",
+];
+
+export const FOH_KNOWN_FOR = [
+  "Warm personality",
+  "Excellent wine knowledge",
+  "Fast service",
+  "Great communicator",
+  "Upselling",
+  "Calm under pressure",
+  "Cocktail knowledge",
+  "Coffee",
+  "Leadership",
+  "Professional",
+];
+
+// The doc only defines "known for" traits for Chef and FOH — Bar, Events and
+// Management fall back to this general set drawn from the overlap between them.
+export const GENERAL_KNOWN_FOR = [
+  "Calm under pressure",
+  "Reliable",
+  "Team player",
+  "Professional",
+  "Problem solver",
+  "Strong organiser",
+  "Fast learner",
+  "Leadership",
+];
+
+export function knownForOptions(category: string): string[] {
+  if (category === "Chef") return CHEF_KNOWN_FOR;
+  if (category === "Front of House") return FOH_KNOWN_FOR;
+  return GENERAL_KNOWN_FOR;
+}
+
+export const TEAM_AGREEMENTS = [
+  "Turn up on time",
+  "Treat every venue with respect",
+  "Give notice if cancelling",
+  "Represent Dyuknow professionally",
+];
+
+export const VENUE_TYPES = ["Restaurant", "Hotel", "Pub", "Bar", "Private Members Club", "Events", "Catering", "Bakery", "Other"];
+
+// The doc lists "Italian, French, British, Asian, etc." as examples rather than
+// a full set — this is a placeholder list pending the real one.
+export const CUISINES = [
+  "British",
+  "Italian",
+  "French",
+  "Spanish",
+  "Asian",
+  "Indian",
+  "Japanese",
+  "Chinese",
+  "Middle Eastern",
+  "American",
+  "Mexican",
+  "Mediterranean",
+  "Modern European",
+  "Other",
+];
+
+export const COVERS_BANDS = ["0–30", "30–60", "60–100", "100+"];
+
+export const ROLES_NEEDED = ["Chefs", "FOH", "Bartenders", "Managers", "Events"];
+
+export const TYPICAL_NOTICE = ["Today", "Tomorrow", "Planned"];
+
+export const DRESS_CODES = ["Chef whites", "Blacks", "Casual"];
+
+export const VENUE_KNOWN_FOR = [
+  "Fast-paced service",
+  "Great team culture",
+  "Fine dining standards",
+  "Creative food",
+  "Training",
+  "Supportive management",
+  "Excellent food",
+  "Career progression",
+];
+
+export const VENUE_AGREEMENTS = [
+  "Pay fairly",
+  "Treat temporary team like our own",
+  "Provide a clear brief",
+  "Rate honestly",
+];
+
 export const ROLES: RoleDef[] = [
   {
     id: "head-chef",
