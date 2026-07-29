@@ -26,15 +26,19 @@ async function uploadDataUrl(
   dataUrl: string
 ): Promise<string> {
   const blob = dataUrlToBlob(dataUrl);
+  // No upsert: each submission gets a fresh crypto.randomUUID() path, so
+  // there's never a real collision to resolve — and upsert requires an
+  // UPDATE-shaped RLS check we deliberately never granted (insert-only).
   const { error } = await supabase.storage.from(bucket).upload(path, blob, {
     contentType: blob.type,
-    upsert: true,
   });
   if (error) throw error;
   return path;
 }
 
-export async function submitTalentOnboarding(identity: TalentIdentity): Promise<void> {
+export type SubmitResult = { ok: true } | { ok: false; error: unknown };
+
+export async function submitTalentOnboarding(identity: TalentIdentity): Promise<SubmitResult> {
   const supabase = createClient();
   const id = crypto.randomUUID();
 
@@ -85,15 +89,14 @@ export async function submitTalentOnboarding(identity: TalentIdentity): Promise<
       onboarding_completed_at: new Date().toISOString(),
     });
     if (error) throw error;
+    return { ok: true };
   } catch (err) {
-    // Best-effort: Supabase is a side channel feeding the backend, not the
-    // source of truth for this session — a failed submit here shouldn't
-    // block the user from entering the app off their local state.
     console.error("Failed to persist talent onboarding to Supabase", err);
+    return { ok: false, error: err };
   }
 }
 
-export async function submitVenueOnboarding(identity: VenueIdentity): Promise<void> {
+export async function submitVenueOnboarding(identity: VenueIdentity): Promise<SubmitResult> {
   const supabase = createClient();
   const id = crypto.randomUUID();
 
@@ -134,7 +137,9 @@ export async function submitVenueOnboarding(identity: VenueIdentity): Promise<vo
       onboarding_completed_at: new Date().toISOString(),
     });
     if (error) throw error;
+    return { ok: true };
   } catch (err) {
     console.error("Failed to persist venue onboarding to Supabase", err);
+    return { ok: false, error: err };
   }
 }

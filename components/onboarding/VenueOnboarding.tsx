@@ -44,6 +44,8 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   const router = useRouter();
   const { data, completeOnboarding, setVenueIdentity } = useAppStore();
   const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isAdmin = identityProp !== undefined;
   const identity = isAdmin ? identityProp : data.venueIdentity;
@@ -93,8 +95,17 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
     toggleFromList(agreedCommunity, item, (next) => setVenueIdentityFn({ agreedCommunity: next }));
   }
 
-  function finish() {
-    if (identity) void submitVenueOnboarding(identity);
+  async function finish() {
+    setSubmitError(null);
+    setSubmitting(true);
+    const result = identity ? await submitVenueOnboarding(identity) : { ok: true as const };
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setSubmitError("Couldn't save that — check your connection and try again.");
+      return;
+    }
+
     if (onDone) {
       onDone();
     } else {
@@ -226,7 +237,10 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft">
             We&rsquo;ve already lined up matches for the weekend your head chef is away. See who&rsquo;s available now.
           </p>
-          <ContinueButton onClick={finish}>Enter Dyuknow</ContinueButton>
+          {submitError && <p className="text-[13px] font-semibold text-ink">{submitError}</p>}
+          <ContinueButton onClick={finish} disabled={submitting}>
+            {submitting ? "Submitting…" : "Enter Dyuknow"}
+          </ContinueButton>
         </div>
       )}
     </OnboardingShell>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { TalentOnboarding } from "@/components/onboarding/TalentOnboarding";
 import { VenueOnboarding } from "@/components/onboarding/VenueOnboarding";
+import { CheckIcon } from "@/components/icons";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { EMPTY_TALENT_IDENTITY, EMPTY_VENUE_IDENTITY } from "@/lib/store";
 import type { TalentIdentity, VenueIdentity } from "@/lib/types";
@@ -14,6 +15,13 @@ export default function AdminOnboardingPage() {
   const [talentDraft, setTalentDraft] = useState<TalentIdentity | null>(null);
   const [venueDraft, setVenueDraft] = useState<VenueIdentity | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const patchTalent = useCallback((patch: Partial<TalentIdentity>) => {
     setTalentDraft((prev) => ({ ...EMPTY_TALENT_IDENTITY, ...prev, ...patch }));
@@ -29,19 +37,22 @@ export default function AdminOnboardingPage() {
     setMode("picker");
   }
 
-  function startNext() {
+  // Only reached once TalentOnboarding/VenueOnboarding have confirmed the
+  // Supabase submit actually succeeded — see their finish() functions.
+  function startNext(side: "talent" | "venue") {
     setTalentDraft(null);
     setVenueDraft(null);
     setSubmittedCount((n) => n + 1);
+    setToast(side === "talent" ? "Talent onboarding submitted." : "Venue onboarding submitted.");
     setMode("picker");
   }
 
   if (mode === "talent") {
-    return <TalentOnboarding identity={talentDraft} onPatch={patchTalent} onBack0={backToPicker} onDone={startNext} />;
+    return <TalentOnboarding identity={talentDraft} onPatch={patchTalent} onBack0={backToPicker} onDone={() => startNext("talent")} />;
   }
 
   if (mode === "venue") {
-    return <VenueOnboarding identity={venueDraft} onPatch={patchVenue} onBack0={backToPicker} onDone={startNext} />;
+    return <VenueOnboarding identity={venueDraft} onPatch={patchVenue} onBack0={backToPicker} onDone={() => startNext("venue")} />;
   }
 
   return (
@@ -79,6 +90,17 @@ export default function AdminOnboardingPage() {
           </p>
         )}
       </div>
+
+      {toast && (
+        <div className="animate-fade-in fixed inset-x-0 bottom-8 flex justify-center px-6">
+          <div className="flex items-center gap-2.5 rounded-full bg-ink px-5 py-3 text-[13px] font-semibold text-white shadow-lg">
+            <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-sage">
+              <CheckIcon size={11} className="text-ink" />
+            </span>
+            {toast}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

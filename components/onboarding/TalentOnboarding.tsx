@@ -50,6 +50,8 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const router = useRouter();
   const { data, completeOnboarding, setTalentIdentity } = useAppStore();
   const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isAdmin = identityProp !== undefined;
   const identity = isAdmin ? identityProp : data.talentIdentity;
@@ -111,8 +113,17 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     toggleFromList(agreedCommunity, item, (next) => setTalentIdentityFn({ agreedCommunity: next }));
   }
 
-  function finish() {
-    if (identity) void submitTalentOnboarding(identity);
+  async function finish() {
+    setSubmitError(null);
+    setSubmitting(true);
+    const result = identity ? await submitTalentOnboarding(identity) : { ok: true as const };
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setSubmitError("Couldn't save that — check your connection and try again.");
+      return;
+    }
+
     if (onDone) {
       onDone();
     } else {
@@ -255,7 +266,10 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
           <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft">
             You&rsquo;re a verified member. Venues booking near you are waiting on the other side.
           </p>
-          <ContinueButton onClick={finish}>Enter Dyuknow</ContinueButton>
+          {submitError && <p className="text-[13px] font-semibold text-ink">{submitError}</p>}
+          <ContinueButton onClick={finish} disabled={submitting}>
+            {submitting ? "Submitting…" : "Enter Dyuknow"}
+          </ContinueButton>
         </div>
       )}
     </OnboardingShell>
