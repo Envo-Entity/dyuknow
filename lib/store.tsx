@@ -23,7 +23,7 @@ interface AppStore {
   setAvailWindow: (from: string, to: string) => void;
 }
 
-const EMPTY_VENUE_IDENTITY: VenueIdentity = {
+export const EMPTY_VENUE_IDENTITY: VenueIdentity = {
   name: "",
   bio: "",
   photo: null,
@@ -51,7 +51,7 @@ const EMPTY_VENUE_IDENTITY: VenueIdentity = {
   agreedCommunity: [],
 };
 
-const EMPTY_TALENT_IDENTITY: TalentIdentity = {
+export const EMPTY_TALENT_IDENTITY: TalentIdentity = {
   name: "",
   role: "",
   bio: "",

@@ -32,15 +32,28 @@ import {
 } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
 import { submitTalentOnboarding } from "@/lib/onboardingSubmit";
+import type { TalentIdentity } from "@/lib/types";
 
 const TOTAL_STEPS = 9;
 
-export function TalentOnboarding() {
+interface TalentOnboardingProps {
+  /** Overrides where the draft lives. Omit to use the shared AppData store (the consumer flow at /app/talent/onboarding). */
+  identity?: TalentIdentity | null;
+  onPatch?: (patch: Partial<TalentIdentity>) => void;
+  /** Called instead of pushing to /app when back is pressed on step 0. */
+  onBack0?: () => void;
+  /** Called after the Supabase submit instead of completeOnboarding()+redirect into the mock app. Providing this also skips the "already onboarded" gate, since that flag belongs to the consumer flow, not an admin draft. */
+  onDone?: () => void;
+}
+
+export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onDone }: TalentOnboardingProps = {}) {
   const router = useRouter();
   const { data, completeOnboarding, setTalentIdentity } = useAppStore();
   const [step, setStep] = useState(0);
 
-  const identity = data.talentIdentity;
+  const isAdmin = identityProp !== undefined;
+  const identity = isAdmin ? identityProp : data.talentIdentity;
+  const setTalentIdentityFn = onPatch ?? setTalentIdentity;
   const name = identity?.name ?? "";
   const mobile = identity?.mobile ?? "";
   const email = identity?.email ?? "";
@@ -68,10 +81,10 @@ export function TalentOnboarding() {
   const mono = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
 
   useEffect(() => {
-    if (data.onboarded.talent) router.replace("/app/talent");
-  }, [data.onboarded.talent, router]);
+    if (!isAdmin && data.onboarded.talent) router.replace("/app/talent");
+  }, [isAdmin, data.onboarded.talent, router]);
 
-  if (data.onboarded.talent) return null;
+  if (!isAdmin && data.onboarded.talent) return null;
 
   const needsPosition = category === "Chef" || category === "Front of House";
   const positionOptions = category === "Chef" ? CHEF_POSITIONS : FOH_POSITIONS;
@@ -79,11 +92,11 @@ export function TalentOnboarding() {
   const knownForChoices = knownForOptions(category);
 
   function setCategory(next: string) {
-    setTalentIdentity({ category: next, position: "", skills: [], role: next });
+    setTalentIdentityFn({ category: next, position: "", skills: [], role: next });
   }
 
   function setPosition(next: string) {
-    setTalentIdentity({ position: next, role: next });
+    setTalentIdentityFn({ position: next, role: next });
   }
 
   function toggleFromList(list: string[], value: string, onChange: (next: string[]) => void) {
@@ -91,29 +104,37 @@ export function TalentOnboarding() {
   }
 
   function toggleKnownFor(trait: string) {
-    toggleFromList(knownFor, trait, (next) => setTalentIdentity({ knownFor: next }));
+    toggleFromList(knownFor, trait, (next) => setTalentIdentityFn({ knownFor: next }));
   }
 
   function toggleAgreement(item: string) {
-    toggleFromList(agreedCommunity, item, (next) => setTalentIdentity({ agreedCommunity: next }));
+    toggleFromList(agreedCommunity, item, (next) => setTalentIdentityFn({ agreedCommunity: next }));
   }
 
   function finish() {
     if (identity) void submitTalentOnboarding(identity);
-    completeOnboarding("talent");
-    router.push("/app/talent");
+    if (onDone) {
+      onDone();
+    } else {
+      completeOnboarding("talent");
+      router.push("/app/talent");
+    }
   }
 
   return (
-    <OnboardingShell step={step} total={TOTAL_STEPS} onBack={() => (step === 0 ? router.push("/app") : setStep(step - 1))}>
+    <OnboardingShell
+      step={step}
+      total={TOTAL_STEPS}
+      onBack={() => (step === 0 ? (onBack0 ? onBack0() : router.push("/app")) : setStep(step - 1))}
+    >
       {step === 0 && (
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Talent" title="Tell us about yourself." description="Nothing here is a job posting — just who's taking the pass." />
-          <FormField label="Full name" value={name} onChange={(v) => setTalentIdentity({ name: v })} placeholder="e.g. Camille Aubert" />
-          <FormField label="Mobile number" value={mobile} onChange={(v) => setTalentIdentity({ mobile: v })} placeholder="e.g. 07700 900123" type="tel" inputMode="tel" />
-          <FormField label="Email address" value={email} onChange={(v) => setTalentIdentity({ email: v })} placeholder="e.g. camille@email.com" type="email" inputMode="email" />
-          <FormField label="Home postcode" value={postcode} onChange={(v) => setTalentIdentity({ postcode: v })} placeholder="e.g. W1J 8HA" />
-          <FormField label="Date of birth" value={dob} onChange={(v) => setTalentIdentity({ dob: v })} type="date" />
+          <FormField label="Full name" value={name} onChange={(v) => setTalentIdentityFn({ name: v })} placeholder="e.g. Camille Aubert" />
+          <FormField label="Mobile number" value={mobile} onChange={(v) => setTalentIdentityFn({ mobile: v })} placeholder="e.g. 07700 900123" type="tel" inputMode="tel" />
+          <FormField label="Email address" value={email} onChange={(v) => setTalentIdentityFn({ email: v })} placeholder="e.g. camille@email.com" type="email" inputMode="email" />
+          <FormField label="Home postcode" value={postcode} onChange={(v) => setTalentIdentityFn({ postcode: v })} placeholder="e.g. W1J 8HA" />
+          <FormField label="Date of birth" value={dob} onChange={(v) => setTalentIdentityFn({ dob: v })} type="date" />
           <ContinueButton onClick={() => setStep(1)} />
         </div>
       )}
@@ -123,7 +144,7 @@ export function TalentOnboarding() {
           description="Venues see this before they book you. You can change it anytime from your profile."
           mono={mono}
           photo={photo}
-          onPhoto={(p) => setTalentIdentity({ photo: p })}
+          onPhoto={(p) => setTalentIdentityFn({ photo: p })}
           onContinue={() => setStep(2)}
         />
       )}
@@ -139,7 +160,7 @@ export function TalentOnboarding() {
                 label="Skills"
                 options={skillOptions}
                 selected={skills}
-                onToggle={(v) => toggleFromList(skills, v, (next) => setTalentIdentity({ skills: next }))}
+                onToggle={(v) => toggleFromList(skills, v, (next) => setTalentIdentityFn({ skills: next }))}
               />
             </div>
           )}
@@ -150,8 +171,8 @@ export function TalentOnboarding() {
       {step === 3 && (
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Experience" title="Where have you worked?" description="Your time in hospitality, and up to three recent kitchens or floors." />
-          <ChipField label="Years in hospitality" options={YEARS_BANDS} selected={yearsBand ? [yearsBand] : []} onToggle={(v) => setTalentIdentity({ yearsBand: v })} />
-          <EmployerRepeater label="Recent employers" value={employers} onChange={(next) => setTalentIdentity({ employers: next })} />
+          <ChipField label="Years in hospitality" options={YEARS_BANDS} selected={yearsBand ? [yearsBand] : []} onToggle={(v) => setTalentIdentityFn({ yearsBand: v })} />
+          <EmployerRepeater label="Recent employers" value={employers} onChange={(next) => setTalentIdentityFn({ employers: next })} />
           <ContinueButton onClick={() => setStep(4)} />
         </div>
       )}
@@ -159,25 +180,25 @@ export function TalentOnboarding() {
       {step === 4 && (
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Availability & pay" title="When, where and for what?" description="Venues only ever see what's open — you can change this anytime from your profile." />
-          <SwitchField label="Available today?" value={availableToday} onChange={(v) => setTalentIdentity({ availableToday: v })} />
+          <SwitchField label="Available today?" value={availableToday} onChange={(v) => setTalentIdentityFn({ availableToday: v })} />
           <ChipField
             label="Preferred shifts"
             options={SHIFT_TYPES}
             selected={preferredShifts}
-            onToggle={(v) => toggleFromList(preferredShifts, v, (next) => setTalentIdentity({ preferredShifts: next }))}
+            onToggle={(v) => toggleFromList(preferredShifts, v, (next) => setTalentIdentityFn({ preferredShifts: next }))}
           />
-          <ChipField label="Maximum travel" options={MAX_TRAVEL_OPTIONS} selected={maxTravel ? [maxTravel] : []} onToggle={(v) => setTalentIdentity({ maxTravel: v })} />
+          <ChipField label="Maximum travel" options={MAX_TRAVEL_OPTIONS} selected={maxTravel ? [maxTravel] : []} onToggle={(v) => setTalentIdentityFn({ maxTravel: v })} />
           <CheckboxGroup
             label="Preferred areas"
             options={LONDON_AREAS}
             selected={preferredAreas}
-            onToggle={(v) => toggleFromList(preferredAreas, v, (next) => setTalentIdentity({ preferredAreas: next }))}
+            onToggle={(v) => toggleFromList(preferredAreas, v, (next) => setTalentIdentityFn({ preferredAreas: next }))}
           />
-          <ChipField label="Preferred hourly rate" options={HOURLY_RATE_OPTIONS} selected={preferredRate ? [preferredRate] : []} onToggle={(v) => setTalentIdentity({ preferredRate: v })} />
+          <ChipField label="Preferred hourly rate" options={HOURLY_RATE_OPTIONS} selected={preferredRate ? [preferredRate] : []} onToggle={(v) => setTalentIdentityFn({ preferredRate: v })} />
           <FormField
             label="Minimum same-day rate"
             value={minSameDayRate}
-            onChange={(v) => setTalentIdentity({ minSameDayRate: v })}
+            onChange={(v) => setTalentIdentityFn({ minSameDayRate: v })}
             placeholder="e.g. 25"
             prefix="£"
             inputMode="decimal"
@@ -189,9 +210,9 @@ export function TalentOnboarding() {
       {step === 5 && (
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately and shown to venues only once you're booked." />
-          <UploadRow label="Right to Work" value={rightToWork} onChange={(v) => setTalentIdentity({ rightToWork: v })} />
-          <UploadRow label="Food Safety Certificate" value={foodSafetyCert} onChange={(v) => setTalentIdentity({ foodSafetyCert: v })} />
-          <UploadRow label="CV" optional value={cv} onChange={(v) => setTalentIdentity({ cv: v })} />
+          <UploadRow label="Right to Work" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
+          <UploadRow label="Food Safety Certificate" value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
+          <UploadRow label="CV" optional value={cv} onChange={(v) => setTalentIdentityFn({ cv: v })} />
           <ContinueButton onClick={() => setStep(6)} />
         </div>
       )}
@@ -202,7 +223,7 @@ export function TalentOnboarding() {
           <TextareaField
             label="About you"
             value={bio}
-            onChange={(v) => setTalentIdentity({ bio: v })}
+            onChange={(v) => setTalentIdentityFn({ bio: v })}
             placeholder="e.g. Calm under pressure. Five years in Michelin kitchens. Happy on garnish, meat or pass."
             maxLength={250}
           />
