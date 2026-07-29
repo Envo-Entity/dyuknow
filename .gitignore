@@ -42,3 +42,4 @@ next-env.d.ts
 
 # scratch reference export from the Claude Design import — not part of the app
 /design-source/
+.mcp.json
