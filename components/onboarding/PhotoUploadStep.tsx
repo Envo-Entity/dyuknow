@@ -30,12 +30,12 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex h-[132px] w-[132px] cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-hairline transition-colors hover:border-ink"
+        className="flex h-[132px] w-[132px] cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-hairline transition-colors hover:border-ink lg:h-[160px] lg:w-[160px]"
       >
         {photo ? (
           <Avatar mono={mono} photoUrl={photo} size={124} />
         ) : (
-          <span className="px-4 text-center text-[12.5px] font-semibold leading-[1.4] text-muted">
+          <span className="px-4 text-center text-[12.5px] font-semibold leading-[1.4] text-muted lg:text-[13.5px]">
             Tap to add a photo
           </span>
         )}
@@ -47,11 +47,11 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
-      {error && <div className="text-[12.5px] font-semibold text-ink">{error}</div>}
+      {error && <div className="text-[12.5px] font-semibold text-ink lg:text-[13.5px]">{error}</div>}
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="cursor-pointer text-[13px] font-semibold text-ink underline underline-offset-2"
+        className="cursor-pointer text-[13px] font-semibold text-ink underline underline-offset-2 lg:text-[14px]"
       >
         {photo ? "Change photo" : "Choose a photo"}
       </button>

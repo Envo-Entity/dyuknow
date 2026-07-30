@@ -20,17 +20,17 @@ export function CheckboxGroup({ label, options, selected, onToggle }: CheckboxGr
               key={option}
               type="button"
               onClick={() => onToggle(option)}
-              className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-border bg-paper px-4 py-3.5 text-left"
+              className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-border bg-paper px-4 py-3.5 text-left lg:gap-3.5 lg:py-4"
             >
               <span
                 className={cn(
-                  "flex h-5 w-5 flex-none items-center justify-center rounded-md border transition-colors",
+                  "flex h-5 w-5 flex-none items-center justify-center rounded-md border transition-colors lg:h-6 lg:w-6",
                   checked ? "border-sage bg-sage" : "border-hairline bg-paper"
                 )}
               >
                 {checked && <CheckIcon size={11} className="text-ink" />}
               </span>
-              <span className="text-[14px] font-medium leading-[1.4] text-ink">{option}</span>
+              <span className="text-[14px] font-medium leading-[1.4] text-ink lg:text-[15.5px]">{option}</span>
             </button>
           );
         })}

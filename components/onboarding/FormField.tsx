@@ -16,7 +16,7 @@ export function FormField({ label, value, onChange, placeholder, type = "text", 
     <label className="flex flex-col gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">{label}</span>
       <div className={cn("flex items-center rounded-2xl border border-border bg-paper", prefix && "pl-4")}>
-        {prefix && <span className="text-[15px] font-semibold text-faint">{prefix}</span>}
+        {prefix && <span className="text-[15px] font-semibold text-faint lg:text-[16px]">{prefix}</span>}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -24,7 +24,10 @@ export function FormField({ label, value, onChange, placeholder, type = "text", 
           type={type}
           inputMode={inputMode}
           maxLength={maxLength}
-          className={cn("w-full bg-transparent px-4 py-3.5 text-[15px] text-ink placeholder:text-faint", prefix && "pl-1.5")}
+          className={cn(
+            "w-full bg-transparent px-4 py-3.5 text-[15px] text-ink placeholder:text-faint lg:px-5 lg:py-4 lg:text-[16px]",
+            prefix && "pl-1.5"
+          )}
         />
       </div>
     </label>

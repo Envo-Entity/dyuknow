@@ -223,21 +223,21 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
       )}
 
       {step === 7 && (
-        <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-6 text-center lg:gap-7">
           <Avatar mono={mono} photoUrl={photo} size={64} tone="dark" />
           <div>
             <Eyebrow className="justify-center">You&rsquo;re in</Eyebrow>
-            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em]">{name || "Your venue"}</div>
-            {bio && <div className="mt-1.5 text-[13px] text-muted">{bio}</div>}
+            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em] lg:text-[44px]">{name || "Your venue"}</div>
+            {bio && <div className="mt-1.5 text-[13px] text-muted lg:text-[14px]">{bio}</div>}
           </div>
-          <div className="flex w-full items-center gap-2 rounded-full bg-mist px-5 py-3 text-[13px] font-semibold text-ink">
+          <div className="flex w-full items-center gap-2 rounded-full bg-mist px-5 py-3 text-[13px] font-semibold text-ink lg:py-3.5 lg:text-[14px]">
             <span className="dot-pulse inline-block h-2.5 w-2.5 flex-none rounded-full bg-sage" />
             The pass is open · Fri 12 – Sun 14 Sep
           </div>
-          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft">
+          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft lg:max-w-[420px] lg:text-[16px]">
             We&rsquo;ve already lined up matches for the weekend your head chef is away. See who&rsquo;s available now.
           </p>
-          {submitError && <p className="text-[13px] font-semibold text-ink">{submitError}</p>}
+          {submitError && <p className="text-[13px] font-semibold text-ink lg:text-[14px]">{submitError}</p>}
           <ContinueButton onClick={finish} disabled={submitting}>
             {submitting ? "Submitting…" : "Enter Dyuknow"}
           </ContinueButton>

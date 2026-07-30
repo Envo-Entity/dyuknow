@@ -14,11 +14,11 @@ export function SwitchField({ label, description, value, onChange }: SwitchField
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border bg-paper px-4 py-3.5 text-left"
+      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border bg-paper px-4 py-3.5 text-left lg:py-4"
     >
       <span>
-        <span className="block text-[15px] font-semibold text-ink">{label}</span>
-        {description && <span className="mt-0.5 block text-[12.5px] text-muted">{description}</span>}
+        <span className="block text-[15px] font-semibold text-ink lg:text-[16px]">{label}</span>
+        {description && <span className="mt-0.5 block text-[12.5px] text-muted lg:text-[13.5px]">{description}</span>}
       </span>
       <span
         className={cn(

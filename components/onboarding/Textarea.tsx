@@ -21,7 +21,7 @@ export function TextareaField({ label, value, onChange, placeholder, maxLength }
         placeholder={placeholder}
         maxLength={maxLength}
         rows={4}
-        className="resize-none rounded-2xl border border-border bg-paper px-4 py-3.5 text-[15px] leading-[1.5] text-ink placeholder:text-faint"
+        className="resize-none rounded-2xl border border-border bg-paper px-4 py-3.5 text-[15px] leading-[1.5] text-ink placeholder:text-faint lg:px-5 lg:py-4 lg:text-[16px]"
       />
     </label>
   );

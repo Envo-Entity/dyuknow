@@ -36,17 +36,17 @@ export function UploadRow({ label, optional, value, onChange }: UploadRowProps) 
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-hairline bg-paper px-4 py-3.5 text-left transition-colors hover:border-ink"
+        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-hairline bg-paper px-4 py-3.5 text-left transition-colors hover:border-ink lg:py-4"
       >
-        <span className={cn("truncate text-[14px]", value ? "font-semibold text-ink" : "text-faint")}>
+        <span className={cn("truncate text-[14px] lg:text-[15px]", value ? "font-semibold text-ink" : "text-faint")}>
           {value ? value.name : "Tap to upload"}
         </span>
-        <span className="flex-none text-[12.5px] font-semibold text-ink underline underline-offset-2">
+        <span className="flex-none text-[12.5px] font-semibold text-ink underline underline-offset-2 lg:text-[13.5px]">
           {value ? "Change" : "Upload"}
         </span>
       </button>
       <input ref={inputRef} type="file" accept="image/*,.heic,.heif,.pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-      {error && <div className="text-[12.5px] font-semibold text-ink">{error}</div>}
+      {error && <div className="text-[12.5px] font-semibold text-ink lg:text-[13.5px]">{error}</div>}
     </div>
   );
 }

@@ -252,21 +252,21 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
       )}
 
       {step === 8 && (
-        <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-6 text-center lg:gap-7">
           <VerifiedBadge size={40} />
           <Avatar mono={mono} photoUrl={photo} size={64} />
           <div>
             <Eyebrow className="justify-center">You&rsquo;re verified</Eyebrow>
-            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em]">{name || "You're in"}</div>
-            <div className="mt-1.5 text-[13px] text-muted">
+            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em] lg:text-[44px]">{name || "You're in"}</div>
+            <div className="mt-1.5 text-[13px] text-muted lg:text-[14px]">
               {role}
               {bio ? ` · ${bio}` : ""}
             </div>
           </div>
-          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft">
+          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft lg:max-w-[420px] lg:text-[16px]">
             You&rsquo;re a verified member. Venues booking near you are waiting on the other side.
           </p>
-          {submitError && <p className="text-[13px] font-semibold text-ink">{submitError}</p>}
+          {submitError && <p className="text-[13px] font-semibold text-ink lg:text-[14px]">{submitError}</p>}
           <ContinueButton onClick={finish} disabled={submitting}>
             {submitting ? "Submitting…" : "Enter Dyuknow"}
           </ContinueButton>
