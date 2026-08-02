@@ -282,7 +282,7 @@ export const TALENT: Record<string, Talent> = {
   },
 };
 
-export const TEAM_CATEGORIES = ["Chef", "Front of House", "Bar", "Events", "Management"];
+export const TEAM_CATEGORIES = ["Chef", "Front of House"];
 
 export const CHEF_POSITIONS = [
   "Demi CDP",
@@ -367,23 +367,8 @@ export const FOH_KNOWN_FOR = [
   "Professional",
 ];
 
-// The doc only defines "known for" traits for Chef and FOH — Bar, Events and
-// Management fall back to this general set drawn from the overlap between them.
-export const GENERAL_KNOWN_FOR = [
-  "Calm under pressure",
-  "Reliable",
-  "Team player",
-  "Professional",
-  "Problem solver",
-  "Strong organiser",
-  "Fast learner",
-  "Leadership",
-];
-
 export function knownForOptions(category: string): string[] {
-  if (category === "Chef") return CHEF_KNOWN_FOR;
-  if (category === "Front of House") return FOH_KNOWN_FOR;
-  return GENERAL_KNOWN_FOR;
+  return category === "Chef" ? CHEF_KNOWN_FOR : FOH_KNOWN_FOR;
 }
 
 export const TEAM_AGREEMENTS = [

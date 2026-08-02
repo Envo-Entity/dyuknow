@@ -133,7 +133,7 @@ export interface TalentIdentity {
   postcode: string;
   dob: string;
   category: string;
-  position: string;
+  positions: string[];
   skills: string[];
   yearsBand: string;
   employers: EmployerEntry[];

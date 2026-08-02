@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { TalentOnboarding } from "@/components/onboarding/TalentOnboarding";
 import { VenueOnboarding } from "@/components/onboarding/VenueOnboarding";
+import { ForkPanel } from "@/components/fork/ForkPanel";
 import { CheckIcon } from "@/components/icons";
-import { Eyebrow } from "@/components/ui/Eyebrow";
 import { EMPTY_TALENT_IDENTITY, EMPTY_VENUE_IDENTITY } from "@/lib/store";
 import type { TalentIdentity, VenueIdentity } from "@/lib/types";
 
@@ -56,39 +56,39 @@ export default function AdminOnboardingPage() {
   }
 
   return (
-    <div className="animate-view-in flex min-h-screen flex-col items-center bg-paper px-6 pb-14 pt-9 lg:bg-mist lg:px-10 lg:py-16">
-      <div className="flex w-full max-w-[440px] flex-1 flex-col justify-center gap-8 py-10 lg:max-w-[600px] lg:rounded-[30px] lg:bg-paper lg:px-14 lg:py-14 lg:shadow-[0_20px_60px_rgba(5,5,5,0.08)]">
-        <div>
-          <Eyebrow>Dyuknow · Onboarding intake</Eyebrow>
-          <div className="mt-2 font-serif text-[30px] leading-[1.08] tracking-[-0.01em] lg:text-[40px]">Who are we onboarding?</div>
-          <p className="mt-2.5 text-[14px] leading-[1.55] text-muted lg:text-[16px] lg:leading-[1.6]">
-            Pick a side to start a new entry. Each submission is independent — there&rsquo;s no limit, and nothing
-            carries over between entries.
-          </p>
-        </div>
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setMode("talent")}
-            className="w-full cursor-pointer rounded-2xl border border-border bg-paper px-5 py-4 text-left transition-colors hover:border-ink lg:py-5"
-          >
-            <span className="block text-[15px] font-semibold text-ink lg:text-[16px]">Talent</span>
-            <span className="mt-0.5 block text-[13px] text-muted lg:text-[14px]">A chef, FOH, bar, events or management hire.</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("venue")}
-            className="w-full cursor-pointer rounded-2xl border border-border bg-paper px-5 py-4 text-left transition-colors hover:border-ink lg:py-5"
-          >
-            <span className="block text-[15px] font-semibold text-ink lg:text-[16px]">Venue</span>
-            <span className="mt-0.5 block text-[13px] text-muted lg:text-[14px]">A restaurant, hotel, bar or venue signing up.</span>
-          </button>
-        </div>
+    <div className="animate-view-in flex min-h-screen flex-col bg-paper lg:bg-mist">
+      <div className="flex flex-col items-center gap-1.5 px-6 pb-2 pt-9 lg:pt-14">
+        <div className="font-serif text-[30px] tracking-[-0.01em] lg:text-[40px]">Who are you today?</div>
         {submittedCount > 0 && (
-          <p className="text-center text-[12.5px] font-semibold uppercase tracking-[0.1em] text-label">
+          <p className="mt-1 text-center text-[12.5px] font-semibold uppercase tracking-[0.1em] text-label">
             {submittedCount} submitted this session
           </p>
         )}
+      </div>
+      <div className="flex flex-1 flex-col gap-3.5 px-4 pb-[26px] pt-[18px] lg:flex-row lg:gap-5 lg:px-10 lg:pb-16">
+        <ForkPanel
+          onClick={() => setMode("venue")}
+          eyebrow="Venue"
+          heading={
+            <>
+              Venue, looking <span className="font-serif italic font-normal">to hire</span>
+            </>
+          }
+          body="A restaurant, hotel, bar or venue signing up — start their listing and match them with vetted, verified talent."
+          continueLabel="Start venue intake"
+        />
+        <ForkPanel
+          onClick={() => setMode("talent")}
+          dark
+          eyebrow="Talent"
+          heading={
+            <>
+              Talent, looking <span className="font-serif italic font-normal">for work</span>
+            </>
+          }
+          body="A chef, FOH, bar, events or management hire — start their profile and match them to shifts worth taking."
+          continueLabel="Start talent intake"
+        />
       </div>
 
       {toast && (

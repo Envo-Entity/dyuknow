@@ -61,7 +61,7 @@ export const EMPTY_TALENT_IDENTITY: TalentIdentity = {
   postcode: "",
   dob: "",
   category: "",
-  position: "",
+  positions: [],
   skills: [],
   yearsBand: "",
   employers: [],

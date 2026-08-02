@@ -8,10 +8,10 @@ interface ForkPanelProps {
   eyebrow: string;
   heading: React.ReactNode;
   body: string;
-  avatarMono: string;
+  avatarMono?: string;
   avatarPhoto?: string;
   continueLabel: string;
-  subLabel: string;
+  subLabel?: string;
 }
 
 export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avatarMono, avatarPhoto, continueLabel, subLabel }: ForkPanelProps) {
@@ -38,13 +38,18 @@ export function ForkPanel({ onClick, dark = false, eyebrow, heading, body, avata
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Avatar mono={avatarMono} photoUrl={avatarPhoto} size={42} tone={dark ? "dark" : "light"} className={dark ? "" : "bg-white"} />
+        {avatarMono && (
+          <Avatar mono={avatarMono} photoUrl={avatarPhoto} size={42} tone={dark ? "dark" : "light"} className={dark ? "" : "bg-white"} />
+        )}
         <div className="flex flex-col gap-0.5">
           <div className="text-sm font-semibold">{continueLabel}</div>
-          <div className={cn("text-[11px] font-semibold uppercase tracking-[0.08em]", dark ? "text-faint" : "text-ink")}>
-            {subLabel}
-          </div>
+          {subLabel && (
+            <div className={cn("text-[11px] font-semibold uppercase tracking-[0.08em]", dark ? "text-faint" : "text-ink")}>
+              {subLabel}
+            </div>
+          )}
         </div>
+
         <div
           className={cn(
             "ml-auto flex h-[46px] w-[46px] flex-none items-center justify-center rounded-full",

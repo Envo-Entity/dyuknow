@@ -63,7 +63,7 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const dob = identity?.dob ?? "";
   const photo = identity?.photo ?? null;
   const category = identity?.category ?? "";
-  const position = identity?.position ?? "";
+  const positions = identity?.positions ?? [];
   const skills = identity?.skills ?? [];
   const yearsBand = identity?.yearsBand ?? "";
   const employers = identity?.employers ?? [];
@@ -94,15 +94,15 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const knownForChoices = knownForOptions(category);
 
   function setCategory(next: string) {
-    setTalentIdentityFn({ category: next, position: "", skills: [], role: next });
-  }
-
-  function setPosition(next: string) {
-    setTalentIdentityFn({ position: next, role: next });
+    setTalentIdentityFn({ category: next, positions: [], skills: [], role: next });
   }
 
   function toggleFromList(list: string[], value: string, onChange: (next: string[]) => void) {
     onChange(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  }
+
+  function togglePosition(next: string) {
+    toggleFromList(positions, next, (updated) => setTalentIdentityFn({ positions: updated, role: updated.length ? updated.join(", ") : category }));
   }
 
   function toggleKnownFor(trait: string) {
@@ -162,11 +162,11 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
 
       {step === 2 && (
         <div className="flex flex-col gap-6">
-          <StepHeader eyebrow="Your role" title="What do you do?" description="Pick the category closest to what you do, then the position that fits." />
+          <StepHeader eyebrow="Your role" title="What do you do?" description="Pick the category closest to what you do, then every position that fits." />
           <ChipField label="Category" options={TEAM_CATEGORIES} selected={category ? [category] : []} onToggle={setCategory} />
           {needsPosition && (
             <div key={category} className="animate-view-in flex flex-col gap-6">
-              <ChipField label="Position" options={positionOptions} selected={position ? [position] : []} onToggle={setPosition} />
+              <ChipField label="Position. Choose all that apply." options={positionOptions} selected={positions} onToggle={togglePosition} />
               <ChipField
                 label="Skills"
                 options={skillOptions}

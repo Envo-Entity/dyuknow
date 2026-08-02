@@ -64,7 +64,7 @@ export async function submitTalentOnboarding(identity: TalentIdentity): Promise<
       photo_filename: identity.photo ? "photo.jpg" : null,
       photo_path: photoPath,
       category: orNull(identity.category),
-      position: orNull(identity.position),
+      positions: identity.positions,
       skills: identity.skills,
       years_band: orNull(identity.yearsBand),
       employment_history: identity.employers,
