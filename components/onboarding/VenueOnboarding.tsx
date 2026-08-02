@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar } from "@/components/ui/Avatar";
-import { Eyebrow } from "@/components/ui/Eyebrow";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { CompleteStep } from "@/components/onboarding/CompleteStep";
 import { FormField } from "@/components/onboarding/FormField";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { ContinueButton } from "@/components/onboarding/ContinueButton";
@@ -64,6 +63,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   const cuisine = identity?.cuisine ?? [];
   const covers = identity?.covers ?? "";
   const teamSize = identity?.teamSize ?? "";
+  const teamVacanciesPerWeek = identity?.teamVacanciesPerWeek ?? "";
   const needs = identity?.needs ?? [];
   const typicalShifts = identity?.typicalShifts ?? [];
   const typicalNotice = identity?.typicalNotice ?? [];
@@ -118,6 +118,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
     <OnboardingShell
       step={step}
       total={TOTAL_STEPS}
+      complete={step === TOTAL_STEPS - 1}
       onBack={() => (step === 0 ? (onBack0 ? onBack0() : router.push("/app")) : setStep(step - 1))}
     >
       {step === 0 && (
@@ -163,6 +164,13 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           />
           <ChipField label="Number of covers" options={COVERS_BANDS} selected={covers ? [covers] : []} onToggle={(v) => setVenueIdentityFn({ covers: v })} />
           <FormField label="Average team size" value={teamSize} onChange={(v) => setVenueIdentityFn({ teamSize: v })} placeholder="e.g. 18" inputMode="numeric" />
+          <FormField
+            label="Average team vacancies per week"
+            value={teamVacanciesPerWeek}
+            onChange={(v) => setVenueIdentityFn({ teamVacanciesPerWeek: v })}
+            placeholder="e.g. 2"
+            inputMode="numeric"
+          />
           <ContinueButton onClick={() => setStep(3)} />
         </div>
       )}
@@ -218,30 +226,35 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Community promise" title="Our community promise." description="Every venue and every worker on Dyuknow agrees to the same standard." />
           <CheckboxGroup options={VENUE_AGREEMENTS} selected={agreedCommunity} onToggle={toggleAgreement} />
-          <ContinueButton onClick={() => setStep(7)} />
+          <ContinueButton disabled={agreedCommunity.length < VENUE_AGREEMENTS.length} onClick={() => setStep(7)} />
         </div>
       )}
 
       {step === 7 && (
-        <div className="flex flex-col items-center gap-6 text-center lg:gap-7">
-          <Avatar mono={mono} photoUrl={photo} size={64} tone="dark" />
-          <div>
-            <Eyebrow className="justify-center">You&rsquo;re in</Eyebrow>
-            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em] lg:text-[44px]">{name || "Your venue"}</div>
-            {bio && <div className="mt-1.5 text-[13px] text-muted lg:text-[14px]">{bio}</div>}
-          </div>
-          <div className="flex w-full items-center gap-2 rounded-full bg-mist px-5 py-3 text-[13px] font-semibold text-ink lg:py-3.5 lg:text-[14px]">
-            <span className="dot-pulse inline-block h-2.5 w-2.5 flex-none rounded-full bg-sage" />
-            The pass is open · Fri 12 – Sun 14 Sep
-          </div>
-          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft lg:max-w-[420px] lg:text-[16px]">
-            We&rsquo;ve already lined up matches for the weekend your head chef is away. See who&rsquo;s available now.
-          </p>
-          {submitError && <p className="text-[13px] font-semibold text-ink lg:text-[14px]">{submitError}</p>}
+        <CompleteStep
+          mono={mono}
+          photo={photo}
+          avatarTone="dark"
+          eyebrow="Dyuknow venue"
+          name={name || "Your venue"}
+          meta={venueType.join(" · ")}
+          rows={[
+            { label: "Member since", value: "Today" },
+            ...(covers ? [{ label: "Covers", value: covers }] : []),
+            ...(teamSize ? [{ label: "Team", value: teamSize }] : []),
+          ]}
+          headline={
+            <>
+              Welcome aboard — <span className="font-serif font-normal italic">you&rsquo;re in.</span>
+            </>
+          }
+          body="That's your venue set up. Come in and have a look around — you can change any of this later."
+          error={submitError}
+        >
           <ContinueButton onClick={finish} disabled={submitting}>
             {submitting ? "Submitting…" : "Enter Dyuknow"}
           </ContinueButton>
-        </div>
+        </CompleteStep>
       )}
     </OnboardingShell>
   );

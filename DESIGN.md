@@ -65,7 +65,8 @@ pill on talent cards/profiles (the pill itself now gets a faint sage tint —
 the "NEW · 12 min" badge on fresh feed items, the unread-message dot, the
 active filter chip, the accepted-booking confirmation, and — as of the 2026
 refresh — the Fork screen's light-side panel fill (`ForkPanel`'s non-dark
-variant). Outside of that one hero-panel exception, sage stays a small
+variant) and the onboarding member pass (`CompleteStep`, the final screen of
+both onboarding flows). Outside of that one hero-panel exception, sage stays a small
 semantic accent; if you reach for it for anything else decorative, stop.
 
 **CTA rule:** primary action = solid `bg-ink` pill with white text, one per

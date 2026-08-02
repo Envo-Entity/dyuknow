@@ -40,6 +40,7 @@ export const EMPTY_VENUE_IDENTITY: VenueIdentity = {
   cuisine: [],
   covers: "",
   teamSize: "",
+  teamVacanciesPerWeek: "",
   typicalShifts: [],
   typicalNotice: [],
   dressCode: "",

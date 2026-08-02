@@ -112,6 +112,7 @@ export interface VenueIdentity {
   cuisine: string[];
   covers: string;
   teamSize: string;
+  teamVacanciesPerWeek: string;
   typicalShifts: string[];
   typicalNotice: string[];
   dressCode: string;

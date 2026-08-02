@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar } from "@/components/ui/Avatar";
-import { Eyebrow } from "@/components/ui/Eyebrow";
-import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { CompleteStep } from "@/components/onboarding/CompleteStep";
 import { FormField } from "@/components/onboarding/FormField";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { ContinueButton } from "@/components/onboarding/ContinueButton";
@@ -109,6 +107,11 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     toggleFromList(knownFor, trait, (next) => setTalentIdentityFn({ knownFor: next }));
   }
 
+  function addCustomKnownFor(trait: string) {
+    if (knownFor.some((existing) => existing.toLowerCase() === trait.toLowerCase())) return;
+    setTalentIdentityFn({ knownFor: [...knownFor, trait] });
+  }
+
   function toggleAgreement(item: string) {
     toggleFromList(agreedCommunity, item, (next) => setTalentIdentityFn({ agreedCommunity: next }));
   }
@@ -136,6 +139,7 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     <OnboardingShell
       step={step}
       total={TOTAL_STEPS}
+      complete={step === TOTAL_STEPS - 1}
       onBack={() => (step === 0 ? (onBack0 ? onBack0() : router.push("/app")) : setStep(step - 1))}
     >
       {step === 0 && (
@@ -221,9 +225,9 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
       {step === 5 && (
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately and shown to venues only once you're booked." />
-          <UploadRow label="Right to Work" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
-          <UploadRow label="Food Safety Certificate" value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
-          <UploadRow label="CV" optional value={cv} onChange={(v) => setTalentIdentityFn({ cv: v })} />
+          <UploadRow label="Right to Work (visa / passport)" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
+          <UploadRow label="Food Safety Certificate" optional value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
+          <UploadRow label="CV" optional note="recommended" value={cv} onChange={(v) => setTalentIdentityFn({ cv: v })} />
           <ContinueButton onClick={() => setStep(6)} />
         </div>
       )}
@@ -238,7 +242,14 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
             placeholder="e.g. Calm under pressure. Five years in Michelin kitchens. Happy on garnish, meat or pass."
             maxLength={250}
           />
-          <ChipField label="What are you known for? Choose up to 3." options={knownForChoices} selected={knownFor} onToggle={toggleKnownFor} />
+          <ChipField
+            label="What are you known for? Choose up to 3."
+            options={knownForChoices}
+            selected={knownFor}
+            onToggle={toggleKnownFor}
+            allowCustom
+            onAddCustom={addCustomKnownFor}
+          />
           <ContinueButton onClick={() => setStep(7)} />
         </div>
       )}
@@ -252,25 +263,29 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
       )}
 
       {step === 8 && (
-        <div className="flex flex-col items-center gap-6 text-center lg:gap-7">
-          <VerifiedBadge size={40} />
-          <Avatar mono={mono} photoUrl={photo} size={64} />
-          <div>
-            <Eyebrow className="justify-center">You&rsquo;re verified</Eyebrow>
-            <div className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.01em] lg:text-[44px]">{name || "You're in"}</div>
-            <div className="mt-1.5 text-[13px] text-muted lg:text-[14px]">
-              {role}
-              {bio ? ` · ${bio}` : ""}
-            </div>
-          </div>
-          <p className="max-w-[360px] text-[14.5px] leading-[1.6] text-ink-soft lg:max-w-[420px] lg:text-[16px]">
-            You&rsquo;re a verified member. Venues booking near you are waiting on the other side.
-          </p>
-          {submitError && <p className="text-[13px] font-semibold text-ink lg:text-[14px]">{submitError}</p>}
+        <CompleteStep
+          mono={mono}
+          photo={photo}
+          eyebrow="Dyuknow member"
+          name={name || "You're in"}
+          meta={role}
+          rows={[
+            { label: "Member since", value: "Today" },
+            ...(yearsBand ? [{ label: "Experience", value: yearsBand }] : []),
+            ...(availableToday ? [{ label: "Available", value: "Today" }] : []),
+          ]}
+          headline={
+            <>
+              Welcome aboard — <span className="font-serif font-normal italic">you&rsquo;re in.</span>
+            </>
+          }
+          body="That's your profile set up. Come in and have a look around — you can change any of this later."
+          error={submitError}
+        >
           <ContinueButton onClick={finish} disabled={submitting}>
             {submitting ? "Submitting…" : "Enter Dyuknow"}
           </ContinueButton>
-        </div>
+        </CompleteStep>
       )}
     </OnboardingShell>
   );

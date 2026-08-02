@@ -155,6 +155,116 @@
 }
 
 /*
+ * Onboarding's final screen: the pass panel drops in and gets a single
+ * sheen sweep (it reads as the member's pass being minted), the verified
+ * seal pops a beat later with two rings, and everything under the panel
+ * rises in staggered order. `.celebrate > *` keys off child order, so the
+ * markup order in `CompleteStep` is the reveal order.
+ */
+@keyframes celebrate-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pass-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pass-sheen {
+  from {
+    transform: translateX(0) skewX(-14deg);
+  }
+  to {
+    transform: translateX(560%) skewX(-14deg);
+  }
+}
+
+@keyframes seal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.14);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes seal-burst {
+  0% {
+    box-shadow: 0 4px 12px rgba(5, 5, 5, 0.16), 0 0 0 0 rgba(255, 255, 255, 0.85);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(5, 5, 5, 0.16), 0 0 0 16px rgba(255, 255, 255, 0);
+  }
+}
+
+.celebrate > * {
+  animation: celebrate-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.celebrate > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.celebrate > *:nth-child(2) {
+  animation-delay: 0.55s;
+}
+.celebrate > *:nth-child(3) {
+  animation-delay: 0.68s;
+}
+.celebrate > *:nth-child(4) {
+  animation-delay: 0.81s;
+}
+.celebrate > *:nth-child(5) {
+  animation-delay: 0.94s;
+}
+
+.pass-panel {
+  animation-name: pass-in;
+  animation-duration: 0.7s;
+}
+
+.pass-sheen {
+  animation: pass-sheen 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.45s both;
+}
+
+.seal-burst {
+  animation:
+    seal-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both,
+    seal-burst 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.7s 2 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebrate > *,
+  .pass-panel,
+  .seal-burst {
+    animation: none;
+  }
+
+  .pass-sheen {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
  * Landing page marquees (stat ticker, photo strip): track content is
  * rendered twice back-to-back, so translating exactly -50% loops seamlessly
  * regardless of how wide the (duplicated) content actually is.

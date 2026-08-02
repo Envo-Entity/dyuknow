@@ -7,10 +7,12 @@ interface OnboardingShellProps {
   step: number;
   total: number;
   onBack: () => void;
+  /** Final screen: the whole progress row fills sage, left to right. */
+  complete?: boolean;
   children: React.ReactNode;
 }
 
-export function OnboardingShell({ step, total, onBack, children }: OnboardingShellProps) {
+export function OnboardingShell({ step, total, onBack, complete, children }: OnboardingShellProps) {
   return (
     <div className="animate-view-in flex min-h-screen flex-col items-center bg-paper px-6 pb-14 pt-9 lg:gap-8 lg:bg-mist lg:px-10 lg:py-16">
       <div className="flex w-full max-w-[440px] items-center gap-3 lg:max-w-[600px]">
@@ -29,9 +31,14 @@ export function OnboardingShell({ step, total, onBack, children }: OnboardingShe
           {Array.from({ length: total }).map((_, i) => (
             <span
               key={i}
+              style={complete ? { transitionDelay: `${i * 55}ms` } : undefined}
               className={cn(
-                "h-1.5 rounded-full transition-[width,background-color] lg:h-2",
-                i === step ? "w-6 bg-sage lg:w-8" : "w-1.5 bg-mist lg:w-2 lg:bg-dot-inactive"
+                "h-1.5 rounded-full transition-[width,background-color] duration-300 lg:h-2",
+                complete
+                  ? "w-4 bg-sage lg:w-5"
+                  : i === step
+                    ? "w-6 bg-sage lg:w-8"
+                    : "w-1.5 bg-mist lg:w-2 lg:bg-dot-inactive"
               )}
             />
           ))}

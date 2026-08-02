@@ -8,11 +8,12 @@ import type { UploadedFile } from "@/lib/types";
 interface UploadRowProps {
   label: string;
   optional?: boolean;
+  note?: string;
   value: UploadedFile | null;
   onChange: (file: UploadedFile | null) => void;
 }
 
-export function UploadRow({ label, optional, value, onChange }: UploadRowProps) {
+export function UploadRow({ label, optional, note, value, onChange }: UploadRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,7 @@ export function UploadRow({ label, optional, value, onChange }: UploadRowProps) 
     <div className="flex flex-col gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
         {label}
-        {optional && <span className="text-faint"> · optional</span>}
+        {optional && <span className="text-faint"> · optional{note ? ` · ${note}` : ""}</span>}
       </span>
       <button
         type="button"

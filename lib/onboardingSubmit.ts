@@ -120,6 +120,7 @@ export async function submitVenueOnboarding(identity: VenueIdentity): Promise<Su
       cuisines: identity.cuisine,
       covers_band: orNull(identity.covers),
       average_team_size: numberOrNull(identity.teamSize),
+      average_team_vacancies_per_week: numberOrNull(identity.teamVacanciesPerWeek),
       roles_needed: identity.needs,
       typical_shifts: identity.typicalShifts,
       typical_notice: identity.typicalNotice,
