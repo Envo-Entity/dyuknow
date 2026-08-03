@@ -276,10 +276,10 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
           ]}
           headline={
             <>
-              Welcome aboard — <span className="font-serif font-normal italic">you&rsquo;re in.</span>
+              Welcome aboard <span className="font-serif font-normal italic">you&rsquo;re in.</span>
             </>
           }
-          body="That's your profile set up. Come in and have a look around — you can change any of this later."
+          body="That's your profile set up. Come in and have a look around you can change any of this later."
           error={submitError}
         >
           <ContinueButton onClick={finish} disabled={submitting}>
