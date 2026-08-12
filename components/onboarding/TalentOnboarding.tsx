@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { CompleteStep } from "@/components/onboarding/CompleteStep";
@@ -48,8 +48,9 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const router = useRouter();
   const { data, completeOnboarding, setTalentIdentity } = useAppStore();
   const [step, setStep] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"submitting" | "saved" | "error">("submitting");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submittedRef = useRef(false);
 
   const isAdmin = identityProp !== undefined;
   const identity = isAdmin ? identityProp : data.talentIdentity;
@@ -84,6 +85,15 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     if (!isAdmin && data.onboarded.talent) router.replace("/app/talent");
   }, [isAdmin, data.onboarded.talent, router]);
 
+  // Fires the instant the pass screen mounts — the record is saved in the
+  // background while the celebration plays, not gated behind the button.
+  useEffect(() => {
+    if (step !== TOTAL_STEPS - 1 || submittedRef.current) return;
+    submittedRef.current = true;
+    void save();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   if (!isAdmin && data.onboarded.talent) return null;
 
   const needsPosition = category === "Chef" || category === "Front of House";
@@ -116,17 +126,22 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     toggleFromList(agreedCommunity, item, (next) => setTalentIdentityFn({ agreedCommunity: next }));
   }
 
-  async function finish() {
+  async function save() {
     setSubmitError(null);
-    setSubmitting(true);
+    setSaveStatus("submitting");
     const result = identity ? await submitTalentOnboarding(identity) : { ok: true as const };
-    setSubmitting(false);
 
     if (!result.ok) {
+      submittedRef.current = false;
+      setSaveStatus("error");
       setSubmitError("Couldn't save that — check your connection and try again.");
       return;
     }
 
+    setSaveStatus("saved");
+  }
+
+  function enter() {
     if (onDone) {
       onDone();
     } else {
@@ -280,10 +295,11 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
             </>
           }
           body="That's your profile set up. Come in and have a look around you can change any of this later."
+          saveStatus={saveStatus}
           error={submitError}
         >
-          <ContinueButton onClick={finish} disabled={submitting}>
-            {submitting ? "Submitting…" : "Enter Dyuknow"}
+          <ContinueButton onClick={saveStatus === "error" ? save : enter} disabled={saveStatus === "submitting"}>
+            {saveStatus === "submitting" ? "Saving…" : saveStatus === "error" ? "Try again" : "Enter Dyuknow"}
           </ContinueButton>
         </CompleteStep>
       )}

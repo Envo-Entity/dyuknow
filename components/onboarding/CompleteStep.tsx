@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "@/components/icons";
+import { CheckIcon, CloseIcon } from "@/components/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 
@@ -27,6 +27,8 @@ interface CompleteStepProps {
   body: React.ReactNode;
   /** Optional block between the body and the CTA (e.g. the venue's "pass is open" pill). */
   extra?: React.ReactNode;
+  /** Live state of the background Supabase submit — the seal badge only checks off once it's actually saved. */
+  saveStatus: "submitting" | "saved" | "error";
   error?: string | null;
   children: React.ReactNode;
 }
@@ -37,7 +39,7 @@ interface CompleteStepProps {
  * per DESIGN.md), then the welcome copy and the CTA. The reveal is staggered
  * by `.celebrate > *` in globals.css — order the children accordingly.
  */
-export function CompleteStep({ mono, photo, avatarTone = "light", eyebrow, name, meta, rows, headline, body, extra, error, children }: CompleteStepProps) {
+export function CompleteStep({ mono, photo, avatarTone = "light", eyebrow, name, meta, rows, headline, body, extra, saveStatus, error, children }: CompleteStepProps) {
   return (
     <div className="celebrate flex flex-col items-center gap-6 text-center lg:gap-7">
       <div className="pass-panel relative w-full overflow-hidden rounded-[26px] bg-sage px-6 py-8 lg:px-10 lg:py-10">
@@ -45,9 +47,22 @@ export function CompleteStep({ mono, photo, avatarTone = "light", eyebrow, name,
         <div className="relative flex flex-col items-center">
           <div className="seal relative">
             <Avatar mono={mono} photoUrl={photo} size={72} tone={avatarTone} className="ring-4 ring-paper" />
-            <span className="seal-burst absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-paper text-ink shadow-[0_4px_12px_rgba(5,5,5,0.16)]">
-              <CheckIcon size={13} />
-            </span>
+            {saveStatus === "submitting" && (
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-paper shadow-[0_4px_12px_rgba(5,5,5,0.16)]">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-ink" />
+              </span>
+            )}
+            {/* Mounted only once the insert has actually landed, so seal-burst's fixed CSS delay plays right as it appears rather than racing the network. */}
+            {saveStatus === "saved" && (
+              <span className="seal-burst absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-paper text-ink shadow-[0_4px_12px_rgba(5,5,5,0.16)]">
+                <CheckIcon size={13} />
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-paper text-ink shadow-[0_4px_12px_rgba(5,5,5,0.16)]">
+                <CloseIcon size={13} />
+              </span>
+            )}
           </div>
           <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">{eyebrow}</div>
           <div className="mt-1.5 font-serif text-[34px] leading-[1.05] tracking-[-0.01em] text-ink lg:text-[44px]">{name}</div>
