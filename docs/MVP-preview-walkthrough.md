@@ -2,7 +2,7 @@
 
 Promoted from `MVP-preview` into the main demo app, following [mvp-user-flow.md](mvp-user-flow.md).
 
-Run `npm run dev`, then open **http://localhost:3000/app**. The root `/` and `/preview` open the same demo, using the same browser storage and sample world.
+Run `npm run dev`, then open **http://localhost:3000** for the original landing page. Its existing Login flow opens the demo at `/app`. `/preview` opens the same demo, using the same browser storage and sample world as `/app`.
 
 **Real intake stays at `/admin/onboarding`.** It uses the expanded talent and venue forms and saves to the existing Supabase profile tables. Public demo setup and the demo owner workspace stay local to the browser. Old `/app/talent/*` and `/app/venue/*` links redirect into the current demo; old public onboarding links open the local member setup.
 

@@ -6,7 +6,7 @@ Updated 2 October 2026. This records the current decisions and their implementat
 
 Bring onboarding into line with the preview **by adding missing questions and storage**. Keep every existing question, field, option and saved answer. This supersedes the earlier decisions to remove questions, collapse venue names, convert stored answers, drop Events, or deduplicate members.
 
-Admin onboarding continues to use the existing `talent_profiles` and `venue_profiles` tables. No application tables were created. The accepted preview is now the main demo UI at `/app`, `/` and `/preview`; it remains browser-local and does not read or write live member records. Real intake remains at `/admin/onboarding`, with every addition below included.
+Admin onboarding continues to use the existing `talent_profiles` and `venue_profiles` tables. No application tables were created. The original landing page remains at `/`, and its existing Login flow opens the accepted demo UI at `/app`. `/preview` also opens the demo; it remains browser-local and does not read or write live member records. Real intake remains at `/admin/onboarding`, with every addition below included.
 
 ## Talent
 

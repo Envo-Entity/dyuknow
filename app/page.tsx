@@ -1,5 +1,5 @@
-import { PreviewApp } from "@/components/preview/PreviewApp";
+import { LandingPage } from "@/components/landing/LandingPage";
 
 export default function Home() {
-  return <PreviewApp />;
+  return <LandingPage />;
 }

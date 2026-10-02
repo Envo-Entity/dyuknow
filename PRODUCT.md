@@ -1,7 +1,9 @@
 # Dyuknow — Current demo
 
 Updated 2 October 2026. The accepted MVP preview is now the main demo app at
-`/app`. `/` and `/preview` show the same UI and use the same browser storage.
+`/app`. The original landing page remains at `/`, with its existing Login
+flow leading to `/app`. `/preview` shows the same demo UI and uses the same
+browser storage as `/app`.
 
 The current UI, sample world and interactions live in `components/preview/`
 and `lib/preview/`. Venue, talent and owner dashboards, cover requests,

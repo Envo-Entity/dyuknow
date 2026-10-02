@@ -10,9 +10,10 @@ npm install
 npm run dev
 ```
 
-Open [the main app](http://localhost:3000/app). `/` and `/preview` show the same
-demo and share the existing `dyuknow_mvp_preview_v4` browser storage. The demo
-works without Supabase configuration.
+Open [the original landing page](http://localhost:3000). Its existing Login
+flow opens [the main app](http://localhost:3000/app). `/app` and `/preview`
+show the same demo and share the existing `dyuknow_mvp_preview_v4` browser
+storage. The demo works without Supabase configuration.
 
 Open [admin onboarding](http://localhost:3000/admin/onboarding) for real talent
 and venue intake. Configure `NEXT_PUBLIC_SUPABASE_URL` and
