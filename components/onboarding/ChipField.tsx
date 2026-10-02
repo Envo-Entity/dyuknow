@@ -3,14 +3,16 @@ import { AddCustomChip } from "@/components/onboarding/AddCustomChip";
 
 interface ChipFieldProps {
   label: string;
-  options: string[];
+  options: readonly string[];
   selected: string[];
   onToggle: (option: string) => void;
   allowCustom?: boolean;
   onAddCustom?: (value: string) => void;
+  customMaxLength?: number;
+  customLabel?: string;
 }
 
-export function ChipField({ label, options, selected, onToggle, allowCustom, onAddCustom }: ChipFieldProps) {
+export function ChipField({ label, options, selected, onToggle, allowCustom, onAddCustom, customMaxLength, customLabel }: ChipFieldProps) {
   const customSelected = selected.filter((value) => !options.includes(value));
 
   return (
@@ -21,6 +23,7 @@ export function ChipField({ label, options, selected, onToggle, allowCustom, onA
           <Chip
             key={option}
             active={selected.includes(option)}
+            aria-pressed={selected.includes(option)}
             onClick={() => onToggle(option)}
             className="lg:px-6 lg:py-3 lg:text-[13.5px]"
           >
@@ -31,13 +34,14 @@ export function ChipField({ label, options, selected, onToggle, allowCustom, onA
           <Chip
             key={option}
             active
+            aria-pressed="true"
             onClick={() => onToggle(option)}
             className="lg:px-6 lg:py-3 lg:text-[13.5px]"
           >
             {option}
           </Chip>
         ))}
-        {allowCustom && onAddCustom && <AddCustomChip onAdd={onAddCustom} />}
+        {allowCustom && onAddCustom && <AddCustomChip onAdd={onAddCustom} maxLength={customMaxLength} label={customLabel} />}
       </div>
     </div>
   );

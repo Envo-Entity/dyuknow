@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:preview": "node --test tests/mvp-preview.test.mjs"
+    "test:preview": "node --test tests/mvp-preview.test.mjs",
+    "test:onboarding": "node --test tests/onboarding.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

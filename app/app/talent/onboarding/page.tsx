@@ -1,5 +1,6 @@
-import { TalentOnboarding } from "@/components/onboarding/TalentOnboarding";
+import { redirect } from "next/navigation";
+import { demoSetupRoute } from "@/lib/demoRoutes";
 
-export default function TalentOnboardingPage() {
-  return <TalentOnboarding />;
+export default function LegacyOnboardingPage() {
+  redirect(demoSetupRoute("talent"));
 }

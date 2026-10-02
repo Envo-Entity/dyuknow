@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/client";
 import { dataUrlToBlob } from "@/lib/image";
 import { TEAM_AGREEMENTS, VENUE_AGREEMENTS } from "@/lib/data";
 import type { TalentIdentity, VenueIdentity } from "@/lib/types";
+import { validateDatedAvailability, teamsFromLegacyRoles } from "@/lib/onboardingModel";
 
 function orNull(value: string): string | null {
   const trimmed = value.trim();
@@ -43,6 +44,8 @@ export async function submitTalentOnboarding(identity: TalentIdentity): Promise<
   const id = crypto.randomUUID();
 
   try {
+    const availabilityError = validateDatedAvailability(identity.datedAvailability ?? []);
+    if (availabilityError) throw new Error(availabilityError);
     const photoPath = identity.photo ? await uploadDataUrl(supabase, "profile-photos", `talent/${id}.jpg`, identity.photo) : null;
     const rightToWorkPath = identity.rightToWork
       ? await uploadDataUrl(supabase, "verification-documents", `${id}/right-to-work-${sanitizeFilename(identity.rightToWork.name)}`, identity.rightToWork.dataUrl)
@@ -66,6 +69,9 @@ export async function submitTalentOnboarding(identity: TalentIdentity): Promise<
       category: orNull(identity.category),
       positions: identity.positions,
       skills: identity.skills,
+      custom_skills: identity.customSkills ?? [],
+      shift_alerts: identity.shiftAlerts ?? "all",
+      dated_availability: identity.datedAvailability ?? [],
       years_band: orNull(identity.yearsBand),
       employment_history: identity.employers,
       available_today: identity.availableToday,
@@ -106,6 +112,8 @@ export async function submitVenueOnboarding(identity: VenueIdentity): Promise<Su
     const { error } = await supabase.from("venue_profiles").insert({
       id,
       business_name: orNull(identity.name),
+      street_address: orNull(identity.address ?? ""),
+      postcode: orNull(identity.postcode ?? ""),
       trading_name: orNull(identity.tradingName),
       registered_company: orNull(identity.registeredCompany),
       website: orNull(identity.website),
@@ -122,6 +130,7 @@ export async function submitVenueOnboarding(identity: VenueIdentity): Promise<Su
       average_team_size: numberOrNull(identity.teamSize),
       average_team_vacancies_per_week: numberOrNull(identity.teamVacanciesPerWeek),
       roles_needed: identity.needs,
+      teams_needed: identity.teamsNeeded ?? teamsFromLegacyRoles(identity.needs),
       typical_shifts: identity.typicalShifts,
       typical_notice: identity.typicalNotice,
       dress_code: orNull(identity.dressCode),

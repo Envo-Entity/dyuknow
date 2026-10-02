@@ -7,9 +7,11 @@ import { cn } from "@/lib/cn";
 interface AddCustomChipProps {
   onAdd: (value: string) => void;
   placeholder?: string;
+  maxLength?: number;
+  label?: string;
 }
 
-export function AddCustomChip({ onAdd, placeholder = "Add your own" }: AddCustomChipProps) {
+export function AddCustomChip({ onAdd, placeholder = "Add your own", maxLength, label = "Add a custom value" }: AddCustomChipProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +38,7 @@ export function AddCustomChip({ onAdd, placeholder = "Add your own" }: AddCustom
       <button
         type="button"
         onClick={open}
-        aria-label="Add a custom value"
+        aria-label={label}
         className="flex h-[38px] w-[38px] flex-none cursor-pointer items-center justify-center rounded-full border border-dashed border-hairline text-ink transition-colors hover:border-ink lg:h-[42px] lg:w-[42px]"
       >
         <PlusIcon size={14} />
@@ -48,6 +50,8 @@ export function AddCustomChip({ onAdd, placeholder = "Add your own" }: AddCustom
     <div className="flex h-[38px] w-[190px] flex-none items-center gap-1.5 rounded-full border border-ink bg-paper py-1 pl-4 pr-1 transition-[width] duration-200 ease-out lg:h-[42px] lg:w-[210px]">
       <input
         ref={inputRef}
+        aria-label={label}
+        maxLength={maxLength}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {

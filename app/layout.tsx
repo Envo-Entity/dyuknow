@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { AppStoreProvider } from "@/lib/store";
-import { AppChrome } from "@/components/chrome/AppChrome";
 
 const instrumentSerif = Instrument_Serif({
   variable: "--font-instrument-serif",
@@ -25,7 +24,7 @@ export default function RootLayout({
     <html lang="en" className={instrumentSerif.variable}>
       <body>
         <AppStoreProvider>
-          <AppChrome>{children}</AppChrome>
+          {children}
         </AppStoreProvider>
       </body>
     </html>

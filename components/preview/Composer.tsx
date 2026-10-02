@@ -2,42 +2,111 @@
 import { useState } from "react";
 import {
   FAMILIES,
+  availableDates,
   datePlus,
   londonDate,
   makeDays,
   isFree,
-  conflict,
+  firstName,
+  joinNames,
+  member,
+  relativeDay,
+  displayDate,
   serviceLabel,
+  similarShift,
+  workedWith,
+  defaultRate,
+  defaultNote,
+  allSkills,
+  type Shift,
   type ShiftDraft,
+  areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { Badge, Button, Empty, Field, Heading, Photo } from "./ui";
+import { ActionBar, Badge, Button, Empty, Heading, Photo } from "./ui";
+import { draftFrom } from "./ShiftDetail";
+
 export function ShiftComposer({
   family,
   resumeInvite = false,
+  origin,
 }: {
   family?: string;
   resumeInvite?: boolean;
+  // "edit/<shift>", "again/<booking>" or "replace/<booking>".
+  origin?: string;
 }) {
   const { data, actor, me, act, go, toast } = usePreview();
-  const [step, setStep] = useState(
-    resumeInvite ? 4 : data.draft?.repeatTalent ? 2 : 1,
+  const [view, setView] = useState<"form" | "invite">(
+    resumeInvite ? "invite" : "form",
   );
-  const [draft, setDraft] = useState<ShiftDraft>(() => ({
-    roles: [],
-    family: family || "Kitchen",
-    date: datePlus(londonDate(data.now), 1),
-    count: 1,
-    start: "17:00",
-    end: "23:00",
-    capacity: 1,
-    rate: me!.rate,
-    note: me!.note,
-    mode: "post",
-    invitees: [],
-    ...data.draft,
-    ...(family && family !== data.draft?.family ? { family, roles: [] } : {}),
-  }));
+  const [editingNote, setEditingNote] = useState(false);
+  const tomorrow = datePlus(londonDate(data.now), 1);
+  const [draft, setDraft] = useState<ShiftDraft>(() => {
+    const fam = family || data.draft?.family || "Kitchen";
+    // Start from what this venue asked for last time in this team.
+    const last = data.shifts.find(
+      (s) => s.venue === actor && s.family === fam,
+    ) as Shift | undefined;
+    const base: ShiftDraft = {
+      roles: last?.roles || [],
+      family: fam,
+      date: tomorrow,
+      count: 1,
+      dates: [tomorrow],
+      start: last?.days[0].start || "17:00",
+      end: last?.days[0].end || "23:00",
+      capacity: 1,
+      // Pre-filled from the venue profile; each shift can change them.
+      rate: defaultRate(me!, fam),
+      note: defaultNote(me!),
+      mode: "post",
+      invitees: [],
+    };
+    // An unsent draft from the same place picks up where it left off.
+    if (data.draft && (data.draft.origin || "") === (origin || "") &&
+      (origin || !family || family === data.draft.family))
+      return { ...base, ...data.draft } as ShiftDraft;
+    if (origin) {
+      const [kind, id] = origin.split("/");
+      const b = data.bookings.find((x) => x.id === id);
+      const shift = data.shifts.find((x) => x.id === (kind === "edit" ? id : b?.shift));
+      if (shift) {
+        if (kind === "edit") return draftFrom(shift, data.now, { editing: id, origin });
+        if (kind === "again" && b)
+          return draftFrom(shift, data.now, {
+            dates: [tomorrow],
+            capacity: 1,
+            mode: "invite",
+            invitees: [b.talent],
+            repeatTalent: b.talent,
+            together: false,
+            origin,
+          });
+        if (kind === "replace" && b)
+          return draftFrom(
+            shift,
+            data.now,
+            { capacity: 1, replacement: shift.id, origin },
+            b.days,
+          );
+      }
+    }
+    return base;
+  });
+  const dates = draft.dates ?? (() => {
+    try {
+      return makeDays(draft).map((d) => d.date);
+    } catch {
+      return [];
+    }
+  })();
+  const today = londonDate(data.now);
+  const [pickDates, setPickDates] = useState(
+    !(dates.length === 1 && [today, tomorrow].includes(dates[0])),
+  );
+  // Drafts are saved only after a real change, so opening and backing out
+  // never leaves a phantom "unsent" shift behind.
   function update(patch: Partial<ShiftDraft>) {
     const value = { ...draft, ...patch };
     setDraft(value);
@@ -48,418 +117,421 @@ export function ShiftComposer({
   try {
     days = makeDays(draft);
     if (days[0].from <= data.now)
-      validation = "This starts in the past. Choose a future time.";
+      validation = "That start time has passed. Choose a later time.";
   } catch (e) {
     validation = (e as Error).message;
   }
+  if (!validation && !draft.roles.length)
+    validation = "Choose at least one position.";
   const eligible = data.members.filter(
     (m) =>
       m.side === "talent" &&
       m.approved &&
       m.roles.some((r) => draft.roles.includes(r)),
   );
+  const alerted = eligible.filter(
+    (m) =>
+      m.alert === "all" ||
+      (m.alert === "soon" && !!days.length && days[0].date <= tomorrow),
+  );
+  const repeat = draft.repeatTalent
+    ? member(data, draft.repeatTalent)
+    : undefined;
+  const duplicate =
+    days.length && draft.roles.length && !draft.editing
+      ? similarShift(data, actor, draft.roles, days)
+      : undefined;
   const sorted = [...eligible].sort(
     (a, b) =>
-      Number(me!.previous.includes(b.id)) -
-        Number(me!.previous.includes(a.id)) ||
+      Number(workedWith(data, actor, b.id)) -
+        Number(workedWith(data, actor, a.id)) ||
       Number(isFree(data, b.id, days)) - Number(isFree(data, a.id, days)) ||
       a.name.localeCompare(b.name),
   );
-  function next() {
-    if (step === 1 && !draft.roles.length)
-      return toast("Choose at least one position.");
-    if (step === 2 && validation) return toast(validation);
-    setStep(step + 1);
-  }
-  function send() {
+  // A stand-in shift so per-day availability can be checked before sending.
+  const preview = {
+    id: "draft",
+    venue: actor,
+    roles: draft.roles,
+    family: draft.family,
+    days,
+    capacity: draft.capacity,
+    rate: draft.rate,
+    note: draft.note,
+    mode: "invite",
+    status: "open",
+    created: data.now,
+    ownerAlerted: false,
+  } as Shift;
+  function send(mode: "post" | "invite") {
+    if (validation) return toast(validation);
+    const value = { ...draft, mode };
     const result = act(
-      { type: "post", actor, draft },
-      draft.mode === "post"
-        ? "Shift sent. Your members have been notified."
-        : "Invitations sent. Talent can now accept and book.",
+      { type: "post", actor, draft: value },
+      mode === "invite"
+        ? "Invite sent."
+        : alerted.length
+          ? `Sent. ${joinNames(alerted.map(firstName))} ${alerted.length === 1 ? "has" : "have"} been texted.`
+          : "Sent. Dyuknow is on it.",
     );
     if (result) go(`shift/${result.shifts[0].id}`);
   }
-  return (
-    <>
-      <Heading
-        title={
-          draft.editing
-            ? "Edit and resend"
-            : draft.replacement
-              ? "Find replacement cover"
-              : draft.repeatTalent
-                ? "Invite a familiar face again."
-                : "Make service happen."
-        }
-        description="Who, when, and the terms. One connected request from here to the booking."
-        back="home"
-      />
-      <div className="pv-composer">
-        <aside className="pv-composer-art">
-          <Photo src={FAMILIES[draft.family]?.photo} />
-          <div>
-            <h2>{draft.family}</h2>
-            <p>
-              {draft.roles.join(" or ") ||
-                "Choose the positions you would take"}
-            </p>
-          </div>
-        </aside>
-        <div className="pv-composer-form">
-          <div className="pv-steps" aria-label="Progress">
-            {[
-              "Which role",
-              "When",
-              "Review",
-              ...(step === 4 ? ["Invite"] : []),
-            ].map((s, i) => (
-              <button
-                key={s}
-                disabled={i + 1 > step}
-                onClick={() => setStep(i + 1)}
-                aria-current={step === i + 1 ? "step" : undefined}
-              >
-                <span>{i + 1}</span>
-                {s}
-              </button>
-            ))}
-          </div>
-          {step === 1 && (
-            <>
-              <h2>Who would you take?</h2>
-              <p>
-                Choose every grade that works for this service. Alerts reach
-                everyone in these roles.
-              </p>
-              <Field label="Team">
-                <select
-                  value={draft.family}
-                  onChange={(e) =>
-                    update({ family: e.target.value, roles: [], invitees: [] })
-                  }
+  const title = draft.editing
+    ? "Edit and resend"
+    : draft.replacement
+      ? "Find a replacement"
+      : repeat
+        ? `Book ${firstName(repeat)} again`
+        : `${draft.family} cover`;
+  if (view === "invite")
+    return (
+      <>
+        <Heading
+          title="Who would you like to invite?"
+          description={`${draft.roles.join(" or ")} · ${days.length ? `${relativeDay(days[0].date, data.now)} · ${draft.start}–${draft.end}` : ""}`}
+        />
+        <button className="pv-text-link pv-back-link" onClick={() => setView("form")}>
+          ← Back to the shift
+        </button>
+        {sorted.length ? (
+          <div className="pv-pick-list">
+            {sorted.map((t) => {
+              const free = availableDates(data, t.id, preview);
+              const blocked = !free.length;
+              const picked = draft.invitees.includes(t.id);
+              return (
+                <label
+                  key={t.id}
+                  className={`pv-pick ${picked ? "is-picked" : ""} ${blocked ? "is-blocked" : ""}`}
                 >
-                  {Object.keys(FAMILIES).map((f) => (
-                    <option key={f}>{f}</option>
-                  ))}
-                </select>
-              </Field>
-              <div className="pv-chips pv-position-chips">
-                {FAMILIES[draft.family].roles.map((role) => (
-                  <button
-                    key={role}
-                    aria-pressed={draft.roles.includes(role)}
-                    className={draft.roles.includes(role) ? "selected" : ""}
-                    onClick={() =>
+                  <Photo src={t.photo} alt={t.name} />
+                  <span className="pv-pick-text">
+                    <strong>{t.name}</strong>
+                    <small>
+                      {t.roles.join(" · ")} · {areaOf(t)}
+                    </small>
+                    <span className="pv-pick-tags">
+                      {workedWith(data, actor, t.id) && (
+                        <Badge good>Worked with you</Badge>
+                      )}
+                      {blocked ? (
+                        <Badge>Booked elsewhere then</Badge>
+                      ) : isFree(data, t.id, days) ? (
+                        <Badge good>Free then</Badge>
+                      ) : free.length < days.length ? (
+                        <Badge>
+                          Free {free.length} of {days.length} days
+                        </Badge>
+                      ) : null}
+                      {allSkills(t).slice(0, 3).map((s) => (
+                        <Badge key={s}>{s}</Badge>
+                      ))}
+                    </span>
+                    {t.bio && <span className="pv-bio-clamp">{t.bio}</span>}
+                  </span>
+                  <input
+                    type="checkbox"
+                    aria-label={`Invite ${t.name}`}
+                    checked={picked}
+                    disabled={blocked}
+                    onChange={() =>
                       update({
-                        roles: draft.roles.includes(role)
-                          ? draft.roles.filter((r) => r !== role)
-                          : [...draft.roles, role],
-                        invitees: [],
+                        invitees: picked
+                          ? draft.invitees.filter((id) => id !== t.id)
+                          : [...draft.invitees, t.id],
                       })
                     }
-                  >
-                    {role}
-                    <span>
-                      {
-                        data.members.filter(
-                          (m) =>
-                            m.approved &&
-                            m.side === "talent" &&
-                            m.roles.includes(role),
-                        ).length
-                      }
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <Button onClick={next}>Continue to dates</Button>
-            </>
-          )}
-          {step === 2 && (
-            <>
-              <h2>When do you need cover?</h2>
-              <div className="pv-chips">
-                {[0, 1].map((i) => (
-                  <button
-                    key={i}
-                    className={
-                      draft.date === datePlus(londonDate(data.now), i)
-                        ? "selected"
-                        : ""
-                    }
-                    onClick={() =>
-                      update({ date: datePlus(londonDate(data.now), i) })
-                    }
-                  >
-                    {i ? "Tomorrow" : "Today"}
-                  </button>
-                ))}
-              </div>
-              <div className="pv-form-grid">
-                <Field label="First date">
-                  <input
-                    type="date"
-                    min={londonDate(data.now)}
-                    value={draft.date}
-                    onChange={(e) => update({ date: e.target.value })}
                   />
-                </Field>
-                <Field label="Consecutive days">
-                  <select
-                    value={draft.count}
-                    onChange={(e) => update({ count: Number(e.target.value) })}
-                  >
-                    {Array.from({ length: 7 }, (_, i) => (
-                      <option key={i} value={i + 1}>
-                        {i + 1} {i ? "days" : "day"}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Start time">
-                  <input
-                    type="time"
-                    value={draft.start}
-                    onChange={(e) => update({ start: e.target.value })}
-                  />
-                </Field>
-                <Field label="End time">
-                  <input
-                    type="time"
-                    value={draft.end}
-                    onChange={(e) => update({ end: e.target.value })}
-                  />
-                </Field>
-                <Field label="People needed">
-                  <input
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={draft.capacity}
-                    onChange={(e) =>
-                      update({ capacity: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-              </div>
-              {validation ? (
-                <p className="pv-error" role="alert">
-                  {validation}
-                </p>
-              ) : (
-                <div className="pv-services">
-                  {days.map((d) => (
-                    <p key={d.date}>{serviceLabel(d)}</p>
-                  ))}
-                  <small>
-                    Europe/London ·{" "}
-                    {draft.count > 1
-                      ? `Same hours each day. Each person covers all ${draft.count} days.`
-                      : "End times before the start mean the next day."}
-                  </small>
-                </div>
-              )}
-              <Button disabled={!!validation} onClick={next}>
-                Review shift
-              </Button>
-            </>
-          )}
-          {step === 3 && (
-            <>
-              <h2>Your shift, as talent sees it</h2>
-              <h3>
-                {draft.roles.join(" or ")} · {me!.name}
-              </h3>
-              <div className="pv-services">
-                {days.map((d) => (
-                  <p key={d.date}>{serviceLabel(d)}</p>
-                ))}
-                <small>
-                  {draft.capacity} {draft.capacity === 1 ? "person" : "people"}{" "}
-                  · London time
-                </small>
-              </div>
-              <Field label="Pay · £ per hour">
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.5"
-                  value={draft.rate}
-                  onChange={(e) => update({ rate: Number(e.target.value) })}
-                />
-              </Field>
-              {draft.rate < 12.71 && (
-                <p className="pv-error">
-                  This rate is below the £12.71 benchmark stated in the MVP
-                  brief. Check the rate before sending.
-                </p>
-              )}
-              <p className="pv-caption">
-                Payment is arranged directly with the venue. Dyuknow records the
-                agreed hourly rate.
-              </p>
-              <Field label="Note and preparation">
-                <textarea
-                  rows={3}
-                  value={draft.note}
-                  onChange={(e) => update({ note: e.target.value })}
-                />
-              </Field>
-              <div className="pv-services">
-                <p>{me!.address}</p>
-                <p>
-                  {me!.contact} · {me!.phone}
-                </p>
-                <small>Full arrival details are shared once booked.</small>
-              </div>
-              <div className="pv-reach">
-                <strong>
-                  {eligible.length
-                    ? `${eligible.length} ${eligible.length === 1 ? "member" : "members"} in your chosen roles`
-                    : `No ${draft.roles.join(" or ")} members yet`}
-                </strong>
-                <p>
-                  {eligible.length
-                    ? `${eligible.filter((m) => isFree(data, m.id, days)).length} marked themselves free for every date. Everyone in the roles is alerted.`
-                    : "You can still send. The owner will be alerted to help find someone for you."}
-                </p>
-              </div>
-              <Button
-                disabled={!!validation || !(draft.rate > 0)}
-                onClick={() => {
-                  const value = {
-                    ...draft,
-                    mode: draft.repeatTalent
-                      ? ("invite" as const)
-                      : ("post" as const),
-                  };
-                  setDraft(value);
-                  const result = act(
-                    { type: "post", actor, draft: value },
-                    draft.repeatTalent
-                      ? "Personal invitation sent."
-                      : "Shift sent. Your members have been notified.",
-                  );
-                  if (result) go(`shift/${result.shifts[0].id}`);
-                }}
-              >
-                {draft.repeatTalent
-                  ? `Send invite to ${data.members.find((m) => m.id === draft.repeatTalent)?.name.split(" ")[0]}`
-                  : eligible.length
-                    ? `Send to all ${eligible.length}`
-                    : "Ask the owner for cover"}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={!eligible.length || !!validation}
-                onClick={() => {
-                  update({ mode: "invite" });
-                  setStep(4);
-                }}
-              >
-                Choose who to invite
-              </Button>
-              <p className="pv-caption">
-                Role, dates, hours and pay freeze when sent. To change them
-                later, use Edit and resend.
-              </p>
-            </>
-          )}
-          {step === 4 && (
-            <>
-              <h2>Your people, then free talent</h2>
-              <p>
-                Invite people in the selected roles. Availability not set is
-                shown honestly; a confirmed conflict blocks an invitation.
-              </p>
-              {sorted.length ? (
-                <div className="pv-candidates">
-                  {sorted.map((t) => {
-                    const clash = conflict(data, t.id, days);
-                    return (
-                      <div className="pv-candidate" key={t.id}>
-                        <Photo src={t.photo} />
-                        <div>
-                          <button
-                            className="pv-name-link"
-                            onClick={() => {
-                              act({ type: "save-draft", actor, draft });
-                              go(`talent/${t.id}`);
-                            }}
-                          >
-                            {t.name}
-                          </button>
-                          <p>{t.roles.join(" · ")}</p>
-                          <small>{t.skills.slice(0, 3).join(" · ")}</small>
-                          <Badge good={!clash && isFree(data, t.id, days)}>
-                            {clash
-                              ? "Booked then"
-                              : me!.previous.includes(t.id)
-                                ? "Your people"
-                                : isFree(data, t.id, days)
-                                  ? "Free for every date"
-                                  : "Availability not set"}
-                          </Badge>
-                        </div>
-                        <input
-                          type="checkbox"
-                          aria-label={`Invite ${t.name}`}
-                          checked={draft.invitees.includes(t.id)}
-                          disabled={!!clash}
-                          onChange={() =>
-                            update({
-                              invitees: draft.invitees.includes(t.id)
-                                ? draft.invitees.filter((id) => id !== t.id)
-                                : [...draft.invitees, t.id],
-                            })
-                          }
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Empty
-                  title="No matching members"
-                  text="Return to review and ask the owner to find cover."
-                />
-              )}
-              {draft.invitees.length > draft.capacity && (
-                <p className="pv-callout">
-                  First{" "}
-                  {draft.capacity === 1
-                    ? "to accept is"
-                    : `${draft.capacity} to accept are`}{" "}
-                  booked. Others will be told it’s filled. Sending an invite is
-                  your agreement to these terms.
-                </p>
-              )}
-              <Button disabled={!draft.invitees.length} onClick={send}>
-                Send{" "}
-                {draft.invitees.length > 1
-                  ? `${draft.invitees.length} invites`
-                  : "invite"}
-              </Button>
-              <Button variant="secondary" onClick={() => setStep(3)}>
-                Back to review
-              </Button>
-            </>
-          )}
-          <button
-            className="pv-text-link"
-            onClick={() => {
-              act(
-                { type: "save-draft", actor, draft },
-                "Draft saved. Continue it from Book.",
+                </label>
               );
-              go("home");
-            }}
+            })}
+          </div>
+        ) : (
+          <Empty
+            title="No members in these roles yet"
+          />
+        )}
+        <ActionBar>
+          <p className="pv-bar-note">
+            Accepting books them straight away.
+            {draft.invitees.length > draft.capacity
+              ? ` First ${draft.capacity === 1 ? "to accept is" : `${draft.capacity} to accept are`} booked.`
+              : ""}
+          </p>
+          <Button
+            disabled={!draft.invitees.length}
+            onClick={() => send("invite")}
           >
-            Save and finish later
-          </button>
+            {draft.invitees.length === 1
+              ? `Invite ${firstName(member(data, draft.invitees[0]))}`
+              : draft.invitees.length
+                ? `Invite ${draft.invitees.length} people`
+                : "Choose who to invite"}
+          </Button>
+        </ActionBar>
+      </>
+    );
+  return (
+    <>
+      <Heading title={title} back="home" />
+      <div className="pv-form-card">
+        <div className="pv-form-row">
+          <h3>Who</h3>
+          <div className="pv-chips pv-position-chips">
+            {FAMILIES[draft.family].roles.map((role) => {
+              const count = data.members.filter(
+                (m) =>
+                  m.approved && m.side === "talent" && m.roles.includes(role),
+              ).length;
+              return (
+                <button
+                  key={role}
+                  aria-pressed={draft.roles.includes(role)}
+                  className={draft.roles.includes(role) ? "selected" : ""}
+                  onClick={() =>
+                    update({
+                      roles: draft.roles.includes(role)
+                        ? draft.roles.filter((r) => r !== role)
+                        : [...draft.roles, role],
+                      invitees: [],
+                    })
+                  }
+                >
+                  {role}
+                  <span>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="pv-form-row">
+          <h3>When</h3>
+          <div className="pv-chips">
+            {[
+              ["Today", today],
+              ["Tomorrow", tomorrow],
+            ].map(([label, date]) => {
+              const on = !pickDates && dates.length === 1 && dates[0] === date;
+              return (
+                <button
+                  key={label}
+                  aria-pressed={on}
+                  className={on ? "selected" : ""}
+                  onClick={() => {
+                    setPickDates(false);
+                    update({ dates: [date], together: false });
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            <button
+              aria-pressed={pickDates}
+              className={pickDates ? "selected" : ""}
+              onClick={() => setPickDates(true)}
+            >
+              Pick dates
+            </button>
+          </div>
+          {pickDates && (
+            <div className="pv-date-picks" role="group" aria-label="Dates">
+              {Array.from({ length: 14 }, (_, i) => datePlus(today, i)).map((d) => {
+                const on = dates.includes(d);
+                return (
+                  <button
+                    key={d}
+                    aria-pressed={on}
+                    className={on ? "selected" : ""}
+                    disabled={!on && dates.length >= 7}
+                    onClick={() => {
+                      const next = on ? dates.filter((x) => x !== d) : [...dates, d].sort();
+                      update({ dates: next, together: next.length > 1 && draft.together });
+                    }}
+                  >
+                    <small>{displayDate(d).split(" ")[0]}</small>
+                    <strong>{Number(d.slice(-2))}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="pv-time-line">
+            <input
+              className="pv-input"
+              type="time"
+              aria-label="Start time"
+              value={draft.start}
+              onChange={(e) => update({ start: e.target.value })}
+            />
+            <span>to</span>
+            <input
+              className="pv-input"
+              type="time"
+              aria-label="End time"
+              value={draft.end}
+              onChange={(e) => update({ end: e.target.value })}
+            />
+          </div>
+          {!!days.length && (
+            <div className="pv-day-list">
+              {days.map((d) => (
+                <p key={d.date}>{serviceLabel(d)}</p>
+              ))}
+              {days.length > 1 && <small>Same hours each day</small>}
+            </div>
+          )}
+          {duplicate && (
+            <p className="pv-warning">
+              You already have an open {duplicate.roles.join(" or ")} shift at this
+              time.{" "}
+              <button
+                className="pv-text-link"
+                onClick={() => go(`shift/${duplicate.id}`)}
+              >
+                View it
+              </button>
+            </p>
+          )}
+          {days.length > 1 && (
+            <label className="pv-toggle-row">
+              <input
+                type="checkbox"
+                checked={!!draft.together}
+                onChange={(e) => update({ together: e.target.checked })}
+              />
+              <span>Each person must cover every day</span>
+            </label>
+          )}
+        </div>
+        <div className="pv-form-row pv-form-split">
+          <label>
+            <h3>Pay</h3>
+            <span className="pv-money">
+              £
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                aria-label="Pay per hour in pounds"
+                value={draft.rate}
+                onChange={(e) => update({ rate: Number(e.target.value) })}
+              />
+              <small>/ hour</small>
+            </span>
+          </label>
+          <div>
+            <h3>{days.length > 1 ? "People needed each day" : "People needed"}</h3>
+            <span className="pv-stepper">
+              <button
+                aria-label="One fewer person"
+                disabled={draft.capacity <= 1}
+                onClick={() => update({ capacity: draft.capacity - 1 })}
+              >
+                −
+              </button>
+              <strong>{draft.capacity}</strong>
+              <button
+                aria-label="One more person"
+                disabled={draft.capacity >= 5}
+                onClick={() => update({ capacity: draft.capacity + 1 })}
+              >
+                +
+              </button>
+            </span>
+          </div>
+        </div>
+        {draft.rate > 0 && draft.rate < 12.71 && (
+          <p className="pv-warning">
+            £{draft.rate}/h is below the National Living Wage (£12.71).
+          </p>
+        )}
+        <div className="pv-form-row">
+          <h3>
+            Note{" "}
+            {!editingNote && (
+              <button
+                className="pv-text-link"
+                onClick={() => setEditingNote(true)}
+              >
+                Edit
+              </button>
+            )}
+          </h3>
+          {editingNote ? (
+            <textarea
+              className="pv-input"
+              rows={3}
+              aria-label="Note to talent"
+              value={draft.note}
+              onChange={(e) => update({ note: e.target.value })}
+            />
+          ) : (
+            <p className="pv-muted">{draft.note || "No note"}</p>
+          )}
         </div>
       </div>
+      {validation && draft.roles.length > 0 && (
+        <p className="pv-error" role="alert">
+          {validation}
+        </p>
+      )}
+      <ActionBar>
+        {repeat ? (
+          <Button
+            disabled={!!validation}
+            onClick={() => {
+              const result = act(
+                {
+                  type: "post",
+                  actor,
+                  draft: { ...draft, mode: "invite", invitees: [repeat.id] },
+                },
+                `Invite sent. Accepting books ${firstName(repeat)}.`,
+              );
+              if (result) go(`shift/${result.shifts[0].id}`);
+            }}
+          >
+            Invite {firstName(repeat)}
+          </Button>
+        ) : null}
+        {repeat ? (
+          <p className="pv-bar-note">
+            Accepting books {firstName(repeat)} straight away.
+          </p>
+        ) : (
+          <div className="pv-choices">
+            <button
+              className="pv-choice is-primary"
+              disabled={!!validation}
+              onClick={() => send("post")}
+            >
+              <strong>
+                {alerted.length || !draft.roles.length
+                  ? "Post shift"
+                  : "Ask Dyuknow to find someone"}
+              </strong>
+              <small>
+                {!draft.roles.length
+                  ? "Choose who you need first."
+                  : alerted.length
+                    ? `Texts ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`}. You review who can cover, then book.`
+                    : "No one has this role yet."}
+              </small>
+            </button>
+            {eligible.length > 0 && (
+              <button
+                className="pv-choice"
+                disabled={!!validation}
+                onClick={() => setView("invite")}
+              >
+                <strong>Invite specific people</strong>
+                <small>You choose who. Accepting books them straight away.</small>
+              </button>
+            )}
+          </div>
+        )}
+      </ActionBar>
     </>
   );
 }

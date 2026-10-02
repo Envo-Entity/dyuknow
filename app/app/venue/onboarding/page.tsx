@@ -1,5 +1,6 @@
-import { VenueOnboarding } from "@/components/onboarding/VenueOnboarding";
+import { redirect } from "next/navigation";
+import { demoSetupRoute } from "@/lib/demoRoutes";
 
-export default function VenueOnboardingPage() {
-  return <VenueOnboarding />;
+export default function LegacyOnboardingPage() {
+  redirect(demoSetupRoute("venue"));
 }

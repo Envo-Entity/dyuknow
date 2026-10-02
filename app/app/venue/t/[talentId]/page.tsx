@@ -1,9 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-import { useParams } from "next/navigation";
-import { TalentProfile } from "@/components/venue/TalentProfile";
-
-export default function TalentProfilePage() {
-  const params = useParams<{ talentId: string }>();
-  return <TalentProfile talentId={params.talentId} />;
+export default async function LegacyTalentPage({ params }: { params: Promise<{ talentId: string }> }) {
+  const { talentId } = await params;
+  redirect(demoRoute("venue", "talent", talentId));
 }

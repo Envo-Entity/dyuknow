@@ -122,6 +122,16 @@ export interface VenueIdentity {
   rateFoh: string;
   knownFor: string[];
   agreedCommunity: string[];
+  address: string;
+  postcode: string;
+  teamsNeeded: string[];
+}
+
+export interface DatedAvailability {
+  date: string;
+  kind: "free" | "not-free";
+  start: string;
+  end: string;
 }
 
 export interface TalentIdentity {
@@ -149,6 +159,9 @@ export interface TalentIdentity {
   cv: UploadedFile | null;
   knownFor: string[];
   agreedCommunity: string[];
+  customSkills: string[];
+  shiftAlerts: import("./catalogue").ShiftAlert;
+  datedAvailability: DatedAvailability[];
 }
 
 export interface AppData {

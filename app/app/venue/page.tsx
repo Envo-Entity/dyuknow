@@ -1,19 +1,6 @@
-import { Page } from "@/components/layout/Page";
-import { RoleMosaic } from "@/components/venue/RoleMosaic";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-export default function VenueHomePage() {
-  return (
-    <Page>
-      <div className="flex items-center gap-2 font-serif text-[15px] italic text-ink-soft">
-        <span className="dot-pulse inline-block h-2 w-2 flex-none rounded-full bg-sage" />
-        <span>The pass is open · Fri 12 – Sun 14 Sep</span>
-      </div>
-      <h1 className="mt-3.5 font-sans text-[clamp(42px,8.5vw,92px)] font-bold leading-[0.98] tracking-[-0.015em]">
-        Who do you
-        <br />
-        <span className="font-serif font-normal italic">need today?</span>
-      </h1>
-      <RoleMosaic />
-    </Page>
-  );
+export default function LegacyPage() {
+  redirect(demoRoute("venue", "home"));
 }

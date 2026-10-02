@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dyuknow
 
-## Getting Started
+The main app uses the accepted MVP preview UI. Venue, talent and owner flows
+are a browser-local demo. Admin onboarding is the live data collection flow.
 
-First, run the development server:
+## Run locally
 
-```bash
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [the main app](http://localhost:3000/app). `/` and `/preview` show the same
+demo and share the existing `dyuknow_mvp_preview_v4` browser storage. The demo
+works without Supabase configuration.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [admin onboarding](http://localhost:3000/admin/onboarding) for real talent
+and venue intake. Configure `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` for this flow. It retains
+its existing forms, uploads and database submission, with the added roles,
+skills, custom skills, shift-alert preferences, dated availability, venue
+address/postcode and team preferences.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Compatibility
 
-## Learn More
+Old talent and venue dashboard, profile, booking and message URLs redirect to
+the current demo. Old public onboarding URLs open the matching local demo
+setup. Legacy chats and opportunity details with different sample IDs return
+to the current messages or dashboard screens.
 
-To learn more about Next.js, take a look at the following resources:
+The demo's owner workspace manages sample members only. Real profile approval
+is managed through trusted database administration. No real SMS, payments or
+public member setup are connected to the demo.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Documentation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [How to try the demo](docs/MVP-preview-walkthrough.md)
+- [User flows](docs/mvp-user-flow.md)
+- [Flowcharts](docs/MVP-preview-flowcharts.md)
+- [Additive onboarding decisions and database mapping](docs/data-model.md)
 
-## Deploy on Vercel
+The onboarding SQL in `supabase/migrations/` was already applied to the
+existing database on 2 October 2026. UI promotion does not reapply it.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Checks
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```sh
+npm run build
+npm run test:preview
+npm run test:onboarding
+```

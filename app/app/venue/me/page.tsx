@@ -1,5 +1,6 @@
-import { VenueProfile } from "@/components/venue/VenueProfile";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-export default function VenueMePage() {
-  return <VenueProfile />;
+export default function LegacyPage() {
+  redirect(demoRoute("venue", "profile"));
 }

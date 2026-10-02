@@ -27,13 +27,19 @@ import {
   shiftLabel,
   unreadChat,
   serviceLabel,
+  allSkills,
+  defaultRate,
+  fullAddress,
   type Action,
   type Data,
   type Member,
   type Side,
   type ShiftDraft,
+  areaOf,
 } from "@/lib/preview/model";
 import { PreviewContext, usePreview } from "./context";
+import { SHIFT_ALERTS } from "@/lib/catalogue";
+import { addCustomSkill } from "@/lib/onboardingModel";
 import {
   Badge,
   Button,
@@ -57,6 +63,8 @@ import {
   Thread,
 } from "./MemberViews";
 import { Stories } from "./Stories";
+import { Chips } from "./MemberViews";
+import { TEAMS, TEAM_NAMES } from "@/lib/catalogue";
 import "./preview.css";
 function Bell() {
   return (
@@ -94,10 +102,24 @@ export function PreviewApp() {
   const entry = !actor || (side !== "owner" && !me);
   const [accounts, setAccounts] = useState(false);
   const [controls, setControls] = useState(false);
-  const [feedback, setFeedback] = useState<{
+  const [rawFeedback, setRawFeedback] = useState<{
     text: string;
     error: boolean;
+    for: string;
   } | null>(null);
+  // A message meant for one account never carries over to another.
+  const feedback = rawFeedback?.for === actor ? rawFeedback : null;
+  const setFeedback = useCallback(
+    (value: { text: string; error: boolean } | null) =>
+      setRawFeedback(
+        value && {
+          ...value,
+          // The account in the address bar at the moment the message is shown.
+          for: window.location.hash.slice(1).split("/").filter(Boolean)[1] || "",
+        },
+      ),
+    [],
+  );
   const toast = useCallback(
     (text: string) => setFeedback({ text, error: true }),
     [setFeedback],
@@ -174,7 +196,8 @@ export function PreviewApp() {
           { path: "profile", label: "Profile", icon: AccountIcon },
         ];
   let content;
-  if (entry) content = <Welcome />;
+  if (entry)
+    content = <Welcome key={`${side}/${actor}`} initialSetupSide={actor === "setup" && side !== "owner" ? side : null} />;
   else if (page === "guide") content = <Stories />;
   else if (
     !me?.approved &&
@@ -185,7 +208,6 @@ export function PreviewApp() {
       <>
         <Heading
           title="We’ll let you know when you’re in."
-          description="Your profile is ready for the owner. You can edit it while waiting for approval."
         />
         {page === "shift" &&
           data.shifts.find((s) => s.id === id) &&
@@ -198,15 +220,11 @@ export function PreviewApp() {
                   {shiftLabel(shift)} · {venue.name}
                 </h2>
                 <p>
-                  {venue.area} · London · £{shift.rate}/hour · {shift.capacity}{" "}
+                  {areaOf(venue)} · London · £{shift.rate}/hour · {shift.capacity}{" "}
                   {shift.capacity === 1 ? "person" : "people"}
                 </p>
                 <Services shift={shift} />
                 <p>{shift.note}</p>
-                <p className="pv-caption">
-                  These are the frozen terms. You can respond or accept an
-                  invitation after approval.
-                </p>
               </section>
             );
           })()}
@@ -238,6 +256,10 @@ export function PreviewApp() {
         family={FAMILIES[id] ? id : undefined}
         resumeInvite={id === "invite"}
       />
+    );
+  else if (page === "compose" && side === "venue" && id && parts[4])
+    content = (
+      <ShiftComposer key={`${id}/${parts[4]}`} origin={`${id}/${parts[4]}`} />
     );
   else if (page === "shift")
     content = <ShiftDetail key={`${actor}-${id}`} id={id} />;
@@ -273,13 +295,28 @@ export function PreviewApp() {
         error: feedback?.error ? feedback.text : "",
       }}
     >
-      <div className="pv-app">
+      <div
+        className={`pv-app ${
+          // Task screens get the whole phone; Back returns to the tabs.
+          ["new", "compose", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
+            ? "pv-focus"
+            : ""
+        }`}
+      >
         <div className="pv-preview-strip">
           <span>
             <span className="pv-dot" /> MVP preview · sample world ·{" "}
             {clockLabel(data.now)} London
           </span>
-          <button onClick={() => setControls(true)}>Preview controls</button>
+          <span className="pv-strip-links">
+            {!entry && side !== "owner" && (
+              <button onClick={() => go("notifications")}>
+                Texts{unread ? ` (${unread})` : ""}
+              </button>
+            )}
+            {!entry && <button onClick={() => go("guide")}>Walkthrough</button>}
+            <button onClick={() => setControls(true)}>Preview controls</button>
+          </span>
         </div>
         {!entry && (
           <>
@@ -288,17 +325,6 @@ export function PreviewApp() {
                 Dyuknow
               </button>
               <div className="pv-header-actions">
-                <button className="pv-guide-button" onClick={() => go("guide")}>
-                  Walkthrough
-                </button>
-                <button
-                  className="pv-notification-button"
-                  aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
-                  onClick={() => go("notifications")}
-                >
-                  <Bell />
-                  {unread > 0 && <span>{unread}</span>}
-                </button>
                 <button
                   className="pv-account-button"
                   onClick={() => setAccounts(true)}
@@ -377,11 +403,11 @@ export function PreviewApp() {
     </PreviewContext.Provider>
   );
 }
-function Welcome() {
+function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "talent" | null }) {
   const { data } = usePreview();
   const [choose, setChoose] = useState<Side | null>(null);
   const [phone, setPhone] = useState(false);
-  const [setup, setSetup] = useState<"venue" | "talent" | null>(null);
+  const [setup, setSetup] = useState<"venue" | "talent" | null>(initialSetupSide);
   return (
     <>
       <div className="pv-entry-top">
@@ -396,8 +422,6 @@ function Welcome() {
         </h1>
         <p>
           Hospitality cover in London. A service, a day, a few days.
-          <br />
-          Experience every step, from the first request to the next booking.
         </p>
       </div>
       <div className="pv-entry-panels">
@@ -409,8 +433,7 @@ function Welcome() {
               for <em>service.</em>
             </h2>
             <p>
-              Find the people who keep your room running. Post a shift, invite a
-              familiar face, and know who’s coming.
+              Post a shift, invite people you know, and see who’s coming.
             </p>
           </div>
           <div className="pv-entry-member">
@@ -435,8 +458,7 @@ function Welcome() {
               to <em>work.</em>
             </h2>
             <p>
-              Thoughtful rooms, clear terms and your own schedule. Respond to a
-              shift or accept a personal invitation.
+              Find shifts and manage your availability.
             </p>
           </div>
           <div className="pv-entry-member">
@@ -545,7 +567,7 @@ function AccountSwitcher({
                 <span>
                   {m.name}
                   <small>
-                    {m.roles.length ? m.roles.join(" · ") : m.area}
+                    {m.roles.length ? m.roles.join(" · ") : areaOf(m)}
                     {!m.approved && " · Waiting for approval"}
                   </small>
                 </span>
@@ -701,7 +723,6 @@ function Setup({
 }) {
   const { data, act, toast } = usePreview();
   const [step, rawSetStep] = useState(data.setupDrafts?.[side]?.step || 1);
-  const [terms, setTerms] = useState(false);
   const [customSkill, setCustomSkill] = useState("");
   const [availabilityDates, rawSetDates] = useState<string[]>(
     data.setupDrafts?.[side]?.availabilityDates || [
@@ -720,23 +741,42 @@ function Setup({
         id: uid(),
         side,
         name: side === "talent" ? "Alex Morgan" : "The Orchard",
-        area: "London",
         phone: side === "talent" ? "+44 7700 900299" : "+44 7700 900199",
+        email: side === "talent" ? "alex@example.com" : "hello@theorchard.example",
+        postcode: side === "talent" ? "SW11 1AA" : "TW9 1AB",
         photo: "",
         bio:
           side === "talent"
-            ? "A calm section chef with four years in London kitchens."
-            : "A welcoming neighbourhood restaurant in London.",
+            ? "Four years on sections in London kitchens. Calm on a busy service."
+            : "A neighbourhood restaurant in Richmond.",
         roles: side === "talent" ? ["CDP"] : [],
-        skills: ["Modern British"],
+        skills: side === "talent" ? ["Grill"] : [],
+        customSkills: [],
         approved: false,
         alert: "all",
-        address:
-          side === "venue" ? "10 High Street, Richmond, London TW9 1AB" : "",
-        contact: side === "venue" ? "Alex · Manager" : "",
-        rate: 20,
-        note: "Chef whites · staff meal",
-        previous: [],
+        // Only what this short setup asks; everything else starts empty.
+        venue:
+          side === "venue"
+            ? {
+                address: "10 High Street, Richmond, London",
+                contactName: "Alex",
+                contactRole: "Manager",
+                types: [],
+                cuisines: [],
+                covers: "",
+                teamSize: 0,
+                website: "",
+                instagram: "",
+                knownFor: [],
+                teamsNeeded: ["Kitchen"],
+                dressCode: "Chef whites",
+                uniform: true,
+                staffMeal: true,
+                rateChef: 18,
+                rateFoh: 16,
+                vacancies: 0,
+              }
+            : undefined,
       },
   );
   function saveDraft(
@@ -805,43 +845,32 @@ function Setup({
           </Field>
           {side === "talent" && (
             <>
-              <Field label="Primary role">
-                <select
-                  value={form.roles[0] || "CDP"}
-                  onChange={(e) =>
-                    setForm({ ...form, roles: [e.target.value] })
-                  }
-                >
-                  {Object.values(FAMILIES)
-                    .flatMap((f) => f.roles)
-                    .map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                </select>
-              </Field>
-              <h3>Experience and skills</h3>
-              <div className="pv-chips">
-                {[...new Set([...SKILLS, ...form.skills])].map((skill) => (
-                  <button
-                    key={skill}
-                    className={form.skills.includes(skill) ? "selected" : ""}
-                    aria-pressed={form.skills.includes(skill)}
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        skills: form.skills.includes(skill)
-                          ? form.skills.filter((s) => s !== skill)
-                          : [...form.skills, skill],
-                      })
-                    }
-                  >
-                    {skill}
-                  </button>
-                ))}
-              </div>
+              <h3>Positions</h3>
+              {TEAM_NAMES.map((team) => (
+                <Chips
+                  key={team}
+                  options={TEAMS[team]}
+                  selected={form.roles}
+                  onChange={(roles) => setForm({ ...form, roles })}
+                />
+              ))}
+              <h3>Skills</h3>
+              <Chips
+                options={SKILLS}
+                selected={form.skills}
+                onChange={(skills) => setForm({ ...form, skills })}
+              />
+              {form.customSkills.length > 0 && (
+                <Chips
+                  options={form.customSkills}
+                  selected={form.customSkills}
+                  onChange={(customSkills) => setForm({ ...form, customSkills })}
+                />
+              )}
               <div className="pv-inline">
                 <Field label="Add your own skill">
                   <input
+                    maxLength={80}
                     value={customSkill}
                     onChange={(e) => setCustomSkill(e.target.value)}
                   />
@@ -852,9 +881,7 @@ function Setup({
                   onClick={() => {
                     setForm({
                       ...form,
-                      skills: [
-                        ...new Set([...form.skills, customSkill.trim()]),
-                      ],
+                      customSkills: addCustomSkill(form.customSkills, customSkill, form.skills),
                     });
                     setCustomSkill("");
                   }}
@@ -877,56 +904,90 @@ function Setup({
       )}
       {step === 2 && (
         <>
-          <Field label="London work area">
-            <input
-              value={form.area}
-              onChange={(e) => setForm({ ...form, area: e.target.value })}
-            />
-          </Field>
-          <Field label="Contact phone · sample number">
+          <Field label="Phone · sample number">
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
           </Field>
-          {side === "venue" ? (
+          <Field label="Email">
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Field>
+          {side === "venue" && form.venue && (
+            <Field label="Street address">
+              <input
+                value={form.venue.address}
+                onChange={(e) =>
+                  setForm({ ...form, venue: { ...form.venue!, address: e.target.value } })
+                }
+              />
+            </Field>
+          )}
+          <Field label={side === "venue" ? "Postcode" : "Home postcode"}>
+            <input
+              value={form.postcode}
+              onChange={(e) => setForm({ ...form, postcode: e.target.value })}
+            />
+          </Field>
+          {side === "venue" && form.venue ? (
             <>
-              <Field label="Full work address">
-                <input
-                  value={form.address}
-                  onChange={(e) =>
-                    setForm({ ...form, address: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="On-site contact">
-                <input
-                  value={form.contact}
-                  onChange={(e) =>
-                    setForm({ ...form, contact: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Typical rate · £ per hour">
-                <input
-                  type="number"
-                  value={form.rate}
-                  onChange={(e) =>
-                    setForm({ ...form, rate: Number(e.target.value) })
-                  }
-                />
-              </Field>
-              <Field label="Dress code, uniform and staff meal defaults">
-                <textarea
-                  value={form.note}
-                  onChange={(e) => setForm({ ...form, note: e.target.value })}
-                  rows={2}
-                />
-              </Field>
+              <div className="pv-form-grid">
+                <Field label="On-site contact name">
+                  <input
+                    value={form.venue.contactName}
+                    onChange={(e) =>
+                      setForm({ ...form, venue: { ...form.venue!, contactName: e.target.value } })
+                    }
+                  />
+                </Field>
+                <Field label="Their role">
+                  <input
+                    value={form.venue.contactRole}
+                    onChange={(e) =>
+                      setForm({ ...form, venue: { ...form.venue!, contactRole: e.target.value } })
+                    }
+                  />
+                </Field>
+                <Field label="Kitchen and pastry · £ per hour">
+                  <input
+                    type="number"
+                    value={form.venue.rateChef}
+                    onChange={(e) =>
+                      setForm({ ...form, venue: { ...form.venue!, rateChef: Number(e.target.value) } })
+                    }
+                  />
+                </Field>
+                <Field label="Front of house · £ per hour">
+                  <input
+                    type="number"
+                    value={form.venue.rateFoh}
+                    onChange={(e) =>
+                      setForm({ ...form, venue: { ...form.venue!, rateFoh: Number(e.target.value) } })
+                    }
+                  />
+                </Field>
+              </div>
+              <h3>Teams you usually need</h3>
+              <Chips
+                options={TEAM_NAMES}
+                selected={form.venue.teamsNeeded}
+                onChange={(teamsNeeded) =>
+                  setForm({ ...form, venue: { ...form.venue!, teamsNeeded } })
+                }
+              />
             </>
           ) : (
             <>
+              <Field label="Shift alerts">
+                <select value={form.alert} onChange={(e) => setForm({ ...form, alert: e.target.value as Member["alert"] })}>
+                  {SHIFT_ALERTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </Field>
               <label className="pv-check">
                 <input
                   type="checkbox"
@@ -986,13 +1047,13 @@ function Setup({
           <Button
             onClick={() => {
               if (
-                !form.area.trim() ||
+                !form.postcode.trim() ||
                 form.phone.replace(/\D/g, "").length < 10 ||
                 (side === "venue" &&
-                  (!form.address.trim() || !form.contact.trim()))
+                  (!form.venue?.address.trim() || !form.venue?.contactName.trim()))
               )
                 return toast(
-                  "Add your London area, complete sample phone and venue contact details.",
+                  "Add a postcode, a complete sample phone and the venue’s address and contact.",
                 );
               setStep(3);
             }}
@@ -1005,27 +1066,13 @@ function Setup({
         <>
           <h3>{form.name}</h3>
           <p>
-            {form.roles.join(" · ")} · {form.area}
+            {side === "talent" ? `${form.roles.join(" · ")} · ` : ""}
+            {areaOf(form)}
           </p>
           <p>{form.bio}</p>
-          <p>
-            {side === "venue"
-              ? `${form.address} · £${form.rate}/hour default`
-              : form.skills.join(" · ")}
-          </p>
-          <p>
-            The owner approves every member before they post, respond or book.
-          </p>
-          <label className="pv-check">
-            <input
-              type="checkbox"
-              checked={terms}
-              onChange={(e) => setTerms(e.target.checked)}
-            />{" "}
-            I understand this sample setup and the community expectations.
-          </label>
+          <p>{side === "venue" ? fullAddress(form) : allSkills(form).join(" · ")}</p>
+          <p>Dyuknow approves every member before they can post or respond.</p>
           <Button
-            disabled={!terms}
             onClick={() => {
               const result = act(
                 {
@@ -1090,10 +1137,13 @@ function OwnerView({ view }: { view: string }) {
               <div>
                 <h2>{m.name}</h2>
                 <p>
-                  {m.side} · {m.area} · {m.roles.join(" · ")}
+                  {[m.side, areaOf(m), ...m.roles].filter(Boolean).join(" · ")}
                 </p>
                 <p>{m.bio}</p>
-                <small>{m.phone}</small>
+                <small>
+                  {m.phone} · {m.email}
+                  {m.venue ? ` · ${m.venue.vacancies} vacancies in a typical week` : ""}
+                </small>
               </div>
               {m.approved ? (
                 <Badge good>Approved</Badge>
@@ -1262,7 +1312,7 @@ function PreviewControls({
       start: shift.days[0].start,
       end: shift.days[0].end,
       capacity: 1,
-      rate: venue.rate,
+      rate: defaultRate(venue, family),
       note: "Overlapping sample service for the conflict story.",
       mode: "invite",
       invitees: [actor],

@@ -1,5 +1,6 @@
-import { MyProfile } from "@/components/talent/MyProfile";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-export default function MyProfilePage() {
-  return <MyProfile />;
+export default function LegacyPage() {
+  redirect(demoRoute("talent", "profile"));
 }

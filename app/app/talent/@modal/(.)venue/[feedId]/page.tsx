@@ -1,9 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-import { useParams } from "next/navigation";
-import { VenueDetailModal } from "@/components/talent/VenueDetailModal";
-
-export default function VenueDetailInterceptedPage() {
-  const params = useParams<{ feedId: string }>();
-  return <VenueDetailModal feedId={params.feedId} />;
+// Old opportunity IDs describe the previous demo's requests.
+export default function LegacyVenueRequestPage() {
+  redirect(demoRoute("talent"));
 }

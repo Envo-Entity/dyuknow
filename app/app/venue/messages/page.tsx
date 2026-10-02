@@ -1,5 +1,6 @@
-import { MessagesView } from "@/components/messages/MessagesView";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-export default function VenueMessagesPage() {
-  return <MessagesView side="venue" />;
+export default function LegacyPage() {
+  redirect(demoRoute("venue", "messages"));
 }

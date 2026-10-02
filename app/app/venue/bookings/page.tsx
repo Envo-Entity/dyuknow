@@ -1,5 +1,6 @@
-import { BookingsView } from "@/components/bookings/BookingsView";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-export default function VenueBookingsPage() {
-  return <BookingsView side="venue" />;
+export default function LegacyPage() {
+  redirect(demoRoute("venue", "bookings"));
 }

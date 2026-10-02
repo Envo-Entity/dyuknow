@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { CONVOS, DAY_DEFS, ME, PROP, defaultAppData } from "./data";
 import type { AppData, DayCode, Side, TalentIdentity, VenueIdentity } from "./types";
+import { venueDisplayName, teamsFromLegacyRoles } from "./onboardingModel";
 
 const STORAGE_KEY = "dyuknow_v1";
 
@@ -50,6 +51,9 @@ export const EMPTY_VENUE_IDENTITY: VenueIdentity = {
   rateFoh: "",
   knownFor: [],
   agreedCommunity: [],
+  address: "",
+  postcode: "",
+  teamsNeeded: [],
 };
 
 export const EMPTY_TALENT_IDENTITY: TalentIdentity = {
@@ -77,6 +81,9 @@ export const EMPTY_TALENT_IDENTITY: TalentIdentity = {
   cv: null,
   knownFor: [],
   agreedCommunity: [],
+  customSkills: [],
+  shiftAlerts: "all",
+  datedAvailability: [],
 };
 
 const AppStoreContext = createContext<AppStore | null>(null);
@@ -92,6 +99,8 @@ function loadInitial(): AppData {
       ...saved,
       read: { ...base.read, ...saved.read },
       convos: { ...base.convos, ...saved.convos },
+      talentIdentity: saved.talentIdentity ? { ...EMPTY_TALENT_IDENTITY, ...saved.talentIdentity } : null,
+      venueIdentity: saved.venueIdentity ? { ...EMPTY_VENUE_IDENTITY, ...saved.venueIdentity, teamsNeeded: saved.venueIdentity.teamsNeeded ?? teamsFromLegacyRoles(saved.venueIdentity.needs ?? []) } : null,
     };
   } catch {
     return base;
@@ -252,7 +261,7 @@ export function otherSide(side: Side): Side {
 
 export function displayIdentity(side: Side, data: AppData): { name: string; mono: string; photo: string | null } {
   const identity = side === "venue" ? data.venueIdentity : data.talentIdentity;
-  const name = identity?.name.trim();
+  const name = side === "venue" && data.venueIdentity ? venueDisplayName(data.venueIdentity) : identity?.name.trim();
   if (name) {
     return { name, mono: name.charAt(0).toUpperCase(), photo: identity?.photo ?? null };
   }

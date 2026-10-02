@@ -26,6 +26,8 @@ import {
 import { useAppStore } from "@/lib/store";
 import { submitVenueOnboarding } from "@/lib/onboardingSubmit";
 import type { VenueIdentity } from "@/lib/types";
+import { TEAM_NAMES } from "@/lib/catalogue";
+import { venueDisplayName, teamsFromLegacyRoles } from "@/lib/onboardingModel";
 
 const TOTAL_STEPS = 8;
 
@@ -66,6 +68,10 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   const teamSize = identity?.teamSize ?? "";
   const teamVacanciesPerWeek = identity?.teamVacanciesPerWeek ?? "";
   const needs = identity?.needs ?? [];
+  const address = identity?.address ?? "";
+  const postcode = identity?.postcode ?? "";
+  const teamsNeeded = identity?.teamsNeeded ?? teamsFromLegacyRoles(needs);
+  const displayName = identity ? venueDisplayName(identity) : "";
   const typicalShifts = identity?.typicalShifts ?? [];
   const typicalNotice = identity?.typicalNotice ?? [];
   const dressCode = identity?.dressCode ?? "";
@@ -142,13 +148,16 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           <FormField label="Business name" value={name} onChange={(v) => setVenueIdentityFn({ name: v })} placeholder="e.g. The Larkspur" />
           <FormField label="Trading name" value={tradingName} onChange={(v) => setVenueIdentityFn({ tradingName: v })} placeholder="e.g. Larkspur Mayfair" />
           <FormField label="Registered company (optional)" value={registeredCompany} onChange={(v) => setVenueIdentityFn({ registeredCompany: v })} placeholder="e.g. Larkspur Hospitality Ltd" />
+          <FormField label="Street address" value={address} onChange={(v) => setVenueIdentityFn({ address: v })} placeholder="e.g. 14 Church Road, Richmond, London" />
+          <FormField label="Venue postcode" value={postcode} onChange={(v) => setVenueIdentityFn({ postcode: v })} placeholder="e.g. TW9 1UA" />
+          <p className="text-[13px] leading-relaxed text-ink-soft">Talent see your area before booking. The full address is shared once booked.</p>
           <FormField label="Website" value={website} onChange={(v) => setVenueIdentityFn({ website: v })} placeholder="e.g. thelarkspur.co.uk" />
           <FormField label="Instagram" value={instagram} onChange={(v) => setVenueIdentityFn({ instagram: v })} placeholder="e.g. @thelarkspur" />
           <FormField label="Contact person" value={contactName} onChange={(v) => setVenueIdentityFn({ contactName: v })} placeholder="e.g. Jonathan Reeve" />
           <FormField label="Position" value={contactPosition} onChange={(v) => setVenueIdentityFn({ contactPosition: v })} placeholder="e.g. General Manager" />
           <FormField label="Phone" value={contactPhone} onChange={(v) => setVenueIdentityFn({ contactPhone: v })} placeholder="e.g. 020 7946 0958" type="tel" inputMode="tel" />
           <FormField label="Email" value={contactEmail} onChange={(v) => setVenueIdentityFn({ contactEmail: v })} placeholder="e.g. jonathan@thelarkspur.co.uk" type="email" inputMode="email" />
-          <ContinueButton onClick={() => setStep(1)} />
+          <ContinueButton disabled={!address.trim() || !postcode.trim()} onClick={() => setStep(1)} />
         </div>
       )}
 
@@ -194,6 +203,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Staffing" title="What do you usually need covered?" description="We'll surface the right talent first. You can change this anytime." />
           <ChipField label="Roles you need" options={ROLES_NEEDED} selected={needs} onToggle={(v) => toggleFromList(needs, v, (next) => setVenueIdentityFn({ needs: next }))} />
+          <ChipField label="Teams you need · choose all that apply" options={TEAM_NAMES} selected={teamsNeeded} onToggle={(v) => toggleFromList(teamsNeeded, v, (next) => setVenueIdentityFn({ teamsNeeded: next }))} />
           <ChipField
             label="Typical shifts"
             options={SHIFT_TYPES}
@@ -251,7 +261,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           photo={photo}
           avatarTone="dark"
           eyebrow="Dyuknow venue"
-          name={name || "Your venue"}
+          name={displayName || "Your venue"}
           meta={venueType.join(" · ")}
           rows={[
             { label: "Member since", value: "Today" },
@@ -260,10 +270,10 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           ]}
           headline={
             <>
-              Welcome aboard — <span className="font-serif font-normal italic">you&rsquo;re in.</span>
+              Welcome aboard — <span className="font-serif font-normal italic">venue ready.</span>
             </>
           }
-          body="That's your venue set up. Come in and have a look around — you can change any of this later."
+          body="Your venue is submitted for the owner to review. You can look around while you wait for approval."
           saveStatus={saveStatus}
           error={submitError}
         >

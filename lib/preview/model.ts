@@ -1,3 +1,4 @@
+import { TEAMS, SKILLS as CATALOGUE_SKILLS } from "../catalogue.ts";
 export type Side = "venue" | "talent" | "owner";
 export type ResponseStatus =
   | "invited"
@@ -8,23 +9,41 @@ export type ResponseStatus =
   | "withdrawn"
   | "not-selected"
   | "lapsed";
+// Preview profile shape; the additive database mapping is in docs/data-model.md.
+export type VenueDetails = {
+  address: string; // street line; the postcode is on the member
+  contactName: string;
+  contactRole: string;
+  types: string[];
+  cuisines: string[];
+  covers: string;
+  teamSize: number;
+  website: string;
+  instagram: string;
+  knownFor: string[];
+  teamsNeeded: string[];
+  dressCode: string;
+  uniform: boolean;
+  staffMeal: boolean;
+  rateChef: number;
+  rateFoh: number;
+  vacancies: number; // owner only
+};
 export type Member = {
   id: string;
   side: "venue" | "talent";
   name: string;
-  area: string;
   phone: string;
+  email: string;
+  postcode: string;
   photo: string;
   bio: string;
   roles: string[];
   skills: string[];
+  customSkills: string[];
   approved: boolean;
   alert: "all" | "soon" | "off";
-  address: string;
-  contact: string;
-  rate: number;
-  note: string;
-  previous: string[];
+  venue?: VenueDetails;
 };
 export type Service = {
   date: string;
@@ -50,6 +69,8 @@ export type Shift = {
   contact?: string;
   phone?: string;
   ownerAlerted: boolean;
+  // Multi-day only: the venue needs the same person on every day.
+  together?: boolean;
 };
 export type Response = {
   id: string;
@@ -59,11 +80,16 @@ export type Response = {
   status: ResponseStatus;
   note: string;
   chat: boolean;
+  // Dates the talent said yes to. Missing means every date of the shift
+  // (an invitation is the venue's yes to all of them).
+  days?: string[];
 };
 export type Booking = {
   id: string;
   shift: string;
   talent: string;
+  // A booking covers only the dates both sides said yes to.
+  days: string[];
   cancelled: boolean;
   reason?: string;
   by?: string;
@@ -96,7 +122,7 @@ export type Availability = {
   end: string;
 };
 export type Data = {
-  version: 1;
+  version: 2;
   now: string;
   members: Member[];
   shifts: Shift[];
@@ -138,65 +164,57 @@ export type ShiftDraft = {
   replacement?: string;
   editing?: string;
   repeatTalent?: string;
+  together?: boolean;
+  // Any dates (up to 7) with the same hours. When missing, `date` + `count`
+  // describe a consecutive run.
+  dates?: string[];
+  // Where an unsent draft came from: "edit/<shift>", "again/<booking>" or
+  // "replace/<booking>". Missing for a brand new shift.
+  origin?: string;
 };
-export const FAMILIES: Record<
-  string,
-  { roles: string[]; photo: string; caption: string }
-> = {
-  Kitchen: {
-    roles: [
-      "Demi CDP",
-      "CDP",
-      "Senior CDP",
-      "Junior Sous",
-      "Sous Chef",
-      "Head Chef",
-      "Executive Chef",
-    ],
-    photo: "/assets/role-headchef-tile.webp",
-    caption: "A steady hand at the pass",
-  },
-  Pastry: {
-    roles: ["Pastry Chef"],
-    photo: "/assets/talent-pastry-dish-1.webp",
-    caption: "Precision to the last course",
-  },
-  Bar: {
-    roles: ["Bartender", "Mixologist"],
-    photo: "/assets/talent-bartender-1.webp",
-    caption: "Keep the evening flowing",
-  },
-  Sommelier: {
-    roles: ["Sommelier"],
-    photo: "/assets/talent-sommelier-1.webp",
-    caption: "Every bottle, thoughtfully served",
-  },
-  Floor: {
-    roles: [
-      "Maître d’",
-      "Restaurant Manager",
-      "Supervisor",
-      "Section Waiter",
-      "Waiter",
-      "Host",
-    ],
-    photo: "/assets/talent-maitred-1.webp",
-    caption: "The people who hold the room",
-  },
+// Teams and their positions come from the shared list; the preview only adds
+// the tile photography.
+export const FAMILIES: Record<string, { roles: string[]; photo: string }> = {
+  Kitchen: { roles: [...TEAMS.Kitchen], photo: "/assets/role-headchef-tile.webp" },
+  Pastry: { roles: [...TEAMS.Pastry], photo: "/assets/talent-pastry-dish-1.webp" },
+  Bar: { roles: [...TEAMS.Bar], photo: "/assets/talent-bartender-1.webp" },
+  Sommelier: { roles: [...TEAMS.Sommelier], photo: "/assets/talent-sommelier-1.webp" },
+  Floor: { roles: [...TEAMS.Floor], photo: "/assets/talent-maitred-1.webp" },
 };
-export const SKILLS = [
-  "Fine dining",
-  "Live fire",
-  "Modern British",
-  "Pastry",
-  "Wine service",
-  "Cocktails",
-  "High volume",
-  "Events",
-  "Coffee",
-  "French cuisine",
-  "Guest relations",
-];
+export const SKILLS = CATALOGUE_SKILLS;
+// "TW9 1UA" → "TW9": the only part of a postcode shown before a booking.
+export function areaOf(m: Pick<Member, "postcode">) {
+  const p = m.postcode.trim().toUpperCase();
+  if (!p) return "";
+  return p.includes(" ") ? p.split(" ")[0] : p.slice(0, -3) || p;
+}
+export function fullAddress(m: Member) {
+  return [m.venue?.address, m.postcode].filter(Boolean).join(", ");
+}
+export function contactLine(m: Member) {
+  return [m.venue?.contactName, m.venue?.contactRole].filter(Boolean).join(" · ");
+}
+export function allSkills(m: Member) {
+  return [...m.skills, ...m.customSkills];
+}
+// Pay pre-fill: the chef rate for Kitchen and Pastry, the FOH rate otherwise.
+export function defaultRate(m: Member, family: string) {
+  return ["Kitchen", "Pastry"].includes(family)
+    ? m.venue?.rateChef || 0
+    : m.venue?.rateFoh || 0;
+}
+// Note pre-fill, built from the venue's dress code, uniform and staff meal.
+export function defaultNote(m: Member) {
+  const v = m.venue;
+  if (!v) return "";
+  return [
+    v.dressCode,
+    v.uniform ? "Uniform provided" : "Uniform not provided",
+    v.staffMeal ? "Staff meal" : "No staff meal",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 export function uid() {
   return crypto.randomUUID();
 }
@@ -256,12 +274,16 @@ export function londonInstant(date: string, time: string) {
   return new Date(matches[0]).toISOString();
 }
 export function makeDays(d: ShiftDraft): Service[] {
-  if (!Number.isInteger(d.count) || d.count < 1 || d.count > 7)
-    throw new Error("Choose between 1 and 7 consecutive dates.");
-  if (!d.date || !d.start || !d.end || d.start === d.end)
-    throw new Error("Choose a date and different start and end times.");
-  return Array.from({ length: d.count }, (_, i) => {
-    const date = datePlus(d.date, i);
+  const list = Array.isArray(d.dates)
+    ? [...new Set(d.dates)].sort()
+    : Number.isInteger(d.count) && d.date
+      ? Array.from({ length: d.count }, (_, i) => datePlus(d.date, i))
+      : [];
+  if (list.length < 1 || list.length > 7)
+    throw new Error("Choose between 1 and 7 dates.");
+  if (!d.start || !d.end || d.start === d.end)
+    throw new Error("Choose different start and end times.");
+  return list.map((date) => {
     const endDate = d.end < d.start ? datePlus(date, 1) : date;
     return {
       date,
@@ -281,6 +303,34 @@ export function overlap(a: Service[], b: Service[]) {
 export function bookedCount(data: Data, shift: string) {
   return data.bookings.filter((b) => b.shift === shift && !b.cancelled).length;
 }
+export function bookingServices(data: Data, b: Booking) {
+  const shift = data.shifts.find((s) => s.id === b.shift)!;
+  return shift.days.filter((d) => (b.days ?? []).includes(d.date));
+}
+export function offeredDates(shift: Shift, r: Response) {
+  return r.days ?? shift.days.map((d) => d.date);
+}
+// Who is booked on each date of a shift.
+export function coverage(data: Data, shift: Shift) {
+  return Object.fromEntries(
+    shift.days.map((d) => [
+      d.date,
+      data.bookings
+        .filter(
+          (b) => b.shift === shift.id && !b.cancelled && b.days.includes(d.date),
+        )
+        .map((b) => b.talent),
+    ]),
+  ) as Record<string, string[]>;
+}
+// Dates that still have a place left.
+// Dates that still have a place left and haven't started yet.
+export function openDates(data: Data, shift: Shift) {
+  const c = coverage(data, shift);
+  return shift.days
+    .filter((d) => c[d.date].length < shift.capacity && d.from > data.now)
+    .map((d) => d.date);
+}
 export function conflict(
   data: Data,
   talent: string,
@@ -292,7 +342,189 @@ export function conflict(
       b.talent === talent &&
       !b.cancelled &&
       b.shift !== exclude &&
-      overlap(days, data.shifts.find((s) => s.id === b.shift)!.days),
+      overlap(days, bookingServices(data, b)),
+  );
+}
+// Dates of a shift this talent could still take: open, and not clashing
+// with their own bookings elsewhere.
+// "Thu 8": short enough for buttons, unambiguous across two weeks.
+export function shortDay(date: string) {
+  return displayDate(date).replace(/ [A-Za-z]+$/, "");
+}
+// Days this talent could still add to what they've offered on a shift.
+export function offerableDates(data: Data, talent: string, shift: Shift) {
+  const r = data.responses.find(
+    (r) => r.shift === shift.id && r.talent === talent,
+  );
+  const offered =
+    r && ["can-cover", "booked"].includes(r.status) ? offeredDates(shift, r) : [];
+  const mine = data.bookings
+    .filter((b) => b.shift === shift.id && b.talent === talent && !b.cancelled)
+    .flatMap((b) => b.days);
+  return availableDates(data, talent, shift).filter(
+    (d) => !offered.includes(d) && !mine.includes(d),
+  );
+}
+// Days the venue can still book this person for: offered, still open, and
+// not already in their booking on this shift.
+export function bookableDates(data: Data, shift: Shift, r: Response) {
+  const open = openDates(data, shift);
+  const mine = data.bookings
+    .filter((b) => b.shift === shift.id && b.talent === r.talent && !b.cancelled)
+    .flatMap((b) => b.days);
+  return offeredDates(shift, r).filter(
+    (d) => open.includes(d) && !mine.includes(d),
+  );
+}
+// Days this talent marked Not free on their own calendar.
+export function busyDates(data: Data, talent: string, shift: Shift) {
+  return shift.days
+    .filter((d) =>
+      data.availability.some(
+        (a) => a.member === talent && a.date === d.date && a.kind === "not-free",
+      ),
+    )
+    .map((d) => d.date);
+}
+export function availableDates(data: Data, talent: string, shift: Shift) {
+  const open = openDates(data, shift);
+  return shift.days
+    .filter((d) => open.includes(d.date) && !conflict(data, talent, [d], shift.id))
+    .map((d) => d.date);
+}
+export function relativeDay(date: string, now: string) {
+  const today = londonDate(now);
+  if (date === today) return "Today";
+  if (date === datePlus(today, 1)) return "Tomorrow";
+  return displayDate(date);
+}
+export function hoursOf(s: Service) {
+  return (Date.parse(s.to) - Date.parse(s.from)) / 3600000;
+}
+// "Worked with you" comes only from recorded work: a past, uncancelled booking
+// at this venue that the venue didn't report as a no-show or problem.
+export function workedWith(data: Data, venue: string, talent: string) {
+  return data.bookings.some((b) => {
+    const s = data.shifts.find((x) => x.id === b.shift)!;
+    return (
+      s.venue === venue &&
+      b.talent === talent &&
+      !b.cancelled &&
+      bookingPast(data, b) &&
+      (!b.outcomes[venue] || b.outcomes[venue] === "Yes, worked")
+    );
+  });
+}
+export function joinNames(list: string[]) {
+  if (list.length <= 1) return list.join("");
+  return `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`;
+}
+export function firstName(m: Member) {
+  return m.side === "talent" ? m.name.split(" ")[0] : m.name;
+}
+// Compact label for dates: "Mon 5 Oct", "Mon 5–Wed 7 Oct", "Mon 5, Wed 7 Oct".
+export function datesLabel(dates: string[]) {
+  const sorted = [...new Set(dates)].sort();
+  if (!sorted.length) return "";
+  if (sorted.length === 1) return displayDate(sorted[0]);
+  const sameMonth = sorted.every((d) => d.slice(0, 7) === sorted[0].slice(0, 7));
+  const short = (d: string) =>
+    sameMonth ? displayDate(d).replace(/ [A-Za-z]+$/, "") : displayDate(d);
+  const month = sameMonth ? displayDate(sorted[0]).replace(/^.* /, " ") : "";
+  const consecutive = sorted.every(
+    (d, i) => i === 0 || datePlus(sorted[i - 1], 1) === d,
+  );
+  return consecutive && sorted.length > 2
+    ? `${short(sorted[0])}–${short(sorted.at(-1)!)}${month}`
+    : `${sorted.map(short).join(", ")}${month}`;
+}
+// Talent who were sent this shift: everyone alerted in the roles, or the invitees.
+export function audience(data: Data, shift: Shift) {
+  const invited = data.responses
+    .filter((r) => r.shift === shift.id && r.source === "invite")
+    .map((r) => r.talent);
+  if (shift.mode === "invite") return invited;
+  return [
+    ...new Set([
+      ...data.members
+        .filter(
+          (m) =>
+            m.side === "talent" &&
+            m.approved &&
+            m.roles.some((r) => shift.roles.includes(r)),
+        )
+        .map((m) => m.id),
+      ...invited,
+    ]),
+  ];
+}
+// One line a venue reads to know where a shift stands. Never contradicts the
+// day-by-day detail: it talks in people per day, not "days covered".
+export function venueSummary(data: Data, s: Shift) {
+  const waiting = data.responses.filter(
+    (r) =>
+      r.shift === s.id &&
+      ["can-cover", "booked"].includes(r.status) &&
+      bookableDates(data, s, r).length > 0,
+  ).length;
+  const c = coverage(data, s);
+  const open = openDates(data, s);
+  const active = data.bookings.filter((b) => b.shift === s.id && !b.cancelled);
+  const dropped = data.bookings.filter(
+    (b) => b.shift === s.id && b.cancelled && b.days.some((d) => open.includes(d)),
+  );
+  const prefix = dropped.length
+    ? `${joinNames([...new Set(dropped.map((b) => firstName(member(data, b.talent))))])} cancelled · `
+    : "";
+  if (s.status === "filled") return { text: "Filled", good: true, needs: false };
+  if (s.status === "expired")
+    return { text: "Started without full cover", good: false, needs: false };
+  if (s.status === "closed") return { text: "Closed", good: false, needs: false };
+  if (waiting)
+    return { text: `${prefix}${waiting} can cover · Review`, good: true, needs: true };
+  if (active.length || dropped.length) {
+    const people = (k: number, more: boolean) =>
+      `${k}${more ? " more" : ""} ${k === 1 ? "person" : "people"}`;
+    let text: string;
+    if (s.days.length === 1)
+      text =
+        s.capacity > 1
+          ? `${c[s.days[0].date].length} of ${s.capacity} booked`
+          : prefix
+            ? "needs someone"
+            : "Needs someone";
+    else {
+      const need = open.map((d) => ({
+        d,
+        k: s.capacity - c[d].length,
+        more: c[d].length > 0,
+      }));
+      const same = need.every((x) => x.k === need[0].k && x.more === need[0].more);
+      text = same
+        ? `${need.map((x) => shortDay(x.d)).join(", ")} ${need.length > 1 ? "each need" : "needs"} ${people(need[0].k, need[0].more)}`
+        : need.map((x) => `${shortDay(x.d)} needs ${people(x.k, x.more)}`).join(" · ");
+    }
+    return { text: `${prefix}${text}`, good: false, needs: !!dropped.length };
+  }
+  if (s.ownerAlerted)
+    return { text: "Dyuknow is looking for someone", good: false, needs: false };
+  const sent = audience(data, s).map((id) => member(data, id));
+  return {
+    text: sent.length
+      ? `Sent to ${sent.length > 3 ? `${sent.length} people` : joinNames(sent.map(firstName))} · no replies yet`
+      : "No members in this role yet",
+    good: false,
+    needs: false,
+  };
+}
+// An open shift from the same venue for the same roles and overlapping hours.
+export function similarShift(data: Data, venue: string, roles: string[], days: Service[]) {
+  return data.shifts.find(
+    (s) =>
+      s.venue === venue &&
+      s.status === "open" &&
+      s.roles.some((r) => roles.includes(r)) &&
+      overlap(s.days, days),
   );
 }
 export function isFree(data: Data, talent: string, days: Service[]) {
@@ -321,8 +553,8 @@ export function shiftLabel(s: Shift) {
   return s.roles.join(" or ");
 }
 export function bookingPast(data: Data, b: Booking) {
-  const s = data.shifts.find((s) => s.id === b.shift)!;
-  return s.days[s.days.length - 1].to <= data.now;
+  const days = bookingServices(data, b);
+  return days[days.length - 1].to <= data.now;
 }
 export function responseLabel(r: Response) {
   return {
@@ -387,7 +619,12 @@ function closeWaiting(
 }
 export function sweep(data: Data) {
   data.shifts.forEach((s) => {
-    if (s.status === "open" && s.days[0].from <= data.now) {
+    // A shift closes once no day that still needs someone is in the future.
+    if (
+      s.status === "open" &&
+      !openDates(data, s).length &&
+      s.days.some((d) => coverage(data, s)[d.date].length < s.capacity)
+    ) {
       s.status = "expired";
       closeWaiting(data, s, "This shift has started", "lapsed");
       notify(
@@ -427,7 +664,7 @@ export function sweep(data: Data) {
   data.reminders ??= [];
   for (const booking of data.bookings.filter((b) => !b.cancelled)) {
     const shift = data.shifts.find((s) => s.id === booking.shift)!;
-    const first = shift.days[0];
+    const first = bookingServices(data, booking)[0];
     const bookedAt = booking.bookedAt || shift.created;
     const reminder =
       londonDate(bookedAt) === first.date
@@ -451,172 +688,189 @@ export function sweep(data: Data) {
   }
 }
 export function seed(): Data {
+  const talent = (
+    m: Pick<Member, "id" | "name" | "phone" | "email" | "postcode" | "photo" | "bio" | "roles" | "skills"> &
+      Partial<Member>,
+  ): Member => ({
+    side: "talent",
+    customSkills: [],
+    approved: true,
+    alert: "all",
+    ...m,
+  });
   const members: Member[] = [
     {
       id: "spruce",
       side: "venue",
       name: "Spruce",
-      area: "Richmond",
       phone: "+44 7700 900101",
+      email: "kitchen@spruce.example",
+      postcode: "TW9 1UA",
       photo: "/assets/venue-larkspur-dining.webp",
-      bio: "A neighbourhood dining room built around seasonal British produce. A small team, a warm welcome and a considered evening service.",
+      bio: "A neighbourhood dining room built around seasonal British produce.",
       roles: [],
       skills: [],
+      customSkills: [],
       approved: true,
       alert: "all",
-      address: "14 Church Road, Richmond, London TW9 1UA",
-      contact: "Alex · Duty manager",
-      rate: 18,
-      note: "Chef whites · uniform provided · staff meal. Arrive 15 minutes early for a briefing.",
-      previous: ["poppy"],
+      venue: {
+        address: "14 Church Road, Richmond, London",
+        contactName: "Alex",
+        contactRole: "Duty manager",
+        types: ["Restaurant"],
+        cuisines: ["British"],
+        covers: "30–60",
+        teamSize: 14,
+        website: "spruce.example",
+        instagram: "@spruce.richmond",
+        knownFor: ["Excellent food", "Great team culture"],
+        teamsNeeded: ["Kitchen", "Pastry"],
+        dressCode: "Chef whites",
+        uniform: true,
+        staffMeal: true,
+        rateChef: 18,
+        rateFoh: 16,
+        vacancies: 2,
+      },
     },
     {
       id: "sea",
       side: "venue",
       name: "The Sea The Sea",
-      area: "Chelsea",
       phone: "+44 7700 900102",
+      email: "hello@theseathesea.example",
+      postcode: "SW1X 0AW",
       photo: "/assets/venue-hotel-bar.webp",
-      bio: "A seafood counter with an open kitchen. Thoughtful ingredients, close teamwork and a calm service.",
+      bio: "A seafood counter with an open kitchen and a calm service.",
       roles: [],
       skills: [],
+      customSkills: [],
       approved: true,
       alert: "all",
-      address: "174 Pavilion Road, Chelsea, London SW1X 0AW",
-      contact: "Morgan · On-site manager",
-      rate: 22,
-      note: "Chef whites · staff meal · seafood counter service. Please bring your knives.",
-      previous: ["camille"],
+      venue: {
+        address: "174 Pavilion Road, Chelsea, London",
+        contactName: "Morgan",
+        contactRole: "On-site manager",
+        types: ["Restaurant"],
+        cuisines: ["Seafood"],
+        covers: "30–60",
+        teamSize: 12,
+        website: "theseathesea.example",
+        instagram: "@theseathesea",
+        knownFor: ["Fine dining standards", "Fast-paced service"],
+        teamsNeeded: ["Kitchen", "Pastry", "Floor", "Bar"],
+        dressCode: "Chef whites",
+        uniform: false,
+        staffMeal: true,
+        rateChef: 22,
+        rateFoh: 18,
+        vacancies: 3,
+      },
     },
     {
       id: "harper",
       side: "venue",
       name: "Harper Privé",
-      area: "Mayfair",
       phone: "+44 7700 900103",
+      email: "events@harperprive.example",
+      postcode: "W1K 5DB",
       photo: "/assets/venue-members-club.webp",
-      bio: "Intimate private dinners and considered events. A welcoming room with precise service and a close-knit team.",
+      bio: "Intimate private dinners and considered events.",
       roles: [],
       skills: [],
+      customSkills: [],
       approved: true,
       alert: "all",
-      address: "8 Brook Street, Mayfair, London W1K 5DB",
-      contact: "Jamie · Events manager",
-      rate: 24,
-      note: "Black shirt and trousers · staff meal · private dinner for 30 guests.",
-      previous: [],
+      venue: {
+        address: "8 Brook Street, Mayfair, London",
+        contactName: "Jamie",
+        contactRole: "Events manager",
+        types: ["Private Members Club", "Events"],
+        cuisines: ["Modern European"],
+        covers: "0–30",
+        teamSize: 9,
+        website: "harperprive.example",
+        instagram: "@harperprive",
+        knownFor: ["Creative food"],
+        teamsNeeded: ["Kitchen", "Pastry"],
+        dressCode: "Blacks",
+        uniform: false,
+        staffMeal: true,
+        rateChef: 24,
+        rateFoh: 20,
+        vacancies: 1,
+      },
     },
-    {
+    talent({
       id: "poppy",
-      side: "talent",
       name: "Poppy Bertram",
-      area: "Richmond",
       phone: "+44 7700 900201",
+      email: "poppy@example.com",
+      postcode: "TW9 2AA",
       photo: "/assets/talent-chef-4.webp",
-      bio: "Five years in seasonal kitchens. Comfortable on a busy section, happiest working with British produce and a thoughtful team.",
+      bio: "Five years in seasonal kitchens. Comfortable on a busy section, happiest working with British produce.",
       roles: ["CDP", "Senior CDP"],
-      skills: ["Fine dining", "Modern British", "Live fire"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 18,
-      note: "",
-      previous: [],
-    },
-    {
+      skills: ["Fine Dining", "Open Fire", "Grill"],
+      customSkills: ["Seasonal British"],
+    }),
+    talent({
       id: "camille",
-      side: "talent",
       name: "Camille Aubert",
-      area: "Chelsea",
       phone: "+44 7700 900202",
+      email: "camille@example.com",
+      postcode: "SW3 4RY",
       photo: "/assets/talent-camille-portrait.webp",
-      bio: "A calm hand at the pass. Nine years leading kitchens, with a focus on open fire and seasonal British produce.",
+      bio: "Nine years leading kitchens. Ex-Core by Clare Smyth. A calm hand at the pass.",
       roles: ["Head Chef", "Sous Chef"],
-      skills: ["Live fire", "Modern British", "Fine dining"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 28,
-      note: "",
-      previous: [],
-    },
-    {
+      skills: ["Open Fire", "Fine Dining", "Fish"],
+    }),
+    talent({
       id: "theo",
-      side: "talent",
       name: "Theo Marchetti",
-      area: "Fitzrovia",
       phone: "+44 7700 900203",
+      email: "theo@example.com",
+      postcode: "W1T 2EZ",
       photo: "/assets/talent-chef-2.webp",
-      bio: "Produce-led cooking and a steady service. Six years on sections in contemporary London restaurants.",
+      bio: "Six years on sections in contemporary London restaurants. Produce-led, steady on service.",
       roles: ["CDP", "Senior CDP"],
-      skills: ["French cuisine", "Fine dining"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 20,
-      note: "",
-      previous: [],
-    },
-    {
+      skills: ["Fine Dining", "Pasta"],
+    }),
+    talent({
       id: "ethan",
-      side: "talent",
       name: "Ethan Russell",
-      area: "Hackney",
       phone: "+44 7700 900204",
+      email: "ethan@example.com",
+      postcode: "E8 3PB",
       photo: "/assets/talent-chef-3.webp",
-      bio: "Experienced sous chef, comfortable leading a small brigade and supporting a busy evening service.",
+      bio: "",
       roles: ["Sous Chef", "Junior Sous"],
-      skills: ["High volume", "Events"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 24,
-      note: "",
-      previous: [],
-    },
-    {
+      skills: ["High Volume", "Events"],
+    }),
+    talent({
       id: "noor",
-      side: "talent",
       name: "Noor Haddad",
-      area: "Soho",
       phone: "+44 7700 900205",
+      email: "noor@example.com",
+      postcode: "W1D 4DE",
       photo: "/assets/talent-bartender-1.webp",
-      bio: "Cocktail service with care and pace. Four years behind London hotel and restaurant bars.",
+      bio: "Four years behind London hotel and restaurant bars. Cocktail service with care and pace.",
       roles: ["Bartender", "Mixologist"],
-      skills: ["Cocktails", "High volume", "Guest relations"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 20,
-      note: "",
-      previous: [],
-    },
-    {
+      skills: ["Cocktails", "High Volume", "Guest Relations"],
+    }),
+    talent({
       id: "ines",
-      side: "talent",
       name: "Inès Laurent",
-      area: "Kensington",
       phone: "+44 7700 900206",
+      email: "ines@example.com",
+      postcode: "W8 7AG",
       photo: "/assets/talent-maitred-1.webp",
-      bio: "Thoughtful guest service, from intimate dinners to a busy dining room. Fluent in English and French.",
+      bio: "Guest service from intimate dinners to a busy dining room. Fluent in English and French.",
       roles: ["Waiter", "Host", "Section Waiter"],
-      skills: ["Wine service", "Guest relations", "Fine dining"],
-      approved: true,
-      alert: "all",
-      address: "",
-      contact: "",
-      rate: 18,
-      note: "",
-      previous: [],
-    },
+      skills: ["Wine Service", "Guest Relations", "Fine Dining"],
+    }),
   ];
   const data: Data = {
-    version: 1,
+    version: 2,
     now: "2026-10-01T09:00:00.000Z",
     members,
     shifts: [],
@@ -640,6 +894,12 @@ export function seed(): Data {
         start: "16:00",
         end: "23:59",
       });
+  // Poppy has marked one evening as busy on her own calendar.
+  data.availability = data.availability.map((a) =>
+    a.member === "poppy" && a.date === "2026-10-06"
+      ? { ...a, kind: "not-free" as const, start: "00:00", end: "00:00" }
+      : a,
+  );
   const day = (date: string, start = "17:00", end = "23:00") =>
     makeDays({ date, start, end, count: 1 } as ShiftDraft);
   data.shifts = [
@@ -651,7 +911,7 @@ export function seed(): Data {
       days: day("2026-10-02"),
       capacity: 1,
       rate: 18,
-      note: members[0].note,
+      note: defaultNote(members[0]),
       mode: "post",
       status: "open",
       created: data.now,
@@ -665,7 +925,7 @@ export function seed(): Data {
       days: day("2026-10-03", "18:00"),
       capacity: 1,
       rate: 28,
-      note: members[1].note,
+      note: defaultNote(members[1]),
       mode: "invite",
       status: "open",
       created: data.now,
@@ -682,13 +942,33 @@ export function seed(): Data {
         end: "23:00",
         count: 3,
       } as ShiftDraft),
-      capacity: 2,
+      capacity: 1,
       rate: 24,
-      note: members[2].note,
+      note: defaultNote(members[2]),
       mode: "post",
       status: "open",
       created: data.now,
       ownerAlerted: false,
+    },
+    {
+      id: "sea-residency",
+      venue: "sea",
+      roles: ["Sous Chef", "Junior Sous"],
+      family: "Kitchen",
+      days: makeDays({
+        date: "2026-10-08",
+        start: "16:00",
+        end: "23:00",
+        count: 3,
+      } as ShiftDraft),
+      capacity: 1,
+      rate: 26,
+      note: "Chef whites · staff meal · running the pass while our head chef is away. Same person all three nights, please.",
+      mode: "post",
+      status: "open",
+      created: data.now,
+      ownerAlerted: false,
+      together: true,
     },
     {
       id: "harper-bar",
@@ -726,7 +1006,7 @@ export function seed(): Data {
       days: day("2026-09-28"),
       capacity: 1,
       rate: 18,
-      note: members[0].note,
+      note: defaultNote(members[0]),
       mode: "invite",
       status: "filled",
       created: "2026-09-27T09:00:00.000Z",
@@ -758,6 +1038,7 @@ export function seed(): Data {
       id: "past-booking",
       shift: "past-poppy",
       talent: "poppy",
+      days: ["2026-09-28"],
       cancelled: false,
       outcomes: { spruce: "Yes, worked", poppy: "Yes, worked" },
     },
@@ -795,7 +1076,10 @@ export type Action =
       shift: string;
       talent?: string;
       note?: string;
+      days?: string[];
     }
+  | { type: "ask-owner"; actor: string; shift: string }
+  | { type: "realert"; actor: string; shift: string }
   | { type: "close"; actor: string; shift: string; reason: string }
   | { type: "cancel"; actor: string; booking: string; reason: string }
   | { type: "message"; actor: string; response: string; text: string }
@@ -916,7 +1200,7 @@ export function transition(original: Data, action: Action): Data {
         !t.roles.some((role) => shift.roles.includes(role))
       )
         throw new Error("Choose an approved member in these roles.");
-      if (conflict(data, talent, shift.days))
+      if (!availableDates(data, talent, shift).length)
         throw new Error(`${t.name} is booked for overlapping hours.`);
       let r = data.responses.find(
         (r) => r.shift === shift.id && r.talent === talent,
@@ -966,37 +1250,17 @@ export function transition(original: Data, action: Action): Data {
       .forEach((n) => (n.read = true));
   if (action.type === "profile") {
     const m = member(data, action.actor);
-    const {
-      name,
-      bio,
-      roles,
-      skills,
-      alert,
-      rate,
-      note,
-      address,
-      contact,
-      area,
-      phone,
-    } = action.patch;
+    const { name, bio, roles, skills, customSkills, alert, phone, email, postcode, venue } =
+      action.patch;
     Object.assign(
       m,
       Object.fromEntries(
-        Object.entries({
-          name,
-          bio,
-          roles,
-          skills,
-          alert,
-          rate,
-          note,
-          address,
-          contact,
-          area,
-          phone,
-        }).filter(([, v]) => v !== undefined),
+        Object.entries({ name, bio, roles, skills, customSkills, alert, phone, email, postcode }).filter(
+          ([, v]) => v !== undefined,
+        ),
       ),
     );
+    if (venue && m.venue) m.venue = { ...m.venue, ...venue };
   }
   if (action.type === "join") {
     if (data.members.some((m) => m.phone === action.member.phone))
@@ -1093,10 +1357,11 @@ export function transition(original: Data, action: Action): Data {
       mode: d.mode,
       status: "open",
       created: data.now,
-      address: venue.address,
-      contact: venue.contact,
+      address: fullAddress(venue),
+      contact: contactLine(venue),
       phone: venue.phone,
       replacement: d.replacement || d.editing,
+      together: days.length > 1 && !!d.together,
       ownerAlerted: false,
     };
     data.shifts.unshift(s);
@@ -1121,7 +1386,7 @@ export function transition(original: Data, action: Action): Data {
             data,
             m.id,
             `${venue.name} needs cover`,
-            `${shiftLabel(s)} · ${serviceLabel(days[0])} · £${s.rate}/h`,
+            `${shiftLabel(s)} · ${days.length > 1 ? `${datesLabel(days.map((d) => d.date))} · ${days[0].start}–${days[0].end}${s.together ? " · each person covers every day" : ""}` : serviceLabel(days[0])} · £${s.rate}/h`,
             `shift/${s.id}`,
           ),
         );
@@ -1131,7 +1396,7 @@ export function transition(original: Data, action: Action): Data {
           throw new Error(
             "An invitee must be an approved member in the selected roles.",
           );
-        if (conflict(data, id, days))
+        if (days.every((d) => conflict(data, id, [d])))
           throw new Error(
             `${member(data, id).name} is booked then. Choose another member.`,
           );
@@ -1189,6 +1454,7 @@ export function transition(original: Data, action: Action): Data {
       { type: "respond" | "accept" | "book" | "withdraw" | "decline" }
     >;
     const talent = action.type === "book" ? a.talent! : a.actor;
+    const venueName = member(data, s.venue).name;
     let r = data.responses.find((r) => r.shift === s.id && r.talent === talent);
     if (action.type === "withdraw" || action.type === "decline") {
       if (
@@ -1203,21 +1469,17 @@ export function transition(original: Data, action: Action): Data {
       event(
         data,
         r,
-        `${member(data, talent).name} ${r.status} before booking.`,
+        `${member(data, talent).name} ${r.status === "withdrawn" ? "withdrew" : "declined"} before booking.`,
       );
       notify(
         data,
         s.venue,
-        `${member(data, talent).name} ${r.status}`,
-        shiftLabel(s),
+        `${member(data, talent).name} ${r.status === "withdrawn" ? "withdrew" : "declined"}`,
+        `${shiftLabel(s)} · ${serviceLabel(s.days[0])}`,
         `shift/${s.id}`,
       );
     } else {
-      if (
-        s.status !== "open" ||
-        s.days[0].from <= data.now ||
-        bookedCount(data, s.id) >= s.capacity
-      )
+      if (s.status !== "open")
         throw new Error(
           s.status === "expired"
             ? "This shift has started and is closed."
@@ -1226,28 +1488,56 @@ export function transition(original: Data, action: Action): Data {
       const t = member(data, talent);
       if (!t?.approved || t.side !== "talent")
         throw new Error("Choose an approved talent member.");
-      if (conflict(data, talent, s.days))
+      const open = openDates(data, s);
+      if (!open.length)
         throw new Error(
-          "No longer available — booked elsewhere for overlapping hours.",
+          "This shift has been filled or closed. You have not been booked.",
         );
+      const free = availableDates(data, talent, s);
       if (action.type === "respond") {
+        const invitedHere = r?.status === "invited";
+        // Already waiting or booked here: this adds more days to the offer.
+        const adding = !!r && ["can-cover", "booked"].includes(r.status);
         if (
-          s.mode !== "post" ||
+          (s.mode !== "post" && !invitedHere && !adding) ||
           !t.roles.some((role) => s.roles.includes(role))
         )
           throw new Error("This shift is for members in the selected roles.");
-        if (
-          r &&
-          ["invited", "can-cover", "booked", "not-selected", "lapsed"].includes(
-            r.status,
-          )
-        )
+        const pool = adding ? offerableDates(data, talent, s) : free;
+        const days = a.days?.length ? [...new Set(a.days)].sort() : pool;
+        if (!days.length)
           throw new Error(
-            "You already have a response for this shift. View its current status.",
+            adding
+              ? "You’ve already offered every open day."
+              : "No longer available — booked elsewhere for overlapping hours.",
           );
+        if (!days.every((d) => s.days.some((x) => x.date === d)))
+          throw new Error("Choose dates from this shift.");
+        if (!days.every((d) => pool.includes(d)))
+          throw new Error(
+            "One of those days is no longer available. Review the days and send again.",
+          );
+        if (s.together && !adding && days.length < s.days.length)
+          throw new Error(
+            "Each person must cover every day of this shift. You can only offer all of them.",
+          );
+        if (adding && r) {
+          r.days = [...new Set([...offeredDates(s, r), ...days])].sort();
+          event(data, r, `${t.name} can also cover ${datesLabel(days)}.`);
+          notify(
+            data,
+            s.venue,
+            `${t.name} can also cover ${datesLabel(days)}`,
+            `${shiftLabel(s)} · Book when you’re ready.`,
+            `shift/${s.id}`,
+          );
+          return data;
+        }
+        const partial = days.length < s.days.length;
         if (r) {
           r.status = "can-cover";
           r.note = a.note || "";
+          r.days = days;
         } else {
           r = {
             id: uid(),
@@ -1257,86 +1547,215 @@ export function transition(original: Data, action: Action): Data {
             status: "can-cover",
             note: a.note || "",
             chat: false,
+            days,
           };
           data.responses.push(r);
         }
+        if (invitedHere)
+          event(
+            data,
+            r,
+            `${t.name} can cover ${datesLabel(days)}, not every day. Book to confirm those days.`,
+          );
         notify(
           data,
           s.venue,
           `${t.name} can cover`,
-          `${shiftLabel(s)} · Review the response and book when ready.`,
-          `shift/${s.id}`,
-        );
-        notify(
-          data,
-          talent,
-          `Response sent to ${member(data, s.venue).name}`,
-          "You're not booked yet. We'll notify you when the venue books you.",
+          `${shiftLabel(s)} · ${partial ? datesLabel(days) : serviceLabel(s.days[0])}${partial ? ` (${days.length} of ${s.days.length} days)` : ""}`,
           `shift/${s.id}`,
         );
       } else {
+        const existing = data.bookings.find(
+          (x) => x.shift === s.id && x.talent === talent && !x.cancelled,
+        );
         if (
           !r ||
           (action.type === "accept"
             ? r.status !== "invited" || r.talent !== a.actor
-            : r.status !== "can-cover" || s.venue !== a.actor)
+            : !(
+                s.venue === a.actor &&
+                (r.status === "can-cover" ||
+                  (r.status === "booked" && existing))
+              ))
         )
           throw new Error("This response is no longer available to book.");
+        // Accepting an invitation takes every open date. Booking a response
+        // takes the days the venue picks from what that person offered.
+        const bookable = action.type === "accept" ? open : bookableDates(data, s, r);
+        const days =
+          action.type === "book" && a.days?.length
+            ? [...new Set(a.days)].sort()
+            : bookable;
+        if (!days.length)
+          throw new Error(
+            "The days they offered are already covered. You have not booked them.",
+          );
+        if (!days.every((d) => bookable.includes(d)))
+          throw new Error(
+            "You can only book days this person offered that are still open.",
+          );
+        if (s.together && !existing && days.length < s.days.length)
+          throw new Error(
+            "Each person must cover every day of this shift. Book every day or choose someone else.",
+          );
+        const clash = days.filter((d) => !free.includes(d));
+        if (clash.length)
+          throw new Error(
+            action.type === "accept"
+              ? "You're booked elsewhere on one of these days. Choose “I can do some days” instead."
+              : "No longer available — booked elsewhere for overlapping hours.",
+          );
         r.status = "booked";
         r.chat = true;
-        const b: Booking = {
-          id: uid(),
-          shift: s.id,
-          talent,
-          cancelled: false,
-          bookedAt: data.now,
-          outcomes: {},
-        };
-        data.bookings.unshift(b);
+        let b: Booking;
+        if (existing) {
+          existing.days = [...new Set([...existing.days, ...days])].sort();
+          b = existing;
+        } else {
+          b = {
+            id: uid(),
+            shift: s.id,
+            talent,
+            days,
+            cancelled: false,
+            bookedAt: data.now,
+            outcomes: {},
+          };
+          data.bookings.unshift(b);
+        }
         event(
           data,
           r,
-          "Booked. Both sides are committed to the dates, hours and pay shown above.",
+          `${existing ? "Added to the booking" : "Booked"}: ${datesLabel(days)}. Both sides are committed to the hours and pay shown above.`,
         );
-        for (const to of [talent, s.venue])
+        // The person who said the second yes already knows; tell the other side.
+        if (action.type === "book")
           notify(
             data,
-            to,
-            "Booking confirmed",
-            `${t.name} · ${member(data, s.venue).name} · ${serviceLabel(s.days[0])}`,
+            talent,
+            existing
+              ? `${venueName} added ${datesLabel(days)} to your booking`
+              : `You're booked at ${venueName}`,
+            `${shiftLabel(s)} · ${datesLabel(b.days)} · ${s.days[0].start}–${s.days[0].end}`,
             `booking/${b.id}`,
           );
-        if (bookedCount(data, s.id) >= s.capacity) {
+        else
+          notify(
+            data,
+            s.venue,
+            `${t.name} accepted`,
+            `Booked for ${shiftLabel(s)} · ${datesLabel(days)}`,
+            `booking/${b.id}`,
+          );
+        const stillOpen = openDates(data, s);
+        if (!stillOpen.length) {
           s.status = "filled";
           closeWaiting(data, s, "This shift has been filled");
-        }
+        } else
+          data.responses
+            .filter(
+              (o) =>
+                o.shift === s.id &&
+                o.status === "can-cover" &&
+                !offeredDates(s, o).some((d) => stillOpen.includes(d)),
+            )
+            .forEach((o) => {
+              o.status = "not-selected";
+              event(data, o, "The days you offered have been covered");
+              notify(
+                data,
+                o.talent,
+                "The days you offered have been covered",
+                `${venueName} · ${shiftLabel(s)}`,
+                `shift/${s.id}`,
+              );
+            });
+        // This person's other waiting answers lose the clashing days.
+        const booked = bookingServices(data, b);
         data.responses
           .filter(
             (o) =>
               o.talent === talent &&
               o.shift !== s.id &&
-              ["invited", "can-cover"].includes(o.status) &&
-              overlap(s.days, data.shifts.find((x) => x.id === o.shift)!.days),
+              ["invited", "can-cover"].includes(o.status),
           )
           .forEach((o) => {
+            const other = data.shifts.find((x) => x.id === o.shift)!;
+            const clashing = other.days
+              .filter((d) => overlap([d], booked))
+              .map((d) => d.date);
+            if (!clashing.length) return;
+            const remaining = offeredDates(other, o).filter(
+              (d) => !clashing.includes(d),
+            );
+            if (o.status === "can-cover" && remaining.length) {
+              o.days = remaining;
+              event(
+                data,
+                o,
+                `${t.name} is now booked elsewhere on ${datesLabel(clashing)} and can still cover ${datesLabel(remaining)}.`,
+              );
+              return;
+            }
+            if (o.status === "invited" && remaining.length) return;
             o.status = "lapsed";
             event(data, o, "No longer available — booked elsewhere.");
             notify(
               data,
-              data.shifts.find((x) => x.id === o.shift)!.venue,
-              "No longer available",
-              `${t.name} now has an overlapping booking.`,
-              `shift/${o.shift}`,
-            );
-            notify(
-              data,
-              talent,
-              "Overlapping response lapsed",
-              "Your other response is no longer available because you are booked then.",
+              other.venue,
+              `${t.name} is no longer available`,
+              `${shiftLabel(other)} · booked elsewhere for those hours.`,
               `shift/${o.shift}`,
             );
           });
       }
+    }
+  }
+  if (action.type === "realert") {
+    const s = data.shifts.find((s) => s.id === action.shift)!;
+    if (s.venue !== action.actor || s.status !== "open" || s.mode !== "post")
+      throw new Error("This shift is no longer open.");
+    const open = openDates(data, s);
+    const first = s.days.find((d) => d.date === open[0])!;
+    const busy = data.responses
+      .filter(
+        (r) =>
+          r.shift === s.id && ["can-cover", "booked", "invited"].includes(r.status),
+      )
+      .map((r) => r.talent);
+    data.members
+      .filter(
+        (m) =>
+          m.side === "talent" &&
+          m.approved &&
+          m.alert !== "off" &&
+          m.roles.some((r) => s.roles.includes(r)) &&
+          !busy.includes(m.id) &&
+          availableDates(data, m.id, s).length > 0,
+      )
+      .forEach((m) =>
+        notify(
+          data,
+          m.id,
+          `${member(data, s.venue).name} still needs cover`,
+          `${shiftLabel(s)} · ${datesLabel(open)} · ${first.start}–${first.end} · £${s.rate}/h`,
+          `shift/${s.id}`,
+        ),
+      );
+  }
+  if (action.type === "ask-owner") {
+    const s = data.shifts.find((s) => s.id === action.shift)!;
+    if (s.venue !== action.actor || s.status !== "open")
+      throw new Error("This shift is no longer open.");
+    if (!s.ownerAlerted) {
+      s.ownerAlerted = true;
+      notify(
+        data,
+        "owner",
+        "A venue asked for help with cover",
+        `${member(data, s.venue).name} · ${shiftLabel(s)} · ${serviceLabel(s.days[0])}`,
+        `shift/${s.id}`,
+      );
     }
   }
   if (action.type === "close") {
@@ -1371,16 +1790,17 @@ export function transition(original: Data, action: Action): Data {
       r,
       `Booking cancelled by ${member(data, action.actor).name}: ${action.reason}. Completed services stay in history.`,
     );
-    for (const to of [s.venue, b.talent])
-      notify(
-        data,
-        to,
-        "Booking cancelled",
-        `${member(data, action.actor).name}: ${action.reason}`,
-        `booking/${b.id}`,
-      );
+    notify(
+      data,
+      action.actor === s.venue ? b.talent : s.venue,
+      `${member(data, action.actor).name} cancelled`,
+      `${shiftLabel(s)} · ${datesLabel(b.days)} · ${action.reason}`,
+      `booking/${b.id}`,
+    );
+    // A filled shift reopens for the future days that now need someone.
+    if (s.status === "filled" && openDates(data, s).length) s.status = "open";
     // Cancellation releases the commitment, but never silently republishes availability.
-    for (const day of s.days.filter((d) => d.to > data.now))
+    for (const day of bookingServices(data, b).filter((d) => d.to > data.now))
       data.availability = data.availability.filter(
         (a) => !(a.member === b.talent && a.date === day.date),
       );
@@ -1470,5 +1890,6 @@ export function transition(original: Data, action: Action): Data {
 export function unreadChat(data: Data, actor: string, r: Response) {
   const messages = data.messages.filter((m) => m.response === r.id);
   const idx = messages.findIndex((m) => m.id === data.read[`${actor}/${r.id}`]);
-  return messages.slice(idx + 1).some((m) => m.from !== actor);
+  // Status events (booked, filled) show in the thread but aren't unread messages.
+  return messages.slice(idx + 1).some((m) => m.from !== actor && !m.system);
 }

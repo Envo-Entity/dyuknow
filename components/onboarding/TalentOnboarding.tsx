@@ -14,11 +14,10 @@ import { TextareaField } from "@/components/onboarding/Textarea";
 import { UploadRow } from "@/components/onboarding/UploadRow";
 import { EmployerRepeater } from "@/components/onboarding/EmployerRepeater";
 import { PhotoStep } from "@/components/onboarding/PhotoStep";
+import { DatedAvailabilityField } from "@/components/onboarding/DatedAvailabilityField";
+import { TEAMS, TEAM_NAMES, SKILL_GROUPS, SHIFT_ALERTS } from "@/lib/catalogue";
+import { addCustomSkill, validateDatedAvailability } from "@/lib/onboardingModel";
 import {
-  CHEF_POSITIONS,
-  CHEF_SKILLS,
-  FOH_POSITIONS,
-  FOH_SKILLS,
   HOURLY_RATE_OPTIONS,
   LONDON_AREAS,
   MAX_TRAVEL_OPTIONS,
@@ -64,6 +63,9 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const category = identity?.category ?? "";
   const positions = identity?.positions ?? [];
   const skills = identity?.skills ?? [];
+  const customSkills = identity?.customSkills ?? [];
+  const shiftAlerts = identity?.shiftAlerts ?? "all";
+  const datedAvailability = identity?.datedAvailability ?? [];
   const yearsBand = identity?.yearsBand ?? "";
   const employers = identity?.employers ?? [];
   const availableToday = identity?.availableToday ?? false;
@@ -96,13 +98,10 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
 
   if (!isAdmin && data.onboarded.talent) return null;
 
-  const needsPosition = category === "Chef" || category === "Front of House";
-  const positionOptions = category === "Chef" ? CHEF_POSITIONS : FOH_POSITIONS;
-  const skillOptions = category === "Chef" ? CHEF_SKILLS : FOH_SKILLS;
   const knownForChoices = knownForOptions(category);
 
   function setCategory(next: string) {
-    setTalentIdentityFn({ category: next, positions: [], skills: [], role: next });
+    setTalentIdentityFn({ category: next, role: positions.length ? positions.join(", ") : next });
   }
 
   function toggleFromList(list: string[], value: string, onChange: (next: string[]) => void) {
@@ -159,7 +158,7 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
     >
       {step === 0 && (
         <div className="flex flex-col gap-6">
-          <StepHeader eyebrow="Talent" title="Tell us about yourself." description="Nothing here is a job posting — just who's taking the pass." />
+          <StepHeader eyebrow="Talent" title="Tell us about yourself." />
           <FormField label="Full name" value={name} onChange={(v) => setTalentIdentityFn({ name: v })} placeholder="e.g. Camille Aubert" />
           <FormField label="Mobile number" value={mobile} onChange={(v) => setTalentIdentityFn({ mobile: v })} placeholder="e.g. 07700 900123" type="tel" inputMode="tel" />
           <FormField label="Email address" value={email} onChange={(v) => setTalentIdentityFn({ email: v })} placeholder="e.g. camille@email.com" type="email" inputMode="email" />
@@ -181,20 +180,23 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
 
       {step === 2 && (
         <div className="flex flex-col gap-6">
-          <StepHeader eyebrow="Your role" title="What do you do?" description="Pick the category closest to what you do, then every position that fits." />
+          <StepHeader eyebrow="Your role" title="What do you do?" description="Keep your main category, then choose every position and skill that fits across all five teams." />
           <ChipField label="Category" options={TEAM_CATEGORIES} selected={category ? [category] : []} onToggle={setCategory} />
-          {needsPosition && (
-            <div key={category} className="animate-view-in flex flex-col gap-6">
-              <ChipField label="Position. Choose all that apply." options={positionOptions} selected={positions} onToggle={togglePosition} />
+          {TEAM_NAMES.map((team) => (
+            <ChipField key={team} label={`${team} positions · choose all that apply`} options={TEAMS[team]} selected={positions.filter((p) => (TEAMS[team] as readonly string[]).includes(p))} onToggle={togglePosition} />
+          ))}
+          {Object.entries(SKILL_GROUPS).map(([group, options]) => (
               <ChipField
-                label="Skills"
-                options={skillOptions}
-                selected={skills}
+                key={group}
+                label={`${group} skills`}
+                options={options}
+                selected={skills.filter((s) => (options as readonly string[]).includes(s))}
                 onToggle={(v) => toggleFromList(skills, v, (next) => setTalentIdentityFn({ skills: next }))}
               />
-            </div>
-          )}
-          <ContinueButton onClick={() => setStep(3)} />
+          ))}
+          <ChipField label="Your own skills · optional" options={[]} selected={customSkills} onToggle={(v) => setTalentIdentityFn({ customSkills: customSkills.filter((s) => s !== v) })} allowCustom customMaxLength={80} customLabel="Add your own skill" onAddCustom={(v) => setTalentIdentityFn({ customSkills: addCustomSkill(customSkills, v, skills) })} />
+          <p className="text-[13px] text-ink-soft">Add a specific skill in up to 80 characters.</p>
+          <ContinueButton disabled={!positions.length} onClick={() => setStep(3)} />
         </div>
       )}
 
@@ -233,13 +235,21 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
             prefix="£"
             inputMode="decimal"
           />
-          <ContinueButton onClick={() => setStep(5)} />
+          <DatedAvailabilityField value={datedAvailability} onChange={(next) => setTalentIdentityFn({ datedAvailability: next })} />
+          <label className="flex flex-col gap-2 text-[13px] font-semibold text-ink">
+            Shift alerts
+            <select className="w-full rounded-2xl border border-border bg-paper px-4 py-3.5 text-[15px] font-normal" value={shiftAlerts} onChange={(e) => setTalentIdentityFn({ shiftAlerts: e.target.value as TalentIdentity["shiftAlerts"] })}>
+              {SHIFT_ALERTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          {submitError && <p role="alert" className="text-[13px] text-ink">{submitError}</p>}
+          <ContinueButton onClick={() => { const error = validateDatedAvailability(datedAvailability); setSubmitError(error); if (!error) setStep(5); }} />
         </div>
       )}
 
       {step === 5 && (
         <div className="flex flex-col gap-6">
-          <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately and shown to venues only once you're booked." />
+          <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately for the owner to review." />
           <UploadRow label="Right to Work (visa / passport)" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
           <UploadRow label="Food Safety Certificate" optional value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
           <UploadRow label="CV" optional note="recommended" value={cv} onChange={(v) => setTalentIdentityFn({ cv: v })} />
@@ -291,10 +301,10 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
           ]}
           headline={
             <>
-              Welcome aboard <span className="font-serif font-normal italic">you&rsquo;re in.</span>
+              Welcome aboard <span className="font-serif font-normal italic">profile ready.</span>
             </>
           }
-          body="That's your profile set up. Come in and have a look around you can change any of this later."
+          body="Your profile is submitted for the owner to review. You can look around while you wait for approval."
           saveStatus={saveStatus}
           error={submitError}
         >

@@ -1,3 +1,28 @@
+# Dyuknow — Current demo
+
+Updated 2 October 2026. The accepted MVP preview is now the main demo app at
+`/app`. `/` and `/preview` show the same UI and use the same browser storage.
+
+The current UI, sample world and interactions live in `components/preview/`
+and `lib/preview/`. Venue, talent and owner dashboards, cover requests,
+bookings, messages, profiles, availability and demo membership setup remain
+browser-local. Account switching, preview controls and stories stay available.
+The current vocabulary and flows are recorded in `docs/mvp-user-flow.md`.
+
+The only live intake interface is `/admin/onboarding`. Its existing talent
+and venue forms save to Supabase, including the additive questions recorded
+in `docs/data-model.md`. Public onboarding URLs open local demo setup; they do
+not submit real member records. Demo owner approvals do not approve live rows.
+
+Older `/app/talent/*` and `/app/venue/*` URLs redirect into the current demo.
+The accepted preview design stays intact; the old app components remain in
+Git and on disk but no longer render the main dashboards.
+
+## Original demo brief (historical reference)
+
+The brief below describes the earlier Camille / Larkspur UI. For the current
+app, the current-demo description above and `docs/mvp-user-flow.md` take precedence.
+
 # Dyuknow — Product
 
 ## What it is

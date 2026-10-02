@@ -1,9 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-import { useParams } from "next/navigation";
-import { ChatView } from "@/components/chat/ChatView";
-
-export default function VenueChatPage() {
-  const params = useParams<{ chatId: string }>();
-  return <ChatView side="venue" chatId={params.chatId} />;
+// Legacy conversations use different IDs from the current sample world.
+export default function LegacyChatPage() {
+  redirect(demoRoute("venue", "messages"));
 }

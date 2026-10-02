@@ -8,9 +8,12 @@ import {
 import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from "@/components/icons";
 import {
   FAMILIES,
+  datesLabel,
+  relativeDay,
   serviceLabel,
   shiftLabel,
   type Shift,
+  areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 export function Button({
@@ -94,13 +97,13 @@ export function Empty({
   children,
 }: {
   title: string;
-  text: string;
+  text?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="pv-empty">
       <h2>{title}</h2>
-      <p>{text}</p>
+      {text && <p>{text}</p>}
       {children && <div className="pv-actions">{children}</div>}
     </div>
   );
@@ -152,62 +155,119 @@ export function Modal({
     </dialog>
   );
 }
-export function Services({ shift }: { shift: Shift }) {
+export function Services({
+  shift,
+  dates,
+}: {
+  shift: Shift;
+  dates?: string[];
+}) {
+  const days = dates ? shift.days.filter((d) => dates.includes(d.date)) : shift.days;
   return (
     <div className="pv-services">
-      {shift.days.map((day) => (
+      {days.map((day) => (
         <p key={day.date}>{serviceLabel(day)}</p>
       ))}
-      <small>
-        All times Europe/London
-        {shift.days.length > 1
-          ? ` · Same person for all ${shift.days.length} days`
-          : ""}
-      </small>
+      <small>London time</small>
     </div>
   );
 }
 export function ShiftCard({
   shift,
   label,
+  good = false,
   onClick,
 }: {
   shift: Shift;
   label?: string;
+  good?: boolean;
   onClick?: () => void;
 }) {
   const { data, go } = usePreview();
   const venue = data.members.find((m) => m.id === shift.venue)!;
+  const first = shift.days[0];
   return (
     <button
       className="pv-shift-card"
       onClick={onClick || (() => go(`shift/${shift.id}`))}
     >
-      <Photo src={FAMILIES[shift.family].photo} />
+      <Photo src={venue.photo || FAMILIES[shift.family].photo} alt={venue.name} />
       <div className="pv-shift-card-body">
         <div className="pv-card-top">
-          <span>
-            {venue.name} · {venue.area}
-          </span>
-          <Badge good={label === "Booked"}>
-            {label || (shift.status === "open" ? "Open shift" : shift.status)}
-          </Badge>
+          <span>{areaOf(venue)}</span>
+          {label && <Badge good={good}>{label}</Badge>}
         </div>
-        <h2>{shiftLabel(shift)}</h2>
-        <p>{serviceLabel(shift.days[0])}</p>
+        <h2>{venue.name}</h2>
+        <p className="pv-card-role">{shiftLabel(shift)}</p>
+        <p>
+          {shift.days.length > 1
+            ? datesLabel(shift.days.map((d) => d.date))
+            : relativeDay(first.date, data.now)}{" "}
+          · {first.start}–{first.end}
+        </p>
+        {shift.days.length > 1 && (
+          <p className="pv-card-days">
+            {shift.days.length} days needed
+            {shift.together ? " · one person for all of them" : ""}
+          </p>
+        )}
         <div className="pv-card-foot">
           <strong>
             £{shift.rate}
             <span> / hour</span>
           </strong>
-          <span>
-            {shift.days.length > 1 ? `${shift.days.length} dates · ` : ""}
-            {shift.capacity} {shift.capacity === 1 ? "person" : "people"}
-            <ArrowRightIcon size={18} />
-          </span>
+          <ArrowRightIcon size={18} />
         </div>
       </div>
     </button>
+  );
+}
+// A compact, comparable list row for schedules and inboxes.
+export function Row({
+  photo,
+  name,
+  title,
+  sub,
+  status,
+  good = false,
+  onClick,
+}: {
+  photo?: string;
+  name: string;
+  title: ReactNode;
+  sub?: ReactNode;
+  status?: string;
+  good?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button className="pv-row" onClick={onClick}>
+      <Photo src={photo} alt={name} />
+      <span className="pv-row-text">
+        <strong>{title}</strong>
+        {sub && <small>{sub}</small>}
+        {status && <Badge good={good}>{status}</Badge>}
+      </span>
+      <ArrowRightIcon size={16} />
+    </button>
+  );
+}
+// Keeps the one action that matters within thumb reach on phones.
+export function ActionBar({ children }: { children: ReactNode }) {
+  return <div className="pv-action-bar">{children}</div>;
+}
+export function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pv-section">
+      <h2 className="pv-section-title">{title}</h2>
+      {children}
+    </section>
   );
 }
 export function Field({

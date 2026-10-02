@@ -1,9 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { demoRoute } from "@/lib/demoRoutes";
 
-import { useParams } from "next/navigation";
-import { RoleGrid } from "@/components/venue/RoleGrid";
-
-export default function RoleGridPage() {
-  const params = useParams<{ roleId: string }>();
-  return <RoleGrid roleId={params.roleId} />;
+// The current dashboard groups talent using the five-team catalogue.
+export default function LegacyRolePage() {
+  redirect(demoRoute("venue"));
 }

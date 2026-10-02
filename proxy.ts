@@ -1,10 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/utils/supabase/proxy";
+import { legacyDemoDestination } from "@/lib/demoRoutes";
 
 export function proxy(request: NextRequest) {
-  // The MVP preview is entirely local and must also work without Supabase.
+  // Resolve old links before rendering, including the former modal routes.
+  const destination = legacyDemoDestination(request.nextUrl.pathname);
+  if (destination) return NextResponse.redirect(new URL(destination, request.url));
+
+  // The main app is a browser-local demo. Admin intake keeps its existing
+  // Supabase session handling and submission path.
   if (
     request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname === "/app" ||
+    request.nextUrl.pathname.startsWith("/app/") ||
     request.nextUrl.pathname.startsWith("/preview")
   ) {
     return NextResponse.next();

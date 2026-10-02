@@ -1,3 +1,14 @@
+import {
+  TEAMS,
+  SKILL_GROUPS,
+  VENUE_TYPES,
+  CUISINES,
+  COVERS_BANDS,
+  DRESS_CODES,
+  VENUE_KNOWN_FOR,
+} from "./catalogue";
+
+export { VENUE_TYPES, CUISINES, COVERS_BANDS, DRESS_CODES, VENUE_KNOWN_FOR };
 import type {
   AppData,
   ConvoMeta,
@@ -284,50 +295,14 @@ export const TALENT: Record<string, Talent> = {
 
 export const TEAM_CATEGORIES = ["Chef", "Front of House"];
 
-export const CHEF_POSITIONS = [
-  "Demi CDP",
-  "CDP",
-  "Senior CDP",
-  "Junior Sous",
-  "Sous Chef",
-  "Head Chef",
-  "Executive Chef",
-  "Pastry Chef",
-];
+// Legacy categories remain available; onboarding also shows all five teams.
+export const CHEF_POSITIONS: string[] = [...TEAMS.Kitchen, ...TEAMS.Pastry];
 
-export const FOH_POSITIONS = ["Waiter", "Section Waiter", "Supervisor", "Restaurant Manager", "Bartender", "Host", "Mixologist"];
+export const FOH_POSITIONS: string[] = [...TEAMS.Floor, ...TEAMS.Bar, ...TEAMS.Sommelier];
 
-export const CHEF_SKILLS = [
-  "Grill",
-  "Fish",
-  "Meat",
-  "Pasta",
-  "Pastry",
-  "Bakery",
-  "Breakfast",
-  "High Volume",
-  "Fine Dining",
-  "Open Fire",
-  "Wood Oven",
-  "Sushi / Fish Specialist",
-  "Butchery",
-  "Events",
-  "Private Dining",
-  "Production Kitchen",
-];
-
-export const FOH_SKILLS = [
-  "Wine Service",
-  "Cocktails",
-  "Coffee",
-  "Silver Service",
-  "Events",
-  "Hotel",
-  "Fine Dining",
-  "High Volume",
-  "Reservations",
-  "Barista",
-];
+// Legacy exports remain available to consumers, using the shared catalogue.
+export const CHEF_SKILLS: string[] = [...SKILL_GROUPS.Kitchen];
+export const FOH_SKILLS: string[] = [...SKILL_GROUPS["Front of house"]];
 
 export const YEARS_BANDS = ["0–2", "3–5", "5–10", "10+"];
 
@@ -378,45 +353,16 @@ export const TEAM_AGREEMENTS = [
   "Represent Dyuknow professionally",
 ];
 
-export const VENUE_TYPES = ["Restaurant", "Hotel", "Pub", "Bar", "Private Members Club", "Events", "Catering", "Bakery", "Other"];
 
 // The doc lists "Italian, French, British, Asian, etc." as examples rather than
 // a full set — this is a placeholder list pending the real one.
-export const CUISINES = [
-  "British",
-  "Italian",
-  "French",
-  "Spanish",
-  "Asian",
-  "Indian",
-  "Japanese",
-  "Chinese",
-  "Middle Eastern",
-  "American",
-  "Mexican",
-  "Mediterranean",
-  "Modern European",
-  "Other",
-];
 
-export const COVERS_BANDS = ["0–30", "30–60", "60–100", "100+"];
 
 export const ROLES_NEEDED = ["Chefs", "FOH", "Bartenders", "Managers", "Events"];
 
 export const TYPICAL_NOTICE = ["Today", "Tomorrow", "Planned"];
 
-export const DRESS_CODES = ["Chef whites", "Blacks", "Casual"];
 
-export const VENUE_KNOWN_FOR = [
-  "Fast-paced service",
-  "Great team culture",
-  "Fine dining standards",
-  "Creative food",
-  "Training",
-  "Supportive management",
-  "Excellent food",
-  "Career progression",
-];
 
 export const VENUE_AGREEMENTS = [
   "Pay fairly",

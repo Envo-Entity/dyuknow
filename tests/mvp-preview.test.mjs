@@ -8,6 +8,11 @@ import {
   bookedCount,
   conflict,
   isFree,
+  openDates,
+  busyDates,
+  workedWith,
+  venueSummary,
+  offerableDates,
 } from "../lib/preview/model.ts";
 const draft = (patch = {}) => ({
   roles: ["CDP"],
@@ -72,12 +77,16 @@ test("post → response → contextual chat → book produces one shared booking
   assert.equal(d.shifts[0].status, "filled");
   assert.throws(() => book(d, s), /filled or closed/);
   assert.equal(bookedCount(d, s), 1);
+  // Only the side that didn't say the second yes is told.
   assert.ok(
-    d.notices.some((n) => n.to === "spruce" && n.title === "Booking confirmed"),
+    d.notices.some(
+      (n) => n.to === "poppy" && n.title === "You're booked at Spruce",
+    ),
   );
   assert.ok(
-    d.notices.some((n) => n.to === "poppy" && n.title === "Booking confirmed"),
+    !d.notices.some((n) => n.to === "spruce" && /booked/i.test(n.title)),
   );
+  assert.ok(!d.notices.some((n) => n.to === "poppy" && /Response sent/.test(n.title)));
 });
 test("first invite acceptance wins and another invite cannot book a filled shift", () => {
   let d = post(seed(), { mode: "invite", invitees: ["poppy", "theo"] });
@@ -117,7 +126,7 @@ test("overlapping booking lapses pending responses and blocks late acceptance", 
     "lapsed",
   );
   assert.ok(conflict(d, "poppy", d.shifts.find((s) => s.id === a).days));
-  assert.throws(() => book(d, a), /booked elsewhere/);
+  assert.throws(() => book(d, a), /no longer available/);
 });
 test("withdrawal wins before book; closure preserves confirmed places", () => {
   let d = post(seed(), { capacity: 2 });
@@ -149,10 +158,12 @@ test("cancel retains history, notifies both sides, and does not silently republi
     reason: "Illness",
   });
   assert.equal(d.bookings[0].cancelled, true);
-  assert.equal(d.shifts[0].status, "filled");
+  // The place is needed again, so the shift reopens.
+  assert.equal(d.shifts[0].status, "open");
   assert.ok(
-    d.notices.some((n) => n.to === "spruce" && n.title === "Booking cancelled"),
+    d.notices.some((n) => n.to === "spruce" && n.title === "Poppy Bertram cancelled"),
   );
+  assert.ok(!d.notices.some((n) => n.to === "poppy" && /cancelled/.test(n.title)));
   assert.equal(isFree(d, "poppy", d.shifts[0].days), false);
   assert.equal(
     d.availability.some((a) => a.member === "poppy" && a.date === "2026-10-09"),
@@ -334,4 +345,220 @@ test("joining retains chosen first-week dates and day hours, with an explicit sk
       }),
     /next seven days/,
   );
+});
+
+test("partial cover: talent offers some days, venue books those days, the rest stay open", () => {
+  let d = post(seed(), { count: 3 });
+  const s = d.shifts[0].id;
+  const [mon, tue, wed] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s, days: [mon, tue] });
+  d = transition(d, { type: "respond", actor: "theo", shift: s });
+  assert.deepEqual(d.responses.find((r) => r.talent === "poppy" && r.shift === s).days, [mon, tue]);
+  assert.equal(d.responses.find((r) => r.talent === "theo" && r.shift === s).days.length, 3);
+  d = book(d, s);
+  assert.deepEqual(d.bookings[0].days, [mon, tue]);
+  assert.equal(d.shifts[0].status, "open");
+  assert.deepEqual(openDates(d, d.shifts[0]), [wed]);
+  // Theo offered every day; booking him now only takes the day still open.
+  d = book(d, s, "theo");
+  assert.deepEqual(d.bookings[0].days, [wed]);
+  assert.equal(d.shifts[0].status, "filled");
+});
+test("a response whose days are all covered is told it's filled; others stay waiting", () => {
+  let d = post(seed(), { count: 2 });
+  const s = d.shifts[0].id;
+  const [first, second] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s, days: [first] });
+  d = transition(d, { type: "respond", actor: "theo", shift: s, days: [first, second] });
+  d = book(d, s, "theo");
+  assert.equal(d.shifts[0].status, "filled");
+  assert.equal(d.responses.find((r) => r.talent === "poppy" && r.shift === s).status, "not-selected");
+});
+test("responding to days already covered or not in the shift is refused", () => {
+  let d = post(seed(), { count: 2 });
+  const s = d.shifts[0].id;
+  const [first] = d.shifts[0].days.map((x) => x.date);
+  assert.throws(
+    () => transition(d, { type: "respond", actor: "poppy", shift: s, days: ["2026-12-25"] }),
+    /dates from this shift/,
+  );
+  d = transition(d, { type: "respond", actor: "theo", shift: s, days: [first] });
+  d = book(d, s, "theo");
+  assert.throws(
+    () => transition(d, { type: "respond", actor: "poppy", shift: s, days: [first] }),
+    /no longer available/,
+  );
+});
+test("an invite can be answered with some days, which waits for the venue", () => {
+  let d = post(seed(), { count: 3, mode: "invite", invitees: ["poppy"] });
+  const s = d.shifts[0].id;
+  const [mon] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s, days: [mon] });
+  const r = d.responses.find((r) => r.talent === "poppy" && r.shift === s);
+  assert.equal(r.status, "can-cover");
+  assert.equal(bookedCount(d, s), 0);
+  assert.throws(() => transition(d, { type: "accept", actor: "poppy", shift: s }), /no longer available/);
+  d = book(d, s);
+  assert.deepEqual(d.bookings[0].days, [mon]);
+});
+test("a booking elsewhere trims clashing days from other responses instead of dropping them", () => {
+  let d = post(seed(), { count: 3, date: "2026-10-12" });
+  const multi = d.shifts[0].id;
+  const [, tue] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: multi });
+  d = post(d, { date: tue, mode: "invite", invitees: ["poppy"] }, "harper");
+  d = transition(d, { type: "accept", actor: "poppy", shift: d.shifts[0].id });
+  const r = d.responses.find((r) => r.shift === multi && r.talent === "poppy");
+  assert.equal(r.status, "can-cover");
+  assert.equal(r.days.length, 2);
+  assert.ok(!r.days.includes(tue));
+});
+test("one person for all days: partial offers and partial bookings are refused", () => {
+  let d = post(seed(), { count: 3, together: true });
+  const s = d.shifts[0].id;
+  assert.equal(d.shifts[0].together, true);
+  const [thu] = d.shifts[0].days.map((x) => x.date);
+  assert.throws(
+    () => transition(d, { type: "respond", actor: "poppy", shift: s, days: [thu] }),
+    /Each person must cover every day/,
+  );
+  d = respond(d, s);
+  assert.throws(
+    () => transition(d, { type: "book", actor: "spruce", shift: s, talent: "poppy", days: [thu] }),
+    /Each person must cover every day/,
+  );
+  d = book(d, s);
+  assert.equal(d.bookings[0].days.length, 3);
+  // A single-day shift never carries the flag.
+  assert.equal(post(seed(), { together: true }).shifts[0].together, false);
+});
+test("mix and match: the venue books chosen days, and can add more of the same person's days later", () => {
+  let d = post(seed(), { count: 3 });
+  const s = d.shifts[0].id;
+  const [thu, fri, sat] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s });
+  d = transition(d, { type: "respond", actor: "theo", shift: s, days: [thu] });
+  // Theo for Thursday only, Poppy for Friday only.
+  d = transition(d, { type: "book", actor: "spruce", shift: s, talent: "theo", days: [thu] });
+  d = transition(d, { type: "book", actor: "spruce", shift: s, talent: "poppy", days: [fri] });
+  assert.deepEqual(openDates(d, d.shifts[0]), [sat]);
+  assert.throws(
+    () => transition(d, { type: "book", actor: "spruce", shift: s, talent: "poppy", days: [thu] }),
+    /still open/,
+  );
+  // Adding Saturday extends Poppy's existing booking instead of creating a second one.
+  d = transition(d, { type: "book", actor: "spruce", shift: s, talent: "poppy", days: [sat] });
+  const poppy = d.bookings.filter((b) => b.shift === s && b.talent === "poppy");
+  assert.equal(poppy.length, 1);
+  assert.deepEqual(poppy[0].days, [fri, sat]);
+  assert.equal(d.shifts[0].status, "filled");
+  assert.ok(d.notices.some((n) => n.to === "poppy" && /added/.test(n.title)));
+});
+test("busy days come from the talent's own Not free marks", () => {
+  let d = post(seed(), { count: 2 });
+  const s = d.shifts[0];
+  d = transition(d, {
+    type: "availability",
+    actor: "poppy",
+    dates: [s.days[1].date],
+    kind: "not-free",
+    start: "00:00",
+    end: "00:00",
+  });
+  assert.deepEqual(busyDates(d, "poppy", d.shifts[0]), [s.days[1].date]);
+});
+test("Worked with you comes only from a past, uncancelled booking the venue didn't flag", () => {
+  let d = seed();
+  // Seeded: Poppy worked a past Spruce service; Camille has no history with The Sea The Sea.
+  assert.equal(workedWith(d, "spruce", "poppy"), true);
+  assert.equal(workedWith(d, "sea", "camille"), false);
+  // A future booking doesn't count yet.
+  d = post(d);
+  const s = d.shifts[0].id;
+  d = respond(d, s, "theo");
+  d = book(d, s, "theo");
+  assert.equal(workedWith(d, "spruce", "theo"), false);
+  // A venue-reported no-show removes it.
+  d = transition(d, { type: "outcome", actor: "spruce", booking: "past-booking", value: "No-show" });
+  assert.equal(workedWith(d, "spruce", "poppy"), false);
+});
+
+test("a cancellation reopens a filled multi-day, two-person shift for the days it affects", () => {
+  let d = post(seed(), { count: 2, capacity: 2 });
+  const s = d.shifts[0].id;
+  d = respond(d, s);
+  d = respond(d, s, "theo");
+  d = book(d, s);
+  d = book(d, s, "theo");
+  assert.equal(d.shifts[0].status, "filled");
+  const theo = d.bookings.find((b) => b.talent === "theo").id;
+  d = transition(d, { type: "cancel", actor: "theo", booking: theo, reason: "Illness" });
+  assert.equal(d.shifts[0].status, "open");
+  assert.equal(openDates(d, d.shifts[0]).length, 2);
+  assert.match(venueSummary(d, d.shifts[0]).text, /^Theo cancelled · .* each need 1 more person$/);
+  // The venue can text everyone again, and Ethan-style newcomers or Theo can offer.
+  d = transition(d, { type: "realert", actor: "spruce", shift: s });
+  assert.ok(d.notices.some((n) => n.title === "Spruce still needs cover"));
+});
+test("people told it was filled can offer again once it reopens", () => {
+  let d = post(seed());
+  const s = d.shifts[0].id;
+  d = respond(d, s);
+  d = respond(d, s, "theo");
+  d = book(d, s, "theo");
+  assert.equal(d.responses.find((r) => r.talent === "poppy" && r.shift === s).status, "not-selected");
+  d = transition(d, { type: "cancel", actor: "spruce", booking: d.bookings[0].id, reason: "Plans changed" });
+  d = respond(d, s);
+  assert.equal(d.responses.find((r) => r.talent === "poppy" && r.shift === s).status, "can-cover");
+});
+test("a multi-day shift stays open for later days after the first day starts", () => {
+  let d = post(seed(), { count: 2 });
+  const s = d.shifts[0];
+  d = transition(d, { type: "advance", until: s.days[0].from });
+  assert.equal(d.shifts[0].status, "open");
+  assert.deepEqual(openDates(d, d.shifts[0]), [s.days[1].date]);
+  d = transition(d, { type: "advance", until: s.days[1].from });
+  assert.equal(d.shifts[0].status, "expired");
+});
+test("talent booked for one day can still offer the other days", () => {
+  let d = post(seed(), { count: 2 });
+  const s = d.shifts[0].id;
+  const [thu, fri] = d.shifts[0].days.map((x) => x.date);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s, days: [thu] });
+  d = book(d, s);
+  assert.deepEqual(offerableDates(d, "poppy", d.shifts[0]), [fri]);
+  d = transition(d, { type: "respond", actor: "poppy", shift: s, days: [fri] });
+  assert.ok(d.notices.some((n) => n.to === "spruce" && /can also cover/.test(n.title)));
+  d = book(d, s);
+  assert.deepEqual(d.bookings.find((b) => b.talent === "poppy").days, [thu, fri]);
+  assert.equal(d.shifts[0].status, "filled");
+});
+test("any dates within the window, with the same hours", () => {
+  const days = makeDays({ dates: ["2026-10-12", "2026-10-05", "2026-10-07"], start: "17:00", end: "23:00" });
+  assert.deepEqual(days.map((x) => x.date), ["2026-10-05", "2026-10-07", "2026-10-12"]);
+  let d = post(seed(), { dates: ["2026-10-05", "2026-10-07"] });
+  assert.equal(d.shifts[0].days.length, 2);
+  assert.throws(() => makeDays({ dates: [], start: "17:00", end: "23:00" }), /1 and 7 dates/);
+});
+test("status talks in people per day, and never says no replies once someone is booked", () => {
+  let d = post(seed(), { count: 2, capacity: 2 });
+  const s = d.shifts[0].id;
+  d = respond(d, s);
+  d = book(d, s);
+  const text = venueSummary(d, d.shifts[0]).text;
+  assert.doesNotMatch(text, /no replies|days covered/);
+  assert.match(text, /each need 1 more person/);
+});
+test("one shared position list: every onboarding position plus Sommelier and Maître d’, no duplicates", async () => {
+  const { POSITIONS, TEAMS } = await import("../lib/catalogue.ts");
+  const original = [
+    "Demi CDP", "CDP", "Senior CDP", "Junior Sous", "Sous Chef", "Head Chef", "Executive Chef", "Pastry Chef",
+    "Waiter", "Section Waiter", "Supervisor", "Restaurant Manager", "Bartender", "Host", "Mixologist",
+  ];
+  for (const p of original) assert.ok(POSITIONS.includes(p), p);
+  assert.ok(POSITIONS.includes("Sommelier"));
+  assert.ok(POSITIONS.includes("Maître d’"));
+  assert.equal(new Set(POSITIONS).size, POSITIONS.length);
+  assert.equal(POSITIONS.length, 17);
+  assert.deepEqual(Object.keys(TEAMS), ["Kitchen", "Pastry", "Bar", "Sommelier", "Floor"]);
 });

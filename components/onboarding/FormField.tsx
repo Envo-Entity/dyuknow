@@ -9,9 +9,10 @@ interface FormFieldProps {
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   maxLength?: number;
   prefix?: string;
+  min?: string;
 }
 
-export function FormField({ label, value, onChange, placeholder, type = "text", inputMode, maxLength, prefix }: FormFieldProps) {
+export function FormField({ label, value, onChange, placeholder, type = "text", inputMode, maxLength, prefix, min }: FormFieldProps) {
   return (
     <label className="flex flex-col gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">{label}</span>
@@ -24,6 +25,7 @@ export function FormField({ label, value, onChange, placeholder, type = "text", 
           type={type}
           inputMode={inputMode}
           maxLength={maxLength}
+          min={min}
           className={cn(
             "w-full bg-transparent px-4 py-3.5 text-[15px] text-ink placeholder:text-faint lg:px-5 lg:py-4 lg:text-[16px]",
             prefix && "pl-1.5"
