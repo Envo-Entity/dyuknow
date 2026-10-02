@@ -252,3 +252,18 @@ than copied literally:
   device-width branching in JS, it's the same component with `lg:` classes.
 - **CSS-only responsive breakpoints** (see above) instead of a JS
   `isDesktop` state.
+
+## Demo conversations and public profiles
+
+In the current demo, member names and photos in messages, invitation pickers,
+responses and booking rows open the member's public profile. Invitation selection
+uses a separate 44px tick control. Photos align with the top of the card, and
+returning from a profile restores the originating task and saved shift draft.
+
+Conversations use a compact member header with a public-profile link, shift
+context, independently scrolling messages and a bottom composer. On phones the
+conversation fills the visual viewport, including keyboard resizing and safe
+areas; the app header and tabs give way to a Back control in the chat header.
+Venue public profiles include working conditions and typical rates. Address and
+on-site contact appear for talent with a confirmed booking; weekly vacancies and
+private talent verification documents remain owner-only.

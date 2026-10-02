@@ -148,7 +148,10 @@ export function PreviewApp() {
     },
     [setFeedback],
   );
+  const [profileBack, setProfileBack] = useState("home");
   function go(path: string) {
+    if (/^(talent|venue)\//.test(path) && !["talent", "venue"].includes(page))
+      setProfileBack(page === "new" ? "new/invite" : page === "compose" ? `${parts.slice(2, 5).join("/")}/invite` : parts.slice(2).join("/") || "home");
     navigateRoute(`/${side}/${actor}/${path === "home" ? "home" : path}`);
   }
   const unread = data.notices.filter((n) => n.to === actor && !n.read).length;
@@ -259,7 +262,7 @@ export function PreviewApp() {
     );
   else if (page === "compose" && side === "venue" && id && parts[4])
     content = (
-      <ShiftComposer key={`${id}/${parts[4]}`} origin={`${id}/${parts[4]}`} />
+      <ShiftComposer key={`${id}/${parts[4]}`} origin={`${id}/${parts[4]}`} resumeInvite={parts[5] === "invite"} />
     );
   else if (page === "shift")
     content = <ShiftDetail key={`${actor}-${id}`} id={id} />;
@@ -293,10 +296,11 @@ export function PreviewApp() {
         act,
         toast,
         error: feedback?.error ? feedback.text : "",
+        profileBack,
       }}
     >
       <div
-        className={`pv-app ${
+        className={`pv-app ${page === "chat" ? "pv-chat-screen" : ""} ${
           // Task screens get the whole phone; Back returns to the tabs.
           ["new", "compose", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
             ? "pv-focus"

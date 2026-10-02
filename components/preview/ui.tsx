@@ -5,7 +5,7 @@ import {
   type ReactNode,
   type ButtonHTMLAttributes,
 } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from "@/components/icons";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, CloseIcon } from "@/components/icons";
 import {
   FAMILIES,
   datesLabel,
@@ -14,6 +14,7 @@ import {
   shiftLabel,
   type Shift,
   areaOf,
+  type Member,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 export function Button({
@@ -48,6 +49,26 @@ export function Photo({
     <span className={`pv-monogram ${className}`} aria-hidden="true">
       {alt.slice(0, 1)}
     </span>
+  );
+}
+export function ProfilePhoto({ person }: { person: Member }) {
+  const { go } = usePreview();
+  return (
+    <button type="button" className="pv-profile-photo-link" aria-label={`View ${person.name}’s public profile`} onClick={() => go(`${person.side}/${person.id}`)}>
+      <Photo src={person.photo} alt={person.name} />
+    </button>
+  );
+}
+export function ProfileName({ person }: { person: Member }) {
+  const { go } = usePreview();
+  return <button type="button" className="pv-name-link" onClick={() => go(`${person.side}/${person.id}`)}>{person.name}</button>;
+}
+export function InviteToggle({ name, checked, disabled, onChange }: { name: string; checked: boolean; disabled?: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="pv-invite-toggle">
+      <input type="checkbox" aria-label={`Invite ${name}`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span><CheckIcon size={18} /></span>
+    </label>
   );
 }
 export function Badge({
@@ -231,6 +252,7 @@ export function Row({
   status,
   good = false,
   onClick,
+  person,
 }: {
   photo?: string;
   name: string;
@@ -239,7 +261,22 @@ export function Row({
   status?: string;
   good?: boolean;
   onClick?: () => void;
+  person?: Member;
 }) {
+  if (person) return (
+    <div className="pv-row pv-member-row">
+      <ProfilePhoto person={person} />
+      <div className="pv-row-text">
+        <strong><ProfileName person={person} /></strong>
+        <button className="pv-row-details" onClick={onClick} aria-label={`View ${name}’s ${status === "Booked" || status === "Past" || status === "Cancelled" ? "booking" : "shift"} details`}>
+          <span>{title}</span>
+          {sub && <small>{sub}</small>}
+          {status && <Badge good={good}>{status}</Badge>}
+        </button>
+      </div>
+      <button className="pv-icon-button" onClick={onClick} aria-label={`View details for ${name}`}><ArrowRightIcon size={18} /></button>
+    </div>
+  );
   return (
     <button className="pv-row" onClick={onClick}>
       <Photo src={photo} alt={name} />

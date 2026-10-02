@@ -1051,10 +1051,14 @@
   margin-top: 22px;
 }
 .pv-chat-room {
-  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  height: min(640px, 70dvh);
+  min-height: 360px;
+  border-radius: 0 0 16px 16px;
   background: #f5f6f2;
-  padding: 20px;
   min-width: 0;
+  overflow: hidden;
 }
 .pv-chat-pinned {
   display: flex;
@@ -1079,9 +1083,11 @@
   flex-direction: column;
   gap: 16px;
   padding: 26px 0;
-  max-height: 440px;
-  min-height: 260px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #a7b0a2 transparent;
 }
 .pv-system-message {
   padding: 12px;
@@ -2921,4 +2927,149 @@ dl.pv-arrival > div {
 .pv-links a {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Public profiles are separate actions from invitation selection. */
+.pv-profile-photo-link {
+  display: block;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 16px;
+  overflow: hidden;
+  align-self: flex-start;
+}
+.pv-profile-photo-link :is(.pv-photo, .pv-monogram) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.pv-profile-photo-link:hover { opacity: 0.85; }
+.pv-pick { align-items: flex-start; cursor: default; }
+.pv-pick .pv-name-link,
+.pv-booking-person .pv-name-link {
+  font: inherit;
+  font-weight: 600;
+  min-height: 32px;
+}
+.pv-pick.is-blocked { opacity: 1; cursor: default; }
+.pv-pick.is-blocked .pv-pick-text small { color: #5d625c; }
+.pv-name-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.pv-invite-toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  align-self: center;
+  cursor: pointer;
+}
+.pv-invite-toggle input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.pv-invite-toggle > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid #818a7b;
+  border-radius: 50%;
+  color: #616b5c;
+  pointer-events: none;
+}
+.pv-invite-toggle input:checked + span { background: #141712; color: #fff; border-color: #141712; }
+.pv-invite-toggle input:focus-visible + span { outline: 2px solid #3f6541; outline-offset: 4px; }
+.pv-invite-toggle:has(input:disabled) { opacity: 0.4; cursor: not-allowed; }
+.pv-response > .pv-profile-photo-link { width: 84px; height: 104px; border-radius: 18px; }
+.pv-booking-person { align-items: flex-start; }
+.pv-booking-person .pv-text-link { display: block; font-size: 13px; margin: 4px 0; }
+
+/* Conversation headers make the member's public page discoverable. */
+.pv-conversation { max-width: 860px; }
+.pv-conversation-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #e2e6de;
+}
+.pv-conversation-header .pv-profile-photo-link { width: 44px; height: 44px; border-radius: 50%; align-self: center; }
+.pv-conversation-person { flex: 1; min-width: 0; }
+.pv-conversation-person h1 { font-size: 18px; line-height: 1.3; font-weight: 600; overflow-wrap: anywhere; }
+.pv-conversation-person .pv-name-link { font: inherit; }
+.pv-conversation-person .pv-text-link { font-size: 12px; color: #465640; }
+.pv-chat-layout { max-width: none; }
+.pv-chat-room .pv-chat-pinned { border-radius: 0; padding: 14px 20px; border-bottom: 1px solid #e2e6de; flex-shrink: 0; }
+.pv-chat-room .pv-chat-messages { padding: 20px; max-height: none; min-height: 0; }
+.pv-chat-room .pv-chat-composer { padding: 12px 16px; background: #fff; border-top: 1px solid #e2e6de; flex-shrink: 0; }
+.pv-chat-composer textarea { font-size: 16px; line-height: 1.5; max-height: 120px; background: #f5f6f2; resize: none; }
+.pv-chat-composer textarea::placeholder { color: #5d625c; opacity: 1; }
+.pv-chat-composer .pv-button { width: 44px; min-width: 44px; height: 44px; padding: 0; border-radius: 50%; }
+.pv-chat-room > .pv-error { padding: 8px 16px; margin: 0; background: #fff; }
+.pv-thread-row > .pv-profile-photo-link { width: 56px; height: 56px; border-radius: 50%; }
+.pv-thread-row h2 .pv-name-link { font: inherit; }
+.pv-thread-open { display: block; text-align: left; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; min-height: 32px; }
+.pv-thread-action { flex: none; min-height: 44px; }
+
+@media (max-width: 760px) {
+  .pv-chat-screen > :is(.pv-preview-strip, .pv-header, .pv-nav) { display: none; }
+  .pv-chat-screen .pv-main { padding: 0; margin: 0; }
+  .pv-chat-screen .pv-conversation {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--pv-chat-top, 0px);
+    height: var(--pv-chat-height, 100dvh);
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    z-index: 35;
+    padding-top: env(safe-area-inset-top);
+  }
+  .pv-conversation-header { padding: 10px 12px; gap: 10px; flex-shrink: 0; }
+  .pv-conversation-header .pv-icon-button { width: 44px; height: 44px; flex: none; }
+  .pv-conversation-header .pv-text-link { min-height: 24px; }
+  .pv-chat-screen .pv-chat-layout { display: flex; flex: 1; min-height: 0; gap: 0; }
+  .pv-chat-screen .pv-chat-room { flex: 1; height: auto; min-height: 0; border-radius: 0; padding: 0; }
+  .pv-chat-room .pv-chat-pinned { padding: 10px 16px; flex-wrap: wrap; gap: 8px; }
+  .pv-chat-pinned > span { flex-basis: 160px; }
+  .pv-chat-pinned .pv-button { font-size: 12px; padding: 8px 12px; min-height: 40px; }
+  .pv-chat-room .pv-chat-messages { padding: 16px; }
+  .pv-chat-room .pv-chat-composer { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
+  .pv-chat-composer textarea { padding: 10px 14px; min-height: 44px; }
+  .pv-message { max-width: 88%; padding: 10px 14px; }
+  .pv-message p { font-size: 15px; }
+  .pv-system-message { font-size: 12px; }
+  .pv-thread-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; padding: 18px 0; }
+  .pv-thread-row > .pv-profile-photo-link { width: 48px; height: 48px; grid-row: span 2; }
+  .pv-thread-row h2 { font-family: inherit; font-size: 16px; font-weight: 600; gap: 6px; }
+  .pv-thread-row > .pv-badge { font-size: 10px; }
+  .pv-thread-row .pv-thread-action { grid-column: 3; grid-row: 2; font-size: 12px; min-height: 32px; }
+  .pv-thread-row > div { grid-row: span 2; }
+  .pv-response > .pv-profile-photo-link { width: 58px; height: 72px; border-radius: 14px; }
+  .pv-pick { gap: 12px; padding: 16px 12px; }
+  .pv-pick .pv-name-link { min-height: 36px; }
+}
+.pv-member-row .pv-name-link { font: inherit; font-weight: 600; min-height: 32px; }
+.pv-row-details { display: block; width: 100%; text-align: left; min-height: 44px; }
+.pv-member-row > .pv-profile-photo-link { width: 48px; height: 54px; border-radius: 14px; }
+.pv-thread-row > .pv-badge { margin-left: 0; }
+.pv-conversation-person .pv-text-link { padding: 0; }
+.pv-thread-action { padding: 8px 0; }
+.pv-venue-hero-link { display: block; width: 100%; text-align: left; }
+.pv-venue-hero-link .pv-venue-hero { width: 100%; }
+.pv-next > .pv-profile-photo-link { width: 72px; height: 80px; border-radius: 16px; }
+.pv-next .pv-name-link { font: inherit; }
+.pv-next > .pv-icon-button { flex: none; }
+@media (max-width: 760px) {
+  .pv-next > .pv-profile-photo-link { width: 64px; height: 72px; }
 }

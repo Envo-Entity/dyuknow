@@ -21,6 +21,8 @@ import {
   type Data,
   type Shift,
   areaOf,
+  fullAddress,
+  contactLine,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { VenueFacts } from "./MemberViews";
@@ -30,6 +32,8 @@ import {
   Empty,
   Heading,
   Photo,
+  ProfilePhoto,
+  ProfileName,
   Row,
   Section,
   Segments,
@@ -66,8 +70,9 @@ function BookingRow({ b }: { b: Booking }) {
   return (
     <Row
       photo={other.photo}
+      person={other}
       name={other.name}
-      title={`${other.name} · ${shiftLabel(s)}`}
+      title={shiftLabel(s)}
       sub={whenLine(data, s, b.days)}
       status={b.cancelled ? "Cancelled" : past ? "Past" : "Booked"}
       good={!b.cancelled && !past}
@@ -204,19 +209,19 @@ function NextBooking({ b }: { b: Booking }) {
   const v = member(data, s.venue);
   const first = bookingServices(data, b)[0];
   return (
-    <button className="pv-next" onClick={() => go(`booking/${b.id}`)}>
-      <Photo src={v.photo} alt={v.name} />
+    <div className="pv-next">
+      <ProfilePhoto person={v} />
       <span>
         <Badge good>You’re booked</Badge>
-        <strong>{v.name}</strong>
+        <strong><ProfileName person={v} /></strong>
         <small>
           {relativeDay(first.date, data.now)} · {first.start}–{first.end}
           {b.days.length > 1 ? ` · ${b.days.length} days` : ""} ·{" "}
           {shiftLabel(s)}
         </small>
       </span>
-      <ArrowRightIcon />
-    </button>
+      <button className="pv-icon-button" aria-label="View booking details" onClick={() => go(`booking/${b.id}`)}><ArrowRightIcon /></button>
+    </div>
   );
 }
 export function TalentHome() {
@@ -396,7 +401,7 @@ function VenueDirectory() {
   );
 }
 export function VenueDetail({ id }: { id: string }) {
-  const { data, go } = usePreview();
+  const { data, actor, go, profileBack } = usePreview();
   const v = member(data, id);
   if (!v)
     return (
@@ -405,14 +410,28 @@ export function VenueDetail({ id }: { id: string }) {
   const shifts = data.shifts.filter(
     (s) => s.venue === id && s.mode === "post" && s.status === "open",
   );
+  const bookedHere = data.bookings.some((b) => b.talent === actor && !b.cancelled && data.shifts.some((s) => s.id === b.shift && s.venue === id));
   return (
     <>
-      <Heading title={v.name} description={areaOf(v)} back="home" />
+      <Heading title={v.name} description={areaOf(v)} back={profileBack} />
       <div className="pv-profile-hero">
         <Photo src={v.photo} alt={v.name} />
         <div>
           {v.bio && <p>{v.bio}</p>}
           <VenueFacts v={v} />
+          {v.venue && (
+            <dl className="pv-profile-info">
+              <div><dt>Teams usually needed</dt><dd>{v.venue.teamsNeeded.join(" · ") || "Not set"}</dd></div>
+              <div><dt>Typical rates</dt><dd>Kitchen and pastry £{v.venue.rateChef}/h · Front of house £{v.venue.rateFoh}/h</dd></div>
+              <div><dt>Dress code</dt><dd>{v.venue.dressCode || "Confirm with the venue"}</dd></div>
+              <div><dt>Uniform</dt><dd>{v.venue.uniform ? "Provided" : "Not provided"}</dd></div>
+              <div><dt>Staff meal</dt><dd>{v.venue.staffMeal ? "Provided" : "Not provided"}</dd></div>
+              {bookedHere && <>
+                <div><dt>Address</dt><dd>{fullAddress(v)}</dd></div>
+                <div><dt>On-site contact</dt><dd>{contactLine(v)} · {v.phone}</dd></div>
+              </>}
+            </dl>
+          )}
         </div>
       </div>
       <h2 className="pv-section-title">Open shifts</h2>
@@ -571,8 +590,9 @@ export function WorkHub() {
       <Row
         key={r.id}
         photo={v.photo}
+        person={v}
         name={v.name}
-        title={`${v.name} · ${shiftLabel(s)}`}
+        title={shiftLabel(s)}
         sub={whenLine(data, s, offeredDates(s, r))}
         status={status}
         good={status === "Invited you"}

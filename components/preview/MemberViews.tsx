@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeftIcon, SendIcon } from "@/components/icons";
 import {
   TEAMS,
   TEAM_NAMES,
@@ -36,7 +37,7 @@ import {
   areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { Badge, Button, Empty, Field, Heading, Photo } from "./ui";
+import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
 export function Messages() {
   const { data, actor, side, go } = usePreview();
@@ -65,15 +66,14 @@ export function Messages() {
             const messages = data.messages.filter((m) => m.response === r.id);
             const last = messages.at(-1);
             return (
-              <button
+              <div
                 key={r.id}
                 className="pv-thread-row"
-                onClick={() => go(`chat/${r.id}`)}
               >
-                <Photo src={other.photo} />
+                <ProfilePhoto person={other} />
                 <div>
                   <h2>
-                    {other.name}
+                    <ProfileName person={other} />
                     {unreadChat(data, actor, r) && (
                       <span
                         className="pv-unread-dot"
@@ -84,9 +84,9 @@ export function Messages() {
                   <p>
                     {shiftLabel(s)} · {displayDate(s.days[0].date)}
                   </p>
-                  <small>
+                  <button className="pv-thread-open" onClick={() => go(`chat/${r.id}`)} aria-label={`Open conversation with ${other.name}`}>
                     {last?.text || "Your conversation starts here."}
-                  </small>
+                  </button>
                 </div>
                 <Badge good={r.status === "booked"}>
                   {r.status === "booked"
@@ -97,7 +97,8 @@ export function Messages() {
                         ? "Can cover"
                         : r.status.replaceAll("-", " ")}
                 </Badge>
-              </button>
+                <button className="pv-text-link pv-thread-action" onClick={() => go(`chat/${r.id}`)}>Open chat</button>
+              </div>
             );
           })}
         </div>
@@ -121,11 +122,41 @@ export function Messages() {
 export function Thread({ id }: { id: string }) {
   const { data, actor, side, go, act } = usePreview();
   const [booking, setBooking] = useState(false);
+  const conversation = useRef<HTMLDivElement>(null);
+  const messageList = useRef<HTMLDivElement>(null);
+  const messageInput = useRef<HTMLTextAreaElement>(null);
   const r = data.responses.find((r) => r.id === id);
   const s = data.shifts.find((s) => s.id === r?.shift);
   const messages = data.messages.filter((m) => m.response === id);
   const last = messages.at(-1)?.id;
+  const text = data.messageDrafts[`${actor}/${id}`] || "";
   const canRead = !!r?.chat && !!s && [s.venue, r.talent].includes(actor);
+  useEffect(() => {
+    if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
+  }, [last]);
+  useEffect(() => {
+    const input = messageInput.current;
+    if (input) {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+    }
+  }, [text]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const resize = () => {
+      conversation.current?.style.setProperty("--pv-chat-height", `${viewport?.height ?? window.innerHeight}px`);
+      conversation.current?.style.setProperty("--pv-chat-top", `${viewport?.offsetTop ?? 0}px`);
+    };
+    resize();
+    viewport?.addEventListener("resize", resize);
+    viewport?.addEventListener("scroll", resize);
+    window.addEventListener("resize", resize);
+    return () => {
+      viewport?.removeEventListener("resize", resize);
+      viewport?.removeEventListener("scroll", resize);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
   useEffect(() => {
     if (canRead) act({ type: "read-chat", actor, response: id });
   }, [actor, id, last, canRead, act]); // Read only this thread, not the whole inbox.
@@ -134,17 +165,20 @@ export function Thread({ id }: { id: string }) {
       <Empty
         title="This conversation is private"
         text="Open an available thread from your inbox."
-      />
+      ><Button onClick={() => go("messages")}>Back to messages</Button></Empty>
     );
   const other = member(data, side === "venue" ? r.talent : s.venue);
-  const text = data.messageDrafts[`${actor}/${id}`] || "";
   return (
     <>
-      <Heading
-        title={other.name}
-        description={`${shiftLabel(s)} · ${displayDate(s.days[0].date)}`}
-        back="messages"
-      />
+      <div className="pv-conversation" ref={conversation}>
+        <header className="pv-conversation-header">
+          <button className="pv-icon-button" aria-label="Back to messages" onClick={() => go("messages")}><ArrowLeftIcon size={22} /></button>
+          <ProfilePhoto person={other} />
+          <div className="pv-conversation-person">
+            <h1><ProfileName person={other} /></h1>
+            <button className="pv-text-link" onClick={() => go(`${other.side}/${other.id}`)}>View public profile</button>
+          </div>
+        </header>
       <div className="pv-chat-layout">
         <div className="pv-chat-room">
           <div className="pv-chat-pinned">
@@ -185,7 +219,7 @@ export function Thread({ id }: { id: string }) {
               </button>
             )}
           </div>
-          <div className="pv-chat-messages" aria-live="polite">
+          <div className="pv-chat-messages" ref={messageList} aria-live="polite" role="log" aria-label="Conversation messages">
             {messages.length ? (
               messages.map((m) =>
                 m.system ? (
@@ -218,8 +252,9 @@ export function Thread({ id }: { id: string }) {
               Your message
             </label>
             <textarea
+              ref={messageInput}
               id="chat-message"
-              rows={2}
+              rows={1}
               placeholder="Write a message…"
               value={text}
               onChange={(e) =>
@@ -231,8 +266,8 @@ export function Thread({ id }: { id: string }) {
                 })
               }
             />
-            <Button type="submit" disabled={!text.trim()}>
-              Send
+            <Button type="submit" disabled={!text.trim() || data.offline} aria-label="Send message">
+              <SendIcon size={20} />
             </Button>
           </form>
           {data.offline && (
@@ -241,6 +276,7 @@ export function Thread({ id }: { id: string }) {
             </p>
           )}
         </div>
+      </div>
       </div>
       {booking && (
         <BookConfirm
@@ -492,7 +528,7 @@ export function AvailabilityEditor() {
   );
 }
 export function TalentProfile({ id }: { id: string }) {
-  const { data, actor, go, act } = usePreview();
+  const { data, actor, go, act, profileBack } = usePreview();
   const t = member(data, id);
   if (!t || t.side !== "talent")
     return (
@@ -511,10 +547,10 @@ export function TalentProfile({ id }: { id: string }) {
       <Heading
         title={t.name}
         description={`${t.roles.join(" · ")} · ${areaOf(t)}`}
-        back={data.draft ? "new" : "bookings"}
+        back={profileBack}
       />
       <div className="pv-profile-hero">
-        <Photo src={t.photo} />
+        <Photo src={t.photo} alt={t.name} />
         <div>
           {workedWith(data, actor, t.id) && <Badge good>Worked with you</Badge>}
           {t.bio && <p>{t.bio}</p>}
@@ -525,7 +561,7 @@ export function TalentProfile({ id }: { id: string }) {
               ))}
             </div>
           )}
-          {data.draft && (
+          {data.draft && /^(new|compose)\//.test(profileBack) && (
             <>
               <p>Inviting for {data.draft.roles?.join(" or ")}.</p>
               {days.map((d) => (
@@ -544,7 +580,7 @@ export function TalentProfile({ id }: { id: string }) {
                       ],
                     },
                   });
-                  go("new/invite");
+                  go(profileBack);
                 }}
               >
                 Choose {t.name.split(" ")[0]} to invite

@@ -10,6 +10,7 @@ export type PreviewContextValue = {
   act: (action: Action, success?: string) => Data | null;
   toast: (text: string) => void;
   error: string;
+  profileBack: string;
 };
 export const PreviewContext = createContext<PreviewContextValue | null>(null);
 export function usePreview() {

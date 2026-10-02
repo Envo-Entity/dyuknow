@@ -23,7 +23,7 @@ import {
   areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { ActionBar, Badge, Button, Empty, Heading, Photo } from "./ui";
+import { ActionBar, Badge, Button, Empty, Heading, ProfilePhoto, ProfileName, InviteToggle } from "./ui";
 import { draftFrom } from "./ShiftDetail";
 
 export function ShiftComposer({
@@ -200,13 +200,13 @@ export function ShiftComposer({
               const blocked = !free.length;
               const picked = draft.invitees.includes(t.id);
               return (
-                <label
+                <div
                   key={t.id}
                   className={`pv-pick ${picked ? "is-picked" : ""} ${blocked ? "is-blocked" : ""}`}
                 >
-                  <Photo src={t.photo} alt={t.name} />
+                  <ProfilePhoto person={t} />
                   <span className="pv-pick-text">
-                    <strong>{t.name}</strong>
+                    <strong><ProfileName person={t} /></strong>
                     <small>
                       {t.roles.join(" · ")} · {areaOf(t)}
                     </small>
@@ -229,9 +229,8 @@ export function ShiftComposer({
                     </span>
                     {t.bio && <span className="pv-bio-clamp">{t.bio}</span>}
                   </span>
-                  <input
-                    type="checkbox"
-                    aria-label={`Invite ${t.name}`}
+                  <InviteToggle
+                    name={t.name}
                     checked={picked}
                     disabled={blocked}
                     onChange={() =>
@@ -242,7 +241,7 @@ export function ShiftComposer({
                       })
                     }
                   />
-                </label>
+                </div>
               );
             })}
           </div>

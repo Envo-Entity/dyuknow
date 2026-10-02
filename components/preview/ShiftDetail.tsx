@@ -44,6 +44,9 @@ import {
   Heading,
   Modal,
   Photo,
+  ProfilePhoto,
+  ProfileName,
+  InviteToggle,
   Row,
   Section,
   Services,
@@ -228,7 +231,7 @@ function ResponseCard({
   const gone = offered.filter((d) => !bookable.includes(d));
   return (
     <div className="pv-response">
-      <Photo src={t.photo} alt={t.name} />
+      <ProfilePhoto person={t} />
       <div>
         <button
           className="pv-name-link"
@@ -652,10 +655,10 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                 );
                 const blocked = !availableDates(data, t.id, s).length;
                 return (
-                  <label key={t.id} className={`pv-pick ${blocked || existing ? "is-blocked" : ""}`}>
-                    <Photo src={t.photo} alt={t.name} />
+                  <div key={t.id} className={`pv-pick ${invitees.includes(t.id) ? "is-picked" : ""} ${blocked || existing ? "is-blocked" : ""}`}>
+                    <ProfilePhoto person={t} />
                     <span className="pv-pick-text">
-                      <strong>{t.name}</strong>
+                      <strong><ProfileName person={t} /></strong>
                       <small>
                         {existing
                           ? existing.status === "booked"
@@ -668,20 +671,19 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                             : t.roles.join(" · ")}
                       </small>
                     </span>
-                    <input
-                      type="checkbox"
-                      aria-label={`Invite ${t.name}`}
+                    <InviteToggle
+                      name={t.name}
                       disabled={!!existing || blocked}
                       checked={invitees.includes(t.id)}
-                      onChange={(e) =>
+                      onChange={(checked) =>
                         setInvitees(
-                          e.target.checked
+                          checked
                             ? [...invitees, t.id]
                             : invitees.filter((i) => i !== t.id),
                         )
                       }
                     />
-                  </label>
+                  </div>
                 );
               })}
           </div>
@@ -934,7 +936,9 @@ function TalentShift({ s }: { s: Shift }) {
         <ArrowLeftIcon /> Back
       </Button>
       <div className="pv-talent-shift">
-        <Photo src={venue.photo} alt={venue.name} className="pv-venue-hero" />
+        <button className="pv-venue-hero-link" aria-label={`View ${venue.name}’s public profile`} onClick={() => go(`venue/${venue.id}`)}>
+          <Photo src={venue.photo} alt={venue.name} className="pv-venue-hero" />
+        </button>
         <div className="pv-talent-shift-body">
           <button
             className="pv-eyebrow-link"
@@ -942,7 +946,7 @@ function TalentShift({ s }: { s: Shift }) {
           >
             {areaOf(venue)} · About the venue
           </button>
-          <h1 className="pv-venue-title">{venue.name}</h1>
+          <h1 className="pv-venue-title"><button onClick={() => go(`venue/${venue.id}`)}>{venue.name}</button></h1>
           {venue.venue && [...venue.venue.types, ...venue.venue.cuisines].length > 0 && (
             <p className="pv-muted">
               {[...venue.venue.types, ...venue.venue.cuisines].join(" · ")}
@@ -1208,9 +1212,10 @@ export function BookingDetail({ id }: { id: string }) {
       <Heading title={title} back="bookings" />
       <div className="pv-booking">
         <div className="pv-confirm-person pv-booking-person">
-          <Photo src={person.photo} alt={person.name} />
+          <ProfilePhoto person={person} />
           <span>
-            <strong>{person.name}</strong>
+            <strong><ProfileName person={person} /></strong>
+            <button className="pv-text-link" onClick={() => go(`${person.side}/${person.id}`)}>View public profile</button>
             <small>
               {venueView ? t.roles.join(" · ") : `${shiftLabel(s)} · ${areaOf(v)}`}
             </small>
