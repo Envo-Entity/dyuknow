@@ -1,5 +1,5 @@
 import { PreviewApp } from "@/components/preview/PreviewApp";
 
-export default function Home() {
+export default function PreviewPage() {
   return <PreviewApp />;
 }

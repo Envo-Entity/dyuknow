@@ -1,7 +1,14 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/utils/supabase/proxy";
 
 export function proxy(request: NextRequest) {
+  // The MVP preview is entirely local and must also work without Supabase.
+  if (
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/preview")
+  ) {
+    return NextResponse.next();
+  }
   return updateSession(request);
 }
 
