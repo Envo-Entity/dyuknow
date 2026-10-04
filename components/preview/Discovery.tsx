@@ -10,13 +10,15 @@ import {
   member,
   offeredDates,
   londonDate,
-  displayDate,
-  datePlus,
   relativeDay,
   shiftLabel,
   shortDay,
   offerableDates,
   venueSummary,
+  currentOffer,
+  openDates,
+  standing,
+  type Offer,
   type Booking,
   type Data,
   type Shift,
@@ -25,7 +27,8 @@ import {
   contactLine,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { VenueFacts } from "./MemberViews";
+import { AvailabilityEditor, VenueFacts } from "./MemberViews";
+import { Chevron, DateTimeBar, savedWhen, useMessage, whenDays, whenPath } from "./Booking";
 import {
   Badge,
   Button,
@@ -129,6 +132,8 @@ function DraftCard() {
 }
 export function VenueHome() {
   const { data, actor, me, go } = usePreview();
+  const [when, setWhen] = useState(() => savedWhen(data.now));
+  const days = whenDays(when);
   const open = data.shifts
     .filter((s) => s.venue === actor && s.status === "open")
     .sort((a, b) => a.days[0].from.localeCompare(b.days[0].from));
@@ -144,18 +149,8 @@ export function VenueHome() {
             Who do you need <em>for service?</em>
           </>
         }
-        description={`${me?.name} · ${(me ? areaOf(me) : '')}`}
       />
-      {open.length > 0 && (
-        <Section title="Your open shifts">
-          <div className="pv-rows">
-            {open.map((s) => (
-              <VenueShiftRow key={s.id} s={s} />
-            ))}
-          </div>
-        </Section>
-      )}
-      {data.draft && <DraftCard />}
+      <DateTimeBar label="When do you need someone?" value={when} onChange={setWhen} />
       <div className="pv-role-mosaic">
         {Object.entries(FAMILIES)
           // The teams this venue said it usually needs come first.
@@ -165,25 +160,24 @@ export function VenueHome() {
               Number(me?.venue?.teamsNeeded.includes(a)),
           )
           .map(([name, family], i) => {
-          const count = data.members.filter(
+          const team = data.members.filter(
             (m) =>
               m.side === "talent" &&
               m.approved &&
               m.roles.some((r) => family.roles.includes(r)),
-          ).length;
+          );
+          const free = team.filter((m) => standing(data, m.id, days) === "free").length;
           return (
             <button
               key={name}
               className={`pv-role pv-role-${i}`}
-              onClick={() => go(`new/${name}`)}
+              onClick={() => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
             >
               <Photo src={family.photo} />
               <div>
                 <h2>{name}</h2>
                 <span className="pv-role-count">
-                  {count
-                    ? `${count} ${count === 1 ? "member" : "members"}`
-                    : "We’ll help you find someone"}{" "}
+                  {free} free then{" "}
                   <ArrowRightIcon size={18} />
                 </span>
               </div>
@@ -191,6 +185,16 @@ export function VenueHome() {
           );
         })}
       </div>
+      {data.draft && <DraftCard />}
+      {open.length > 0 && (
+        <Section title="Your open shifts">
+          <div className="pv-rows">
+            {open.map((s) => (
+              <VenueShiftRow key={s.id} s={s} />
+            ))}
+          </div>
+        </Section>
+      )}
       {coming.length > 0 && (
         <Section title="Coming up">
           <div className="pv-rows">
@@ -226,16 +230,29 @@ function NextBooking({ b }: { b: Booking }) {
 }
 export function TalentHome() {
   const { data, actor, me, go } = usePreview();
-  const [view, setView] = useState("Shifts");
   const [others, setOthers] = useState(false);
+  const [view, setView] = useState("Shifts");
   const mine = data.responses.filter((r) => r.talent === actor);
-  const next = upcomingFirst(data, myBookings(data, actor, "talent"))[0];
+  const bookings = myBookings(data, actor, "talent");
+  const coming = upcomingFirst(data, bookings);
   const invites = mine.filter(
     (r) =>
       r.status === "invited" &&
       data.shifts.find((s) => s.id === r.shift)!.status === "open",
   );
+  const offers = (data.offers ?? []).filter(
+    (o) =>
+      o.status === "sent" &&
+      (data.threads ?? []).some((t) => t.id === o.thread && t.talent === actor),
+  );
   const waiting = mine.filter((r) => r.status === "can-cover");
+  const ended = mine.filter((r) =>
+    ["withdrawn", "declined", "not-selected", "lapsed"].includes(r.status),
+  );
+  const pastBookings = bookings.filter(
+    (b) => b.cancelled || bookingServices(data, b).at(-1)!.to <= data.now,
+  );
+  const history = pastBookings.length + ended.length;
   // Hidden once answered, unless the person is booked for some days and
   // others are still open for them to offer.
   const answered = (s: Shift) =>
@@ -259,110 +276,137 @@ export function TalentHome() {
     .sort((a, b) => a.days[0].from.localeCompare(b.days[0].from));
   const forMe = feed.filter((s) => me!.roles.some((r) => s.roles.includes(r)));
   const other = feed.filter((s) => !forMe.includes(s));
+  const responseRow = (r: (typeof mine)[number], status: string) => {
+    const s = data.shifts.find((s) => s.id === r.shift)!;
+    const v = member(data, s.venue);
+    return (
+      <Row
+        key={r.id}
+        photo={v.photo}
+        person={v}
+        name={v.name}
+        title={shiftLabel(s)}
+        sub={whenLine(data, s, offeredDates(s, r))}
+        status={status}
+        good={status === "Invited you"}
+        onClick={() => go(`shift/${s.id}`)}
+      />
+    );
+  };
   return (
     <>
       <Heading
-        title={
-          <>
-            Available shifts
-          </>
-        }
-        description={`Hello, ${me?.name.split(" ")[0]}.`}
+        title="Shifts"
       />
+      {coming.length > 0 && (
+        <Section title="Upcoming shifts">
+          <div className="pv-rows">
+            {coming.map((b) => (
+              <NextBooking key={b.id} b={b} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {(invites.length > 0 || offers.length > 0) && (
+        <Section title="Invitations">
+          <div className="pv-rows">
+            {offers.map((o) => {
+              const t = (data.threads ?? []).find((t) => t.id === o.thread)!;
+              const v = member(data, t.venue);
+              return (
+                <Row
+                  key={o.id}
+                  photo={v.photo}
+                  person={v}
+                  name={v.name}
+                  title={o.role}
+                  sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
+                  status="Booking request"
+                  good
+                  onClick={() => go(`chat/${t.id}`)}
+                />
+              );
+            })}
+            {invites.map((r) => responseRow(r, "Invited you"))}
+          </div>
+        </Section>
+      )}
+      {waiting.length > 0 && (
+        <Section title="Waiting to hear">
+          <div className="pv-rows">
+            {waiting.map((r) => responseRow(r, "Waiting"))}
+          </div>
+        </Section>
+      )}
       <div className="pv-home-controls">
-        <Segments
-          options={["Shifts", "Venues"]}
-          value={view}
-          onChange={setView}
-        />
-        <Button variant="quiet" onClick={() => go("availability")}>
-          When I’m free <ArrowRightIcon size={16} />
-        </Button>
+        <Segments options={["Shifts", "Venues"]} value={view} onChange={setView} />
       </div>
       {view === "Venues" ? (
         <VenueDirectory />
       ) : (
         <>
-          {next && <NextBooking b={next} />}
-          {invites.length > 0 && (
-            <Section title="Invited you">
-              <div className="pv-card-grid">
-                {invites.map((r) => (
+          {forMe.length || (others && other.length) ? (
+            <div className="pv-card-grid">
+              {forMe.map((s) => {
+                const free = availableDates(data, actor, s);
+                const mineHere = data.bookings.find(
+                  (b) => b.shift === s.id && b.talent === actor && !b.cancelled,
+                );
+                const more = offerableDates(data, actor, s);
+                return (
                   <ShiftCard
-                    key={r.id}
-                    shift={data.shifts.find((s) => s.id === r.shift)!}
-                    label="Invited you"
-                    good
+                    key={s.id}
+                    shift={s}
+                    good={!!mineHere}
+                    label={
+                      mineHere
+                        ? `Booked ${mineHere.days.map(shortDay).join(", ")} · ${more.map(shortDay).join(", ")} still open`
+                        : free.length < s.days.length
+                          ? `You can do ${free.length} of ${s.days.length} days`
+                          : undefined
+                    }
                   />
-                ))}
-              </div>
-            </Section>
-          )}
-          {waiting.length > 0 && (
-            <Section title="Waiting to hear">
-              <div className="pv-rows">
-                {waiting.map((r) => {
-                  const s = data.shifts.find((s) => s.id === r.shift)!;
-                  const v = member(data, s.venue);
-                  return (
-                    <Row
-                      key={r.id}
-                      photo={v.photo}
-                      name={v.name}
-                      title={`${v.name} · ${shiftLabel(s)}`}
-                      sub={whenLine(data, s, offeredDates(s, r))}
-                      status="Waiting"
-                      onClick={() => go(`shift/${s.id}`)}
-                    />
-                  );
-                })}
-              </div>
-            </Section>
-          )}
-          <Section title="Shifts for you">
-            {forMe.length ? (
-              <div className="pv-card-grid">
-                {forMe.map((s) => {
-                  const free = availableDates(data, actor, s);
-                  const mineHere = data.bookings.find(
-                    (b) => b.shift === s.id && b.talent === actor && !b.cancelled,
-                  );
-                  const more = offerableDates(data, actor, s);
-                  return (
-                    <ShiftCard
-                      key={s.id}
-                      shift={s}
-                      good={!!mineHere}
-                      label={
-                        mineHere
-                          ? `Booked ${mineHere.days.map(shortDay).join(", ")} · ${more.map(shortDay).join(", ")} still open`
-                          : free.length < s.days.length
-                            ? `You can do ${free.length} of ${s.days.length} days`
-                            : undefined
-                      }
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <Empty title="Nothing new for your roles right now" />
-            )}
-          </Section>
-          {other.length > 0 && (
-            <div className="pv-more">
-              <Button variant="secondary" onClick={() => setOthers(!others)}>
-                {others ? "Hide" : "Show"} shifts in other roles ({other.length})
-              </Button>
-              {others && (
-                <div className="pv-card-grid">
-                  {other.map((s) => (
-                    <ShiftCard key={s.id} shift={s} label="Other role" />
-                  ))}
-                </div>
-              )}
+                );
+              })}
+              {others && other.map((s) => <ShiftCard key={s.id} shift={s} label={shiftLabel(s)} />)}
             </div>
+          ) : (
+            <Empty title="Nothing new for your roles right now" />
+          )}
+          {other.length > 0 && (
+            <button
+              className="pv-reveal"
+              aria-expanded={others}
+              onClick={() => setOthers(!others)}
+            >
+              {others
+                ? "Hide other roles"
+                : `Show from other roles too (${other.length})`}
+              <Chevron open={others} />
+            </button>
           )}
         </>
+      )}
+      {history > 0 && (
+        <details className="pv-history">
+          <summary>Past and closed ({history})</summary>
+          <div className="pv-rows">
+            {pastBookings.map((b) => (
+              <BookingRow key={b.id} b={b} />
+            ))}
+            {ended.map((r) =>
+              responseRow(
+                r,
+                {
+                  withdrawn: "Withdrawn",
+                  declined: "Declined",
+                  "not-selected": "Filled by someone else",
+                  lapsed: "No longer available",
+                }[r.status as "withdrawn"] || r.status,
+              ),
+            )}
+          </div>
+        </details>
       )}
     </>
   );
@@ -401,7 +445,8 @@ function VenueDirectory() {
   );
 }
 export function VenueDetail({ id }: { id: string }) {
-  const { data, actor, go, profileBack } = usePreview();
+  const { data, actor, side, go, profileBack } = usePreview();
+  const message = useMessage();
   const v = member(data, id);
   if (!v)
     return (
@@ -419,11 +464,15 @@ export function VenueDetail({ id }: { id: string }) {
         <div>
           {v.bio && <p>{v.bio}</p>}
           <VenueFacts v={v} />
+          {side === "talent" && (
+            <div className="pv-actions">
+              <Button onClick={() => message(v.id)}>Message {v.name}</Button>
+            </div>
+          )}
           {v.venue && (
             <dl className="pv-profile-info">
-              <div><dt>Teams usually needed</dt><dd>{v.venue.teamsNeeded.join(" · ") || "Not set"}</dd></div>
               <div><dt>Typical rates</dt><dd>Kitchen and pastry £{v.venue.rateChef}/h · Front of house £{v.venue.rateFoh}/h</dd></div>
-              <div><dt>Dress code</dt><dd>{v.venue.dressCode || "Confirm with the venue"}</dd></div>
+              {v.venue.dressCode && <div><dt>Dress code</dt><dd>{v.venue.dressCode}</dd></div>}
               <div><dt>Uniform</dt><dd>{v.venue.uniform ? "Provided" : "Not provided"}</dd></div>
               <div><dt>Staff meal</dt><dd>{v.venue.staffMeal ? "Provided" : "Not provided"}</dd></div>
               {bookedHere && <>
@@ -449,207 +498,106 @@ export function VenueDetail({ id }: { id: string }) {
     </>
   );
 }
-function AvailabilityStrip() {
-  const { data, actor, go } = usePreview();
-  const today = londonDate(data.now);
-  const avail = data.availability.filter(
-    (a) => a.member === actor && a.date >= today && a.kind === "free",
-  );
-  const booked = data.bookings
-    .filter((b) => b.talent === actor && !b.cancelled)
-    .flatMap((b) =>
-      b.days.map((date) => ({
-        date,
-        venue: member(data, data.shifts.find((s) => s.id === b.shift)!.venue)
-          .name,
-      })),
-    );
-  return (
-    <button className="pv-availability-summary" onClick={() => go("availability")}>
-      <div>
-        <h2>When you’re free</h2>
-        {!avail.length && <p>Not set</p>}
-      </div>
-      <span className="pv-mini-days">
-        {Array.from({ length: 14 }, (_, i) => {
-          const d = datePlus(today, i);
-          const here = booked.filter((b) => b.date === d).map((b) => b.venue);
-          const free = avail.some((a) => a.date === d);
-          return (
-            <span
-              className={here.length ? "is-booked" : free ? "is-free" : ""}
-              key={d}
-            >
-              {displayDate(d).slice(0, 3)}
-              <strong>{d.slice(-2)}</strong>
-              <small>
-                {here.length
-                  ? [...new Set(here)].join(" · ")
-                  : free
-                    ? "Free"
-                    : data.availability.some(
-                          (a) => a.member === actor && a.date === d && a.kind === "not-free",
-                        )
-                      ? "Not free"
-                      : "Not set"}
-              </small>
-            </span>
-          );
-        })}
-      </span>
-      <ArrowRightIcon />
-    </button>
-  );
-}
 export function WorkHub() {
   const { data, actor, side, go } = usePreview();
+  if (side !== "venue") return <AvailabilityEditor />;
+  const today = londonDate(data.now);
   const bookings = myBookings(data, actor, side);
   const coming = upcomingFirst(data, bookings);
   const pastBookings = bookings.filter(
     (b) => b.cancelled || bookingServices(data, b).at(-1)!.to <= data.now,
   );
-  if (side === "venue") {
-    const open = data.shifts
-      .filter((s) => s.venue === actor && s.status === "open")
-      .sort((a, b) => a.days[0].from.localeCompare(b.days[0].from));
-    const needs = open.filter((s) => venueSummary(data, s).needs);
-    const rest = open.filter((s) => !needs.includes(s));
-    const closed = data.shifts.filter(
-      (s) =>
-        s.venue === actor &&
-        ["closed", "expired"].includes(s.status) &&
-        !bookings.some((b) => b.shift === s.id),
+  const onToday = (dates: string[]) => dates.includes(today);
+  const open = data.shifts
+    .filter((s) => s.venue === actor && s.status === "open")
+    // What needs a decision first, then soonest.
+    .sort(
+      (a, b) =>
+        Number(venueSummary(data, b).needs) - Number(venueSummary(data, a).needs) ||
+        a.days[0].from.localeCompare(b.days[0].from),
     );
-    const history = pastBookings.length + closed.length;
-    return (
-      <>
-        <Heading title="Bookings" />
-        {!open.length && !coming.length && (
-          <Empty title="Nothing booked or open">
-            <Button onClick={() => go("home")}>Find cover</Button>
-          </Empty>
-        )}
-        {needs.length > 0 && (
-          <Section title="Needs you">
-            <div className="pv-rows">
-              {needs.map((s) => (
-                <VenueShiftRow key={s.id} s={s} />
-              ))}
-            </div>
-          </Section>
-        )}
-        {rest.length > 0 && (
-          <Section title="Open">
-            <div className="pv-rows">
-              {rest.map((s) => (
-                <VenueShiftRow key={s.id} s={s} />
-              ))}
-            </div>
-          </Section>
-        )}
-        {coming.length > 0 && (
-          <Section title="Coming up">
-            <div className="pv-rows">
-              {coming.map((b) => (
-                <BookingRow key={b.id} b={b} />
-              ))}
-            </div>
-          </Section>
-        )}
-        {history > 0 && (
-          <details className="pv-history">
-            <summary>Past and cancelled ({history})</summary>
-            <div className="pv-rows">
-              {pastBookings.map((b) => (
-                <BookingRow key={b.id} b={b} />
-              ))}
-              {closed.map((s) => (
-                <VenueShiftRow key={s.id} s={s} />
-              ))}
-            </div>
-          </details>
-        )}
-      </>
-    );
-  }
-  const mine = data.responses.filter((r) => r.talent === actor);
-  const invites = mine.filter(
-    (r) =>
-      r.status === "invited" &&
-      data.shifts.find((s) => s.id === r.shift)!.status === "open",
+  const todayBookings = coming.filter((b) => onToday(b.days));
+  const todayOpen = open.filter((s) => onToday(openDates(data, s)));
+  const later = coming.filter((b) => !todayBookings.includes(b));
+  const laterOpen = open.filter((s) => !todayOpen.includes(s));
+  // Booking cards sent from a conversation that still need the talent's answer
+  // (or the venue's revision).
+  const pending = (data.threads ?? [])
+    .filter((t) => t.venue === actor)
+    .map((t) => currentOffer(data, t.id))
+    .filter((o): o is Offer => !!o && ["sent", "changes"].includes(o.status));
+  const closed = data.shifts.filter(
+    (s) =>
+      s.venue === actor &&
+      ["closed", "expired"].includes(s.status) &&
+      !bookings.some((b) => b.shift === s.id),
   );
-  const waiting = mine.filter((r) => r.status === "can-cover");
-  const ended = mine.filter((r) =>
-    ["withdrawn", "declined", "not-selected", "lapsed"].includes(r.status),
-  );
-  const history = pastBookings.length + ended.length;
-  const responseRow = (r: (typeof mine)[number], status: string) => {
-    const s = data.shifts.find((s) => s.id === r.shift)!;
-    const v = member(data, s.venue);
-    return (
-      <Row
-        key={r.id}
-        photo={v.photo}
-        person={v}
-        name={v.name}
-        title={shiftLabel(s)}
-        sub={whenLine(data, s, offeredDates(s, r))}
-        status={status}
-        good={status === "Invited you"}
-        onClick={() => go(`shift/${s.id}`)}
-      />
-    );
-  };
+  const history = pastBookings.length + closed.length;
   return (
     <>
-      <Heading title="My shifts" />
-      <AvailabilityStrip />
-      {coming.length > 0 && (
-        <Section title="Coming up">
+      <Heading title="Bookings" />
+      {!open.length && !coming.length && !pending.length && (
+        <Empty title="Nothing booked or open">
+          <Button onClick={() => go("home")}>Find cover</Button>
+        </Empty>
+      )}
+      {(todayBookings.length > 0 || todayOpen.length > 0) && (
+        <Section title="Today">
           <div className="pv-rows">
-            {coming.map((b) => (
+            {todayBookings.map((b) => (
+              <BookingRow key={b.id} b={b} />
+            ))}
+            {todayOpen.map((s) => (
+              <VenueShiftRow key={s.id} s={s} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {(laterOpen.length > 0 || pending.length > 0) && (
+        <Section title="Open">
+          <div className="pv-rows">
+            {pending.map((o) => {
+              const t = (data.threads ?? []).find((t) => t.id === o.thread)!;
+              const person = member(data, t.talent);
+              return (
+                <Row
+                  key={o.id}
+                  photo={person.photo}
+                  person={person}
+                  name={person.name}
+                  title={o.role}
+                  sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
+                  status={o.status === "changes" ? "Asked for changes · Revise" : "Booking request sent"}
+                  good={o.status === "changes"}
+                  onClick={() => go(`chat/${t.id}`)}
+                />
+              );
+            })}
+            {laterOpen.map((s) => (
+              <VenueShiftRow key={s.id} s={s} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {later.length > 0 && (
+        <Section title="Upcoming">
+          <div className="pv-rows">
+            {later.map((b) => (
               <BookingRow key={b.id} b={b} />
             ))}
           </div>
         </Section>
       )}
-      {invites.length > 0 && (
-        <Section title="Invited you">
-          <div className="pv-rows">
-            {invites.map((r) => responseRow(r, "Invited you"))}
-          </div>
-        </Section>
-      )}
-      {waiting.length > 0 && (
-        <Section title="Waiting to hear">
-          <div className="pv-rows">
-            {waiting.map((r) => responseRow(r, "Waiting"))}
-          </div>
-        </Section>
-      )}
-      {!coming.length && !invites.length && !waiting.length && (
-        <Empty title="No shifts yet">
-          <Button onClick={() => go("home")}>See shifts</Button>
-        </Empty>
-      )}
       {history > 0 && (
         <details className="pv-history">
-          <summary>Past and closed ({history})</summary>
+          <summary>Past and cancelled ({history})</summary>
           <div className="pv-rows">
             {pastBookings.map((b) => (
               <BookingRow key={b.id} b={b} />
             ))}
-            {ended.map((r) =>
-              responseRow(
-                r,
-                {
-                  withdrawn: "Withdrawn",
-                  declined: "Declined",
-                  "not-selected": "Filled by someone else",
-                  lapsed: "No longer available",
-                }[r.status as "withdrawn"] || r.status,
-              ),
-            )}
+            {closed.map((s) => (
+              <VenueShiftRow key={s.id} s={s} />
+            ))}
           </div>
         </details>
       )}

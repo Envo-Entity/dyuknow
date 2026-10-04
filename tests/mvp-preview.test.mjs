@@ -562,3 +562,58 @@ test("one shared position list: every onboarding position plus Sommelier and Ma�
   assert.equal(POSITIONS.length, 17);
   assert.deepEqual(Object.keys(TEAMS), ["Kitchen", "Pastry", "Bar", "Sommelier", "Floor"]);
 });
+test("a venue sees everyone vetted for a team, free people in the role first", async () => {
+  const { rankTalent, offerDays } = await import("../lib/preview/model.ts");
+  const d = seed();
+  const days = offerDays({ family: "Kitchen", role: "CDP", dates: ["2026-10-06"], start: "17:00", end: "23:00" });
+  const { free, unavailable, others } = rankTalent(d, "spruce", "Kitchen", "CDP", days);
+  // Poppy marked Tue 6 not free; Theo never set availability.
+  assert.deepEqual(free.map((m) => m.id), []);
+  assert.deepEqual(unavailable.map((m) => m.id).sort(), ["poppy", "theo"]);
+  // Everyone else is still listed, kitchen first.
+  assert.ok(others.length === d.members.filter((m) => m.side === "talent").length - 2);
+  assert.ok(["camille", "ethan"].includes(others[0].id));
+  const wed = offerDays({ family: "Kitchen", role: "CDP", dates: ["2026-10-07"], start: "17:00", end: "23:00" });
+  assert.deepEqual(rankTalent(d, "spruce", "Kitchen", undefined, wed).free.map((m) => m.id).sort(), ["camille", "ethan", "poppy"]);
+});
+test("direct message → booking card → changes → revised card → accept books once", async () => {
+  const { threadBetween, currentOffer } = await import("../lib/preview/model.ts");
+  // Anyone can be messaged, free or not.
+  let d = transition(seed(), { type: "open-thread", actor: "spruce", with: "theo" });
+  const t = threadBetween(d, "spruce", "theo");
+  d = transition(d, { type: "message", actor: "theo", response: t.id, text: "Hi! Happy to chat." });
+  const terms = { family: "Kitchen", role: "CDP", dates: ["2026-10-09", "2026-10-10"], start: "17:00", end: "23:00", rate: 15, note: "Chef whites" };
+  assert.throws(() => transition(d, { type: "send-offer", actor: "theo", thread: t.id, offer: terms }), /Only the venue/);
+  d = transition(d, { type: "send-offer", actor: "spruce", thread: t.id, offer: terms });
+  const first = currentOffer(d, t.id);
+  assert.ok(d.notices.some((n) => n.to === "theo" && n.target === `chat/${t.id}`));
+  d = transition(d, { type: "answer-offer", actor: "theo", offer: first.id, answer: "changes", note: "£17/h please" });
+  assert.equal(currentOffer(d, t.id).status, "changes");
+  assert.throws(() => transition(d, { type: "answer-offer", actor: "theo", offer: first.id, answer: "accept" }), /already been answered/);
+  d = transition(d, { type: "send-offer", actor: "spruce", thread: t.id, offer: { ...terms, rate: 17 } });
+  const revised = currentOffer(d, t.id);
+  assert.equal(d.offers.find((o) => o.id === first.id).status, "replaced");
+  d = transition(d, { type: "answer-offer", actor: "theo", offer: revised.id, answer: "accept" });
+  const b = d.bookings.find((b) => b.talent === "theo");
+  assert.equal(currentOffer(d, t.id).booking, b.id);
+  const s = d.shifts.find((s) => s.id === b.shift);
+  assert.equal(s.rate, 17);
+  assert.deepEqual(b.days, ["2026-10-09", "2026-10-10"]);
+  assert.equal(s.together, true);
+  assert.equal(s.status, "filled");
+  // Booking updates land in the same conversation.
+  assert.ok(d.messages.some((m) => m.response === t.id && m.system && /Booked/.test(m.text)));
+  d = transition(d, { type: "cancel", actor: "theo", booking: b.id, reason: "Unwell" });
+  assert.ok(d.messages.some((m) => m.response === t.id && /cancelled/.test(m.text)));
+});
+test("a booking card can't double-book, and declining tells the venue", async () => {
+  const { threadBetween, currentOffer } = await import("../lib/preview/model.ts");
+  let d = book(respond(seed(), "spruce-friday"), "spruce-friday");
+  d = transition(d, { type: "open-thread", actor: "harper", with: "poppy" });
+  const t = threadBetween(d, "harper", "poppy");
+  d = transition(d, { type: "send-offer", actor: "harper", thread: t.id, offer: { family: "Kitchen", role: "CDP", dates: ["2026-10-02"], start: "18:00", end: "22:00", rate: 24, note: "" } });
+  const o = currentOffer(d, t.id);
+  assert.throws(() => transition(d, { type: "answer-offer", actor: "poppy", offer: o.id, answer: "accept" }), /booked elsewhere/);
+  d = transition(d, { type: "answer-offer", actor: "poppy", offer: o.id, answer: "decline" });
+  assert.ok(d.notices.some((n) => n.to === "harper" && /declined/.test(n.title)));
+});

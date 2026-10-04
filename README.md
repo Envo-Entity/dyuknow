@@ -12,7 +12,7 @@ npm run dev
 
 Open [the original landing page](http://localhost:3000). Its existing Login
 flow opens [the main app](http://localhost:3000/app). `/app` and `/preview`
-show the same demo and share the existing `dyuknow_mvp_preview_v4` browser
+show the same demo and share the existing `dyuknow_mvp_preview_v6` browser
 storage. The demo works without Supabase configuration.
 
 Open [admin onboarding](http://localhost:3000/admin/onboarding) for real talent

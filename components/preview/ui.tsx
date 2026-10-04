@@ -189,7 +189,6 @@ export function Services({
       {days.map((day) => (
         <p key={day.date}>{serviceLabel(day)}</p>
       ))}
-      <small>London time</small>
     </div>
   );
 }

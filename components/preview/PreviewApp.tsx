@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   AccountIcon,
   BookingsIcon,
@@ -7,6 +7,7 @@ import {
   MessagesIcon,
   ArrowRightIcon,
   CloseIcon,
+  PlusIcon,
 } from "@/components/icons";
 import {
   usePreviewData,
@@ -26,6 +27,7 @@ import {
   uid,
   shiftLabel,
   unreadChat,
+  currentOffer,
   serviceLabel,
   allSkills,
   defaultRate,
@@ -53,6 +55,7 @@ import {
 } from "./ui";
 import { VenueHome, TalentHome, WorkHub, VenueDetail } from "./Discovery";
 import { ShiftComposer } from "./Composer";
+import { JobPostStart, TeamList, parseWhen, savedWhen } from "./Booking";
 import { ShiftDetail, BookingDetail } from "./ShiftDetail";
 import {
   AvailabilityEditor,
@@ -155,10 +158,24 @@ export function PreviewApp() {
     navigateRoute(`/${side}/${actor}/${path === "home" ? "home" : path}`);
   }
   const unread = data.notices.filter((n) => n.to === actor && !n.read).length;
-  const decisions =
+  const myThreads = (data.threads ?? []).filter(
+    (t) => (side === "venue" ? t.venue : t.talent) === actor,
+  );
+  // Booking cards waiting on this person: an answer for talent, a revision
+  // for the venue.
+  const offersWaiting = myThreads.filter((t) =>
     side === "talent"
+      ? currentOffer(data, t.id)?.status === "sent"
+      : currentOffer(data, t.id)?.status === "changes",
+  ).length;
+  const decisions =
+    offersWaiting +
+    (side === "talent"
       ? data.responses.filter(
-          (r) => r.talent === actor && r.status === "invited",
+          (r) =>
+            r.talent === actor &&
+            r.status === "invited" &&
+            data.shifts.find((s) => s.id === r.shift)?.status === "open",
         ).length
       : data.responses.filter(
           (r) =>
@@ -167,15 +184,20 @@ export function PreviewApp() {
               (s) =>
                 s.id === r.shift && s.venue === actor && s.status === "open",
             ),
-        ).length;
-  const messageUnread = data.responses.some(
-    (r) =>
-      r.chat &&
-      (side === "venue"
-        ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
-        : r.talent === actor) &&
-      unreadChat(data, actor, r),
-  );
+        ).length);
+  // Talent decide on Shifts; venues on Bookings.
+  const decisionsOn = side === "talent" ? "home" : "bookings";
+  const messageUnread =
+    myThreads.some((t) => unreadChat(data, actor, t)) ||
+    data.responses.some(
+      (r) =>
+        r.chat &&
+        !r.thread &&
+        (side === "venue"
+          ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
+          : r.talent === actor) &&
+        unreadChat(data, actor, r),
+    );
   const nav =
     side === "owner"
       ? [
@@ -252,6 +274,15 @@ export function PreviewApp() {
   else if (page === "home")
     content = side === "venue" ? <VenueHome /> : <TalentHome />;
   else if (page === "bookings") content = <WorkHub key={actor} />;
+  else if (page === "team" && side === "venue" && id)
+    content = (
+      <TeamList
+        key={id}
+        family={id}
+        initial={parseWhen(parts[4], parts[5]) || savedWhen(data.now)}
+      />
+    );
+  else if (page === "post" && side === "venue") content = <JobPostStart />;
   else if (page === "new" && side === "venue")
     content = (
       <ShiftComposer
@@ -272,7 +303,7 @@ export function PreviewApp() {
   else if (page === "chat") content = <Thread key={`${actor}-${id}`} id={id} />;
   else if (page === "notifications") content = <Notifications />;
   else if (page === "availability" && side === "talent")
-    content = <AvailabilityEditor />;
+    content = <AvailabilityEditor back="home" />;
   else if (page === "profile" && me) content = <Profile key={actor} />;
   else if (page === "talent") content = <TalentProfile id={id} />;
   else if (page === "venue") content = <VenueDetail id={id} />;
@@ -342,9 +373,19 @@ export function PreviewApp() {
               </div>
             </header>
             <nav className="pv-nav" aria-label="Main navigation">
-              {nav.map((item) => (
+              {nav.map((item, i) => (
+                <Fragment key={item.path}>
+                {/* Phones: the job post is the round button in the middle of the bar. */}
+                {i === 2 && side === "venue" && me?.approved && (
+                  <button
+                    className={`pv-nav-post ${page === "post" ? "active" : ""}`}
+                    onClick={() => go("post")}
+                    aria-label="Create a job post"
+                  >
+                    <span><PlusIcon size={24} /></span>
+                  </button>
+                )}
                 <button
-                  key={item.path}
                   onClick={() => go(item.path)}
                   className={page === item.path ? "active" : ""}
                   aria-current={page === item.path ? "page" : undefined}
@@ -357,12 +398,23 @@ export function PreviewApp() {
                       aria-label="Unread messages"
                     />
                   )}
-                  {item.path === "bookings" && decisions > 0 && (
+                  {item.path === decisionsOn && decisions > 0 && (
                     <span className="pv-nav-count">{decisions}</span>
                   )}
                 </button>
+                </Fragment>
               ))}
             </nav>
+            {side === "venue" && me?.approved && (
+              <button
+                className={`pv-post-job ${page === "post" ? "active" : ""}`}
+                onClick={() => go("post")}
+                aria-current={page === "post" ? "page" : undefined}
+              >
+                <PlusIcon size={16} />
+                <span>Create a job post</span>
+              </button>
+            )}
           </>
         )}
         <main

@@ -33,86 +33,112 @@ import {
   datesLabel,
   firstName,
   offeredDates,
+  currentOffer,
   type Member,
   areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
+import { OfferCard, OfferForm, useMessage } from "./Booking";
 export function Messages() {
   const { data, actor, side, go } = usePreview();
   // Most recent conversation first; messages are stored in the order sent.
   const lastIndex = (id: string) =>
     data.messages.findLastIndex((m) => m.response === id);
-  const threads = data.responses
-    .filter(
-      (r) =>
-        r.chat &&
-        (side === "venue"
-          ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
-          : r.talent === actor),
-    )
-    .sort((a, b) => lastIndex(b.id) - lastIndex(a.id));
+  const rows = [
+    // Shift conversations, unless they belong to a direct conversation.
+    ...data.responses
+      .filter(
+        (r) =>
+          r.chat &&
+          !r.thread &&
+          (side === "venue"
+            ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
+            : r.talent === actor),
+      )
+      .map((r) => {
+        const s = data.shifts.find((s) => s.id === r.shift)!;
+        return {
+          id: r.id,
+          other: member(data, side === "venue" ? r.talent : s.venue),
+          about: `${shiftLabel(s)} · ${displayDate(s.days[0].date)}`,
+          status:
+            r.status === "booked"
+              ? "Booked"
+              : r.status === "invited"
+                ? "Invite waiting"
+                : r.status === "can-cover"
+                  ? "Can cover"
+                  : r.status.replaceAll("-", " "),
+          good: r.status === "booked",
+        };
+      }),
+    ...(data.threads ?? [])
+      .filter((t) => (side === "venue" ? t.venue : t.talent) === actor)
+      .map((t) => {
+        const o = currentOffer(data, t.id);
+        return {
+          id: t.id,
+          other: member(data, side === "venue" ? t.talent : t.venue),
+          about: o
+            ? `${o.role} · ${datesLabel(o.dates)}`
+            : "Direct message",
+          status: o
+            ? {
+                sent: side === "talent" ? "Booking to answer" : "Booking sent",
+                accepted: "Booked",
+                declined: "Declined",
+                changes: "Changes asked",
+                replaced: "Revised",
+              }[o.status]
+            : "",
+          good: o?.status === "accepted",
+        };
+      }),
+  ].sort((a, b) => lastIndex(b.id) - lastIndex(a.id));
   return (
     <>
       <Heading
         title="Messages"
       />
-      {threads.length ? (
+      {rows.length ? (
         <div className="pv-thread-list">
-          {threads.map((r) => {
-            const s = data.shifts.find((s) => s.id === r.shift)!;
-            const other = member(data, side === "venue" ? r.talent : s.venue);
-            const messages = data.messages.filter((m) => m.response === r.id);
-            const last = messages.at(-1);
+          {rows.map((row) => {
+            const last = data.messages.filter((m) => m.response === row.id).at(-1);
             return (
               <div
-                key={r.id}
+                key={row.id}
                 className="pv-thread-row"
               >
-                <ProfilePhoto person={other} />
+                <ProfilePhoto person={row.other} />
                 <div>
                   <h2>
-                    <ProfileName person={other} />
-                    {unreadChat(data, actor, r) && (
+                    <ProfileName person={row.other} />
+                    {unreadChat(data, actor, row) && (
                       <span
                         className="pv-unread-dot"
                         aria-label="Unread messages"
                       />
                     )}
                   </h2>
-                  <p>
-                    {shiftLabel(s)} · {displayDate(s.days[0].date)}
-                  </p>
-                  <button className="pv-thread-open" onClick={() => go(`chat/${r.id}`)} aria-label={`Open conversation with ${other.name}`}>
+                  <p>{row.about}</p>
+                  <button className="pv-thread-open" onClick={() => go(`chat/${row.id}`)} aria-label={`Open conversation with ${row.other.name}`}>
                     {last?.text || "Your conversation starts here."}
                   </button>
                 </div>
-                <Badge good={r.status === "booked"}>
-                  {r.status === "booked"
-                    ? "Booked"
-                    : r.status === "invited"
-                      ? "Invite waiting"
-                      : r.status === "can-cover"
-                        ? "Can cover"
-                        : r.status.replaceAll("-", " ")}
-                </Badge>
-                <button className="pv-text-link pv-thread-action" onClick={() => go(`chat/${r.id}`)}>Open chat</button>
+                {row.status ? <Badge good={row.good}>{row.status}</Badge> : <span />}
+                <button className="pv-text-link pv-thread-action" onClick={() => go(`chat/${row.id}`)}>Open chat</button>
               </div>
             );
           })}
         </div>
       ) : (
         <Empty
-          title="Your next conversation starts with a shift"
-          text={
-            side === "venue"
-              ? "Post a shift, then message a person who responds. An invitation also opens a thread immediately."
-              : "Respond to a shift and the venue can message you. Personal invitations include a Message button from the start."
-          }
+          title="No conversations yet"
         >
           <Button onClick={() => go("home")}>
-            {side === "venue" ? "Post a shift" : "Explore shifts"}
+            {side === "venue" ? "Find people" : "Explore shifts"}
           </Button>
         </Empty>
       )}
@@ -120,67 +146,22 @@ export function Messages() {
   );
 }
 export function Thread({ id }: { id: string }) {
-  const { data, actor, side, go, act } = usePreview();
+  const { data, actor, side, go } = usePreview();
   const [booking, setBooking] = useState(false);
-  const conversation = useRef<HTMLDivElement>(null);
-  const messageList = useRef<HTMLDivElement>(null);
-  const messageInput = useRef<HTMLTextAreaElement>(null);
   const r = data.responses.find((r) => r.id === id);
+  // A booking made from a direct conversation keeps talking there.
+  const direct = (data.threads ?? []).find((t) => t.id === (r?.thread || id));
+  if (direct) return <DirectThread id={direct.id} />;
   const s = data.shifts.find((s) => s.id === r?.shift);
-  const messages = data.messages.filter((m) => m.response === id);
-  const last = messages.at(-1)?.id;
-  const text = data.messageDrafts[`${actor}/${id}`] || "";
-  const canRead = !!r?.chat && !!s && [s.venue, r.talent].includes(actor);
-  useEffect(() => {
-    if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
-  }, [last]);
-  useEffect(() => {
-    const input = messageInput.current;
-    if (input) {
-      input.style.height = "auto";
-      input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
-    }
-  }, [text]);
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    const resize = () => {
-      conversation.current?.style.setProperty("--pv-chat-height", `${viewport?.height ?? window.innerHeight}px`);
-      conversation.current?.style.setProperty("--pv-chat-top", `${viewport?.offsetTop ?? 0}px`);
-    };
-    resize();
-    viewport?.addEventListener("resize", resize);
-    viewport?.addEventListener("scroll", resize);
-    window.addEventListener("resize", resize);
-    return () => {
-      viewport?.removeEventListener("resize", resize);
-      viewport?.removeEventListener("scroll", resize);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-  useEffect(() => {
-    if (canRead) act({ type: "read-chat", actor, response: id });
-  }, [actor, id, last, canRead, act]); // Read only this thread, not the whole inbox.
   if (!r || !s || !r.chat || ![s.venue, r.talent].includes(actor))
-    return (
-      <Empty
-        title="This conversation is private"
-        text="Open an available thread from your inbox."
-      ><Button onClick={() => go("messages")}>Back to messages</Button></Empty>
-    );
+    return <PrivateThread />;
   const other = member(data, side === "venue" ? r.talent : s.venue);
   return (
     <>
-      <div className="pv-conversation" ref={conversation}>
-        <header className="pv-conversation-header">
-          <button className="pv-icon-button" aria-label="Back to messages" onClick={() => go("messages")}><ArrowLeftIcon size={22} /></button>
-          <ProfilePhoto person={other} />
-          <div className="pv-conversation-person">
-            <h1><ProfileName person={other} /></h1>
-            <button className="pv-text-link" onClick={() => go(`${other.side}/${other.id}`)}>View public profile</button>
-          </div>
-        </header>
-      <div className="pv-chat-layout">
-        <div className="pv-chat-room">
+      <Conversation
+        id={id}
+        other={other}
+        pinned={
           <div className="pv-chat-pinned">
             <span>
               <strong>
@@ -219,10 +200,148 @@ export function Thread({ id }: { id: string }) {
               </button>
             )}
           </div>
+        }
+      />
+      {booking && (
+        <BookConfirm
+          shift={s}
+          talent={r.talent}
+          onClose={() => setBooking(false)}
+        />
+      )}
+    </>
+  );
+}
+function PrivateThread() {
+  const { go } = usePreview();
+  return (
+    <Empty
+      title="This conversation is private"
+      text="Open an available thread from your inbox."
+    ><Button onClick={() => go("messages")}>Back to messages</Button></Empty>
+  );
+}
+// A conversation with no shift behind it. The venue books with a card.
+function DirectThread({ id }: { id: string }) {
+  const { data, actor, side } = usePreview();
+  const [offering, setOffering] = useState(false);
+  const t = (data.threads ?? []).find((t) => t.id === id)!;
+  if (![t.venue, t.talent].includes(actor)) return <PrivateThread />;
+  const other = member(data, side === "venue" ? t.talent : t.venue);
+  const offer = currentOffer(data, id);
+  return (
+    <>
+      <Conversation
+        id={id}
+        other={other}
+        pinned={
+          <div className="pv-chat-pinned">
+            <span>
+              <strong>
+                {offer
+                  ? `${offer.role} · ${
+                      offer.status === "accepted"
+                        ? "Booked"
+                        : offer.status === "sent"
+                          ? "Waiting for an answer"
+                          : offer.status === "changes"
+                            ? "Changes asked"
+                            : "Declined"
+                    }`
+                  : side === "venue"
+                    ? `${firstName(other)} · ${other.minRate ? `from £${other.minRate}/h` : "minimum pay not set"}`
+                    : `${other.name} · ${areaOf(other)}`}
+              </strong>
+              <small>
+                {offer
+                  ? `${datesLabel(offer.dates)} · ${offer.start}–${offer.end} · £${offer.rate}/h`
+                  : ""}
+              </small>
+            </span>
+            {side === "venue" && (
+              <Button
+                variant={offer?.status === "sent" ? "secondary" : "primary"}
+                onClick={() => setOffering(true)}
+              >
+                {offer?.status === "changes"
+                  ? "Send revised booking"
+                  : offer?.status === "sent"
+                    ? "Revise booking"
+                    : "Send booking request"}
+              </Button>
+            )}
+          </div>
+        }
+      />
+      {offering && <OfferForm thread={id} onClose={() => setOffering(false)} />}
+    </>
+  );
+}
+function Conversation({
+  id,
+  other,
+  pinned,
+}: {
+  id: string;
+  other: Member;
+  pinned: React.ReactNode;
+}) {
+  const { data, actor, go, act } = usePreview();
+  const conversation = useRef<HTMLDivElement>(null);
+  const messageList = useRef<HTMLDivElement>(null);
+  const messageInput = useRef<HTMLTextAreaElement>(null);
+  const messages = data.messages.filter((m) => m.response === id);
+  const last = messages.at(-1)?.id;
+  const text = data.messageDrafts[`${actor}/${id}`] || "";
+  useEffect(() => {
+    if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
+  }, [last]);
+  useEffect(() => {
+    const input = messageInput.current;
+    if (input) {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+    }
+  }, [text]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const resize = () => {
+      conversation.current?.style.setProperty("--pv-chat-height", `${viewport?.height ?? window.innerHeight}px`);
+      conversation.current?.style.setProperty("--pv-chat-top", `${viewport?.offsetTop ?? 0}px`);
+    };
+    resize();
+    viewport?.addEventListener("resize", resize);
+    viewport?.addEventListener("scroll", resize);
+    window.addEventListener("resize", resize);
+    return () => {
+      viewport?.removeEventListener("resize", resize);
+      viewport?.removeEventListener("scroll", resize);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+  useEffect(() => {
+    act({ type: "read-chat", actor, response: id });
+  }, [actor, id, last, act]); // Read only this thread, not the whole inbox.
+  return (
+    <div className="pv-conversation" ref={conversation}>
+      <header className="pv-conversation-header">
+        <button className="pv-icon-button" aria-label="Back to messages" onClick={() => go("messages")}><ArrowLeftIcon size={22} /></button>
+        <ProfilePhoto person={other} />
+        <div className="pv-conversation-person">
+          <h1><ProfileName person={other} /></h1>
+          <button className="pv-text-link" onClick={() => go(`${other.side}/${other.id}`)}>View public profile</button>
+        </div>
+      </header>
+      <div className="pv-chat-layout">
+        <div className="pv-chat-room">
+          {pinned}
           <div className="pv-chat-messages" ref={messageList} aria-live="polite" role="log" aria-label="Conversation messages">
             {messages.length ? (
-              messages.map((m) =>
-                m.system ? (
+              messages.map((m) => {
+                const offer = m.offer && (data.offers ?? []).find((o) => o.id === m.offer);
+                return offer ? (
+                  <OfferCard key={m.id} offer={offer} mine={m.from === actor} />
+                ) : m.system ? (
                   <div className="pv-system-message" key={m.id}>
                     {m.text}
                   </div>
@@ -235,10 +354,12 @@ export function Thread({ id }: { id: string }) {
                     <p>{m.text}</p>
                     <small>{clockLabel(m.time)} · Sent</small>
                   </div>
-                ),
-              )
+                );
+              })
             ) : (
-              <p className="pv-muted pv-chat-empty">No messages yet.</p>
+              <p className="pv-muted pv-chat-empty">
+                No messages yet.
+              </p>
             )}
           </div>
           <form
@@ -277,15 +398,7 @@ export function Thread({ id }: { id: string }) {
           )}
         </div>
       </div>
-      </div>
-      {booking && (
-        <BookConfirm
-          shift={s}
-          talent={r.talent}
-          onClose={() => setBooking(false)}
-        />
-      )}
-    </>
+    </div>
   );
 }
 export function Notifications() {
@@ -328,13 +441,12 @@ export function Notifications() {
       ) : (
         <Empty
           title="You’re all caught up"
-          text="New shift activity and messages will appear here."
         />
       )}
     </>
   );
 }
-export function AvailabilityEditor() {
+export function AvailabilityEditor({ back }: { back?: string }) {
   const { data, actor, act, go } = usePreview();
   const today = londonDate(data.now);
   const dates = Array.from({ length: 14 }, (_, i) => datePlus(today, i));
@@ -370,7 +482,7 @@ export function AvailabilityEditor() {
     <>
       <Heading
         title="When are you free?"
-        back="bookings"
+        back={back}
       />
       <div className="pv-availability-layout">
         <div>
@@ -516,7 +628,7 @@ export function AvailabilityEditor() {
                     start,
                     end,
                   },
-                  "Availability saved. Venues see the saved hours.",
+                  "Availability saved.",
                 );
             }}
           >
@@ -528,7 +640,8 @@ export function AvailabilityEditor() {
   );
 }
 export function TalentProfile({ id }: { id: string }) {
-  const { data, actor, go, act, profileBack } = usePreview();
+  const { data, actor, side, go, act, profileBack } = usePreview();
+  const message = useMessage();
   const t = member(data, id);
   if (!t || t.side !== "talent")
     return (
@@ -559,6 +672,17 @@ export function TalentProfile({ id }: { id: string }) {
               {allSkills(t).map((s) => (
                 <span key={s}>{s}</span>
               ))}
+            </div>
+          )}
+          <dl className="pv-profile-info">
+            <div>
+              <dt>Minimum pay</dt>
+              <dd>{t.minRate ? `£${t.minRate} per hour` : "Not set"}</dd>
+            </div>
+          </dl>
+          {side === "venue" && actor !== id && !(data.draft && /^(new|compose)\//.test(profileBack)) && (
+            <div className="pv-actions">
+              <Button onClick={() => message(id)}>Message {firstName(t)}</Button>
             </div>
           )}
           {data.draft && /^(new|compose)\//.test(profileBack) && (
@@ -647,16 +771,9 @@ function VenueFacts({ v }: { v: Member }) {
   const d = v.venue;
   if (!d) return null;
   const kind = [...d.types, ...d.cuisines].join(" · ");
-  const size = [
-    d.covers && `${d.covers} covers`,
-    d.teamSize && `team of ${d.teamSize}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   return (
     <div className="pv-venue-facts">
       {kind && <p className="pv-role-line">{kind}</p>}
-      {size && <p className="pv-muted">{size}</p>}
       {d.knownFor.length > 0 && (
         <div className="pv-chips">
           {d.knownFor.map((k) => (
@@ -712,6 +829,7 @@ export function Profile() {
             skills: form.skills,
             customSkills: form.customSkills,
             alert: form.alert,
+            minRate: form.minRate,
           }
         : {
             name: form.name,
@@ -768,6 +886,10 @@ export function Profile() {
                     <div>
                       <dt>Postcode</dt>
                       <dd>{me!.postcode}</dd>
+                    </div>
+                    <div>
+                      <dt>Minimum pay</dt>
+                      <dd>{me!.minRate ? `£${me!.minRate} per hour` : "Not set"}</dd>
                     </div>
                     <div>
                       <dt>Shift alerts</dt>
@@ -901,6 +1023,17 @@ export function Profile() {
                       Add
                     </Button>
                   </div>
+                  <Field label="Minimum pay · £ per hour">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={form.minRate ?? ""}
+                      onChange={(e) =>
+                        setForm({ ...form, minRate: e.target.value ? Number(e.target.value) : undefined })
+                      }
+                    />
+                  </Field>
                   <Field label="Shift alerts">
                     <select
                       value={form.alert}

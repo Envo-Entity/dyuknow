@@ -3073,3 +3073,615 @@ dl.pv-arrival > div {
 @media (max-width: 760px) {
   .pv-next > .pv-profile-photo-link { width: 64px; height: 72px; }
 }
+/* Dates and hours: one compact bar; the calendar opens below it only while
+   choosing. */
+.pv-when {
+  margin: -8px 0 28px;
+  max-width: 760px;
+}
+.pv-when-label {
+  margin-bottom: 10px;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.pv-when-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #141712;
+  overflow: hidden;
+}
+.pv-when-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 18px;
+  text-align: left;
+}
+.pv-when-field > span {
+  flex: 1;
+  min-width: 0;
+}
+.pv-when-field small {
+  display: block;
+  color: #5d625c;
+  font-size: 11px;
+  line-height: 1.3;
+}
+.pv-when-field strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+.pv-when-dates:hover,
+.pv-when.is-open .pv-when-dates {
+  background: #f5f6f2;
+}
+.pv-when-hours {
+  border-left: 1px solid #e3e6de;
+}
+.pv-when-times {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.pv-when-times input {
+  min-width: 0;
+  width: 100%;
+  max-width: 112px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+.pv-chevron {
+  flex: none;
+  transition: transform 160ms ease;
+}
+.pv-chevron.is-open {
+  transform: rotate(180deg);
+}
+.pv-when > .pv-error,
+.pv-when > .pv-caption {
+  margin: 8px 0 0;
+}
+.pv-calendar {
+  margin-top: 10px;
+  padding: 18px 20px 14px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 14px 44px #14201018, inset 0 0 0 1px #e3e6de;
+}
+.pv-calendar-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.pv-calendar-quick button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: inset 0 0 0 1px #e3e6de;
+}
+.pv-calendar-quick button.selected {
+  background: #141712;
+  color: #fff;
+  box-shadow: none;
+}
+.pv-calendar-months {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.pv-calendar-prev,
+.pv-calendar-next {
+  position: absolute;
+  top: -6px;
+}
+.pv-calendar-prev {
+  left: -6px;
+}
+.pv-calendar-next {
+  right: -6px;
+}
+.pv-month h3 {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+.pv-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+.pv-weekday {
+  padding-bottom: 4px;
+  text-align: center;
+  color: #5d625c;
+  font-size: 11px;
+}
+.pv-month-grid button {
+  aspect-ratio: 1;
+  max-height: 44px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.pv-month-grid button:hover:not(:disabled):not(.selected) {
+  background: #f5f6f2;
+}
+.pv-month-grid button.is-today {
+  box-shadow: inset 0 0 0 1px #141712;
+}
+.pv-month-grid button.selected {
+  background: #141712;
+  color: #fff;
+  font-weight: 600;
+}
+.pv-calendar .pv-month-grid button:disabled {
+  opacity: 0.28;
+}
+.pv-calendar-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eceee8;
+  font-size: 13px;
+}
+.pv-calendar-foot > span {
+  flex: 1;
+  min-width: 0;
+}
+.pv-calendar-foot small {
+  display: block;
+  color: #5d625c;
+  font-size: 11px;
+}
+.pv-calendar-foot .pv-button {
+  min-height: 40px;
+  padding: 8px 20px;
+}
+.pv-modal .pv-when {
+  margin: 0 0 16px;
+}
+.pv-modal .pv-calendar {
+  padding: 14px 4px 10px;
+  box-shadow: none;
+}
+.pv-modal .pv-calendar-months,
+.pv-form-card .pv-calendar-months {
+  grid-template-columns: 1fr;
+}
+.pv-modal .pv-month.is-second,
+.pv-form-card .pv-month.is-second {
+  display: none;
+}
+.pv-form-card .pv-when {
+  margin: 4px 0 0;
+}
+/* A team: big photo cards, status on the photo. */
+.pv-team-roles {
+  margin-bottom: 20px;
+}
+.pv-talent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+.pv-talent-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px;
+  background: #f5f6f2;
+  overflow: hidden;
+}
+.pv-talent-card-photo {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  color: #fff;
+  text-align: left;
+}
+.pv-talent-card-photo .pv-photo,
+.pv-talent-card-photo .pv-monogram {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+  transition: transform 300ms ease;
+}
+.pv-talent-card-photo:hover .pv-photo {
+  transform: scale(1.03);
+}
+.pv-talent-card-photo::after {
+  content: "";
+  position: absolute;
+  inset: 45% 0 0;
+  background: linear-gradient(transparent, #0d100cd9);
+}
+.pv-talent-status,
+.pv-talent-flag {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #fffffff0;
+  color: #141712;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pv-talent-status {
+  left: 12px;
+}
+.pv-talent-status .pv-dot {
+  background: #9aa096;
+}
+.pv-talent-status.is-free {
+  background: #a8c5a0;
+}
+.pv-talent-status.is-free .pv-dot {
+  background: #234d1f;
+}
+.pv-talent-flag {
+  top: auto;
+  bottom: 86px;
+  left: 12px;
+  background: #141712cc;
+  color: #fff;
+}
+.pv-talent-card-name {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+}
+.pv-talent-card-name strong {
+  display: block;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+.pv-talent-card-name small {
+  display: block;
+  margin-top: 4px;
+  color: #e7ebe4;
+  font-size: 12px;
+}
+.pv-talent-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  padding: 14px 16px 16px;
+}
+.pv-talent-card-pay {
+  margin: 0;
+  font-size: 13px;
+  color: #5d625c;
+}
+.pv-talent-card-pay strong {
+  color: #141712;
+  font-size: 18px;
+}
+.pv-talent-card-skills {
+  margin: 0;
+  font-size: 12px;
+  color: #5d625c;
+}
+.pv-talent-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+.pv-talent-card-actions .pv-button {
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 12px;
+}
+.pv-talent-card-actions .pv-secondary {
+  background: #fff;
+}
+.pv-team-post {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 36px;
+}
+.pv-team-post p {
+  margin: 0;
+}
+.pv-team-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.pv-team-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px 10px 10px;
+  border-radius: 22px;
+  background: #f5f6f2;
+  text-align: left;
+}
+.pv-team-tile:hover {
+  background: #edf2ea;
+}
+.pv-team-tile > .pv-photo {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 16px;
+  filter: grayscale(1);
+}
+.pv-team-tile > span {
+  flex: 1;
+  min-width: 0;
+}
+.pv-team-tile strong {
+  display: block;
+  font-size: 17px;
+}
+.pv-team-tile small {
+  display: block;
+  color: #5d625c;
+  font-size: 12px;
+}
+/* The job post action: detached under the sidebar on wide screens, the round
+   button in the middle of the tab bar on phones. */
+.pv-post-job {
+  position: fixed;
+  z-index: 35;
+  left: 24px;
+  top: calc(34% + 342px);
+  width: 112px;
+  min-height: 72px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 24px;
+  background: #141712;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: 0 10px 36px #14201024;
+}
+.pv-post-job:hover,
+.pv-post-job.active {
+  background: #2c3329;
+}
+.pv-nav > .pv-nav-post {
+  display: none;
+}
+/* Talent: other roles join the list on request. */
+.pv-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px #d9ddd4;
+}
+.pv-reveal:hover {
+  background: #f5f6f2;
+}
+/* The terms of a job are what matters most: brand tint, black text. */
+.pv-facts > div {
+  background: #e6eee2;
+  color: #141712;
+}
+.pv-facts small,
+.pv-facts span {
+  color: #2f3a2c;
+}
+.pv-facts strong {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+/* A booking request, sent as a card in chat. */
+.pv-offer {
+  align-self: flex-start;
+  width: min(100%, 420px);
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: #e6eee2;
+  color: #141712;
+}
+.pv-offer.from-me {
+  align-self: flex-end;
+}
+.pv-offer.is-replaced,
+.pv-offer.is-declined {
+  background: #f0f1ed;
+  opacity: 0.7;
+}
+.pv-offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.pv-offer-head small {
+  color: #2f3a2c;
+  font-size: 11px;
+}
+.pv-offer-head .pv-badge {
+  background: #fff;
+}
+.pv-offer h3 {
+  margin: 8px 0 10px;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+.pv-offer dl {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.pv-offer dl > div {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #14171214;
+}
+.pv-offer dt {
+  color: #2f3a2c;
+  font-size: 12px;
+  padding-top: 2px;
+}
+.pv-offer dd {
+  margin: 0;
+  font-weight: 600;
+}
+.pv-offer dd small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #2f3a2c;
+}
+.pv-offer .pv-actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.pv-offer .pv-secondary {
+  background: #fff;
+}
+.pv-offer-changes {
+  margin-top: 10px;
+}
+@media (max-width: 760px) {
+  .pv-when {
+    margin: -12px 0 22px;
+  }
+  .pv-when-label {
+    font-size: 22px;
+  }
+  .pv-when-bar {
+    grid-template-columns: 1fr;
+  }
+  .pv-when-hours {
+    border-left: 0;
+    border-top: 1px solid #e3e6de;
+  }
+  .pv-calendar {
+    padding: 14px 12px 12px;
+  }
+  .pv-calendar-months {
+    grid-template-columns: 1fr;
+  }
+  .pv-month.is-second {
+    display: none;
+  }
+  .pv-talent-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .pv-talent-card {
+    border-radius: 20px;
+  }
+  .pv-talent-card-name {
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+  }
+  .pv-talent-card-name strong {
+    font-size: 22px;
+  }
+  .pv-talent-card-name small {
+    font-size: 11px;
+  }
+  .pv-talent-status {
+    top: 8px;
+    left: 8px;
+    font-size: 11px;
+    padding: 4px 9px;
+  }
+  .pv-talent-flag {
+    display: none;
+  }
+  .pv-talent-card-body {
+    padding: 10px 12px 12px;
+  }
+  .pv-talent-card-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pv-talent-card-actions .pv-button {
+    min-height: 38px;
+  }
+  .pv-team-post {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .pv-post-job {
+    display: none;
+  }
+  .pv-nav > .pv-nav-post {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    min-height: 62px;
+    background: none;
+  }
+  .pv-nav-post > span {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #141712;
+    color: #fff;
+    box-shadow: 0 6px 18px #14201040;
+    transition: transform 120ms ease;
+  }
+  .pv-nav > .pv-nav-post.active,
+  .pv-nav > .pv-nav-post:hover {
+    background: none;
+  }
+  .pv-nav-post:active > span {
+    transform: scale(0.94);
+  }
+  .pv-facts strong {
+    font-size: 21px;
+  }
+}

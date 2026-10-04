@@ -892,7 +892,7 @@ function TalentShift({ s }: { s: Shift }) {
       </>
     );
   else if (s.mode === "invite")
-    bar = <p className="pv-bar-note">This was a personal invitation.</p>;
+    bar = null;
   else if (!eligible)
     bar = (
       <p className="pv-bar-note">
@@ -944,7 +944,7 @@ function TalentShift({ s }: { s: Shift }) {
             className="pv-eyebrow-link"
             onClick={() => go(`venue/${venue.id}`)}
           >
-            {areaOf(venue)} · About the venue
+            {areaOf(venue)}
           </button>
           <h1 className="pv-venue-title"><button onClick={() => go(`venue/${venue.id}`)}>{venue.name}</button></h1>
           {venue.venue && [...venue.venue.types, ...venue.venue.cuisines].length > 0 && (
@@ -1002,14 +1002,19 @@ function TalentShift({ s }: { s: Shift }) {
               })}
             </div>
           )}
-          <h3>Note from {venue.name}</h3>
-          <p className="pv-muted">{s.note || "No note."}</p>
-          <p className="pv-muted pv-small">
-            {b
-              ? s.address || fullAddress(venue)
-              : `${areaOf(venue)} · full address once you’re booked`}
-          </p>
-          <ActionBar>{bar}</ActionBar>
+          {s.note && (
+            <>
+              <h3>Note from {venue.name}</h3>
+              <p className="pv-muted">{s.note}</p>
+            </>
+          )}
+          {b && (
+            <>
+              <h3>Address</h3>
+              <p className="pv-muted">{s.address || fullAddress(venue)}</p>
+            </>
+          )}
+          {bar && <ActionBar>{bar}</ActionBar>}
         </div>
       </div>
       {(sheet === "respond" || sheet === "some" || sheet === "more") && (
@@ -1284,12 +1289,11 @@ export function BookingDetail({ id }: { id: string }) {
           ((b.cancelled && future.length > 0) ||
             (b.outcomes[actor] && b.outcomes[actor] !== "Yes, worked")) && (
             <div className="pv-callout">
-              <p>Need someone else for {datesLabel(future.map((d) => d.date)) || "these dates"}?</p>
               <Button onClick={() => again("replacement")}>Find a replacement</Button>
             </div>
           )}
         {b.cancelled && side === "talent" && (
-          <button className="pv-text-link" onClick={() => go("availability")}>
+          <button className="pv-text-link" onClick={() => go("bookings")}>
             Update when you’re free
           </button>
         )}

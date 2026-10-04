@@ -11,7 +11,6 @@ import {
   joinNames,
   member,
   relativeDay,
-  displayDate,
   serviceLabel,
   similarShift,
   workedWith,
@@ -25,6 +24,7 @@ import {
 import { usePreview } from "./context";
 import { ActionBar, Badge, Button, Empty, Heading, ProfilePhoto, ProfileName, InviteToggle } from "./ui";
 import { draftFrom } from "./ShiftDetail";
+import { DateTimeBar, savedWhen } from "./Booking";
 
 export function ShiftComposer({
   family,
@@ -48,12 +48,14 @@ export function ShiftComposer({
     const last = data.shifts.find(
       (s) => s.venue === actor && s.family === fam,
     ) as Shift | undefined;
+    // The dates the venue already chose on Book.
+    const chosen = savedWhen(data.now).dates;
     const base: ShiftDraft = {
       roles: last?.roles || [],
       family: fam,
-      date: tomorrow,
+      date: chosen[0] || tomorrow,
       count: 1,
-      dates: [tomorrow],
+      dates: chosen.length ? chosen : [tomorrow],
       start: last?.days[0].start || "17:00",
       end: last?.days[0].end || "23:00",
       capacity: 1,
@@ -101,10 +103,6 @@ export function ShiftComposer({
       return [];
     }
   })();
-  const today = londonDate(data.now);
-  const [pickDates, setPickDates] = useState(
-    !(dates.length === 1 && [today, tomorrow].includes(dates[0])),
-  );
   // Drafts are saved only after a real change, so opening and backing out
   // never leaves a phantom "unsent" shift behind.
   function update(patch: Partial<ShiftDraft>) {
@@ -305,73 +303,17 @@ export function ShiftComposer({
         </div>
         <div className="pv-form-row">
           <h3>When</h3>
-          <div className="pv-chips">
-            {[
-              ["Today", today],
-              ["Tomorrow", tomorrow],
-            ].map(([label, date]) => {
-              const on = !pickDates && dates.length === 1 && dates[0] === date;
-              return (
-                <button
-                  key={label}
-                  aria-pressed={on}
-                  className={on ? "selected" : ""}
-                  onClick={() => {
-                    setPickDates(false);
-                    update({ dates: [date], together: false });
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-            <button
-              aria-pressed={pickDates}
-              className={pickDates ? "selected" : ""}
-              onClick={() => setPickDates(true)}
-            >
-              Pick dates
-            </button>
-          </div>
-          {pickDates && (
-            <div className="pv-date-picks" role="group" aria-label="Dates">
-              {Array.from({ length: 14 }, (_, i) => datePlus(today, i)).map((d) => {
-                const on = dates.includes(d);
-                return (
-                  <button
-                    key={d}
-                    aria-pressed={on}
-                    className={on ? "selected" : ""}
-                    disabled={!on && dates.length >= 7}
-                    onClick={() => {
-                      const next = on ? dates.filter((x) => x !== d) : [...dates, d].sort();
-                      update({ dates: next, together: next.length > 1 && draft.together });
-                    }}
-                  >
-                    <small>{displayDate(d).split(" ")[0]}</small>
-                    <strong>{Number(d.slice(-2))}</strong>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="pv-time-line">
-            <input
-              className="pv-input"
-              type="time"
-              aria-label="Start time"
-              value={draft.start}
-              onChange={(e) => update({ start: e.target.value })}
-            />
-            <span>to</span>
-            <input
-              className="pv-input"
-              type="time"
-              aria-label="End time"
-              value={draft.end}
-              onChange={(e) => update({ end: e.target.value })}
-            />
-          </div>
+          <DateTimeBar
+            value={{ dates, start: draft.start, end: draft.end }}
+            onChange={(w) =>
+              update({
+                dates: w.dates,
+                start: w.start,
+                end: w.end,
+                together: w.dates.length > 1 && draft.together,
+              })
+            }
+          />
           {!!days.length && (
             <div className="pv-day-list">
               {days.map((d) => (
@@ -512,9 +454,9 @@ export function ShiftComposer({
               </strong>
               <small>
                 {!draft.roles.length
-                  ? "Choose who you need first."
+                  ? "Choose a position first"
                   : alerted.length
-                    ? `Texts ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`}. You review who can cover, then book.`
+                    ? `Texts ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`}`
                     : "No one has this role yet."}
               </small>
             </button>

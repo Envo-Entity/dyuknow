@@ -43,6 +43,8 @@ export type Member = {
   customSkills: string[];
   approved: boolean;
   alert: "all" | "soon" | "off";
+  // Talent only: the lowest hourly pay they'll take, shown to venues.
+  minRate?: number;
   venue?: VenueDetails;
 };
 export type Service = {
@@ -83,6 +85,40 @@ export type Response = {
   // Dates the talent said yes to. Missing means every date of the shift
   // (an invitation is the venue's yes to all of them).
   days?: string[];
+  // Set when the booking came from a direct conversation: its updates are
+  // posted there instead of a separate shift chat.
+  thread?: string;
+};
+// A direct conversation between a venue and a talent member. It needs no
+// shift: anyone vetted can be messaged, free or not.
+export type Thread = {
+  id: string;
+  venue: string;
+  talent: string;
+  started: string;
+  // What the venue was looking for when it opened the conversation; it
+  // pre-fills the booking request.
+  context?: OfferTerms;
+};
+export type OfferTerms = {
+  family: string;
+  role: string;
+  // Up to seven dates, same hours each day.
+  dates: string[];
+  start: string;
+  end: string;
+};
+// A booking request sent as a card in a direct conversation.
+export type Offer = OfferTerms & {
+  id: string;
+  thread: string;
+  rate: number;
+  note: string;
+  status: "sent" | "accepted" | "declined" | "changes" | "replaced";
+  time: string;
+  // The talent's note when asking for changes.
+  reply?: string;
+  booking?: string;
 };
 export type Booking = {
   id: string;
@@ -99,11 +135,13 @@ export type Booking = {
 };
 export type Message = {
   id: string;
+  // The conversation: a shift response id or a direct thread id.
   response: string;
   from: string;
   text: string;
   time: string;
   system: boolean;
+  offer?: string;
 };
 export type Notice = {
   id: string;
@@ -131,6 +169,8 @@ export type Data = {
   messages: Message[];
   notices: Notice[];
   availability: Availability[];
+  threads?: Thread[];
+  offers?: Offer[];
   read: Record<string, string>;
   messageDrafts: Record<string, string>;
   draft: Partial<ShiftDraft> | null;
@@ -546,6 +586,79 @@ export function isFree(data: Data, talent: string, days: Service[]) {
       }),
   );
 }
+// Where a talent member stands for some hours, from their own calendar and
+// their bookings. Only "free" means they said yes to those hours.
+export type Standing = "free" | "booked" | "not-free" | "other-hours" | "not-set";
+export function standing(data: Data, talent: string, days: Service[]): Standing {
+  if (!days.length) return "not-set";
+  if (conflict(data, talent, days)) return "booked";
+  if (isFree(data, talent, days)) return "free";
+  const marks = data.availability.filter(
+    (a) => a.member === talent && days.some((d) => d.date === a.date),
+  );
+  if (marks.some((a) => a.kind === "not-free")) return "not-free";
+  return marks.length ? "other-hours" : "not-set";
+}
+export function standingLabel(data: Data, talent: string, days: Service[]) {
+  const s = standing(data, talent, days);
+  if (s !== "free" && s !== "booked" && days.length > 1) {
+    const k = days.filter((d) => standing(data, talent, [d]) === "free").length;
+    if (k) return `Free ${k} of ${days.length} days`;
+  }
+  if (s === "other-hours") {
+    const a = data.availability.find(
+      (a) => a.member === talent && a.date === days[0].date && a.kind === "free",
+    );
+    return a ? `Free ${a.start}–${a.end} only` : "Free other hours";
+  }
+  return {
+    free: "Free then",
+    booked: "Booked elsewhere then",
+    "not-free": "Not free then",
+    "not-set": "Availability not set",
+  }[s];
+}
+// Who a venue sees for a team at a time. While the network is small this is
+// everyone vetted, in order:
+// 1. in the role (or team) and free then,
+// 2. in the role (or team) but not free, or no availability set,
+// 3. everyone else, same team first.
+export function rankTalent(
+  data: Data,
+  venue: string,
+  family: string,
+  role: string | undefined,
+  days: Service[],
+) {
+  const fits = (m: Member) =>
+    role ? m.roles.includes(role) : m.roles.some((r) => FAMILIES[family]?.roles.includes(r));
+  const inTeam = (m: Member) =>
+    m.roles.some((r) => FAMILIES[family]?.roles.includes(r));
+  const free = (m: Member) => standing(data, m.id, days) === "free";
+  const order = (a: Member, b: Member) =>
+    Number(inTeam(b)) - Number(inTeam(a)) ||
+    Number(free(b)) - Number(free(a)) ||
+    Number(workedWith(data, venue, b.id)) - Number(workedWith(data, venue, a.id)) ||
+    a.name.localeCompare(b.name);
+  const talent = data.members
+    .filter((m) => m.side === "talent" && m.approved)
+    .sort(order);
+  return {
+    free: talent.filter((m) => fits(m) && free(m)),
+    unavailable: talent.filter((m) => fits(m) && !free(m)),
+    others: talent.filter((m) => !fits(m)),
+  };
+}
+export function offerDays(o: Pick<OfferTerms, "dates" | "start" | "end">) {
+  return makeDays({ dates: o.dates, start: o.start, end: o.end } as ShiftDraft);
+}
+export function threadBetween(data: Data, venue: string, talent: string) {
+  return (data.threads ?? []).find((t) => t.venue === venue && t.talent === talent);
+}
+// The latest booking request in a conversation.
+export function currentOffer(data: Data, thread: string) {
+  return (data.offers ?? []).filter((o) => o.thread === thread).at(-1);
+}
 export function member(data: Data, id: string) {
   return data.members.find((m) => m.id === id)!;
 }
@@ -588,7 +701,7 @@ export function notify(
 function event(data: Data, r: Response, text: string) {
   data.messages.push({
     id: uid(),
-    response: r.id,
+    response: r.thread || r.id,
     from: "system",
     text,
     time: data.now,
@@ -614,6 +727,47 @@ function closeWaiting(
         text,
         `${member(data, s.venue).name} · ${shiftLabel(s)}`,
         `shift/${s.id}`,
+      );
+    });
+}
+// A new booking: this person's other waiting answers lose the clashing days.
+function trimClashes(data: Data, b: Booking) {
+  const t = member(data, b.talent);
+  const booked = bookingServices(data, b);
+  data.responses
+    .filter(
+      (o) =>
+        o.talent === b.talent &&
+        o.shift !== b.shift &&
+        ["invited", "can-cover"].includes(o.status),
+    )
+    .forEach((o) => {
+      const other = data.shifts.find((x) => x.id === o.shift)!;
+      const clashing = other.days
+        .filter((d) => overlap([d], booked))
+        .map((d) => d.date);
+      if (!clashing.length) return;
+      const remaining = offeredDates(other, o).filter(
+        (d) => !clashing.includes(d),
+      );
+      if (o.status === "can-cover" && remaining.length) {
+        o.days = remaining;
+        event(
+          data,
+          o,
+          `${t.name} is now booked elsewhere on ${datesLabel(clashing)} and can still cover ${datesLabel(remaining)}.`,
+        );
+        return;
+      }
+      if (o.status === "invited" && remaining.length) return;
+      o.status = "lapsed";
+      event(data, o, "No longer available — booked elsewhere.");
+      notify(
+        data,
+        other.venue,
+        `${t.name} is no longer available`,
+        `${shiftLabel(other)} · booked elsewhere for those hours.`,
+        `shift/${o.shift}`,
       );
     });
 }
@@ -803,6 +957,7 @@ export function seed(): Data {
     },
     talent({
       id: "poppy",
+      minRate: 16,
       name: "Poppy Bertram",
       phone: "+44 7700 900201",
       email: "poppy@example.com",
@@ -815,6 +970,7 @@ export function seed(): Data {
     }),
     talent({
       id: "camille",
+      minRate: 25,
       name: "Camille Aubert",
       phone: "+44 7700 900202",
       email: "camille@example.com",
@@ -826,6 +982,7 @@ export function seed(): Data {
     }),
     talent({
       id: "theo",
+      minRate: 17,
       name: "Theo Marchetti",
       phone: "+44 7700 900203",
       email: "theo@example.com",
@@ -837,6 +994,7 @@ export function seed(): Data {
     }),
     talent({
       id: "ethan",
+      minRate: 20,
       name: "Ethan Russell",
       phone: "+44 7700 900204",
       email: "ethan@example.com",
@@ -848,6 +1006,7 @@ export function seed(): Data {
     }),
     talent({
       id: "noor",
+      minRate: 15,
       name: "Noor Haddad",
       phone: "+44 7700 900205",
       email: "noor@example.com",
@@ -859,6 +1018,7 @@ export function seed(): Data {
     }),
     talent({
       id: "ines",
+      minRate: 14,
       name: "Inès Laurent",
       phone: "+44 7700 900206",
       email: "ines@example.com",
@@ -1083,6 +1243,20 @@ export type Action =
   | { type: "close"; actor: string; shift: string; reason: string }
   | { type: "cancel"; actor: string; booking: string; reason: string }
   | { type: "message"; actor: string; response: string; text: string }
+  | { type: "open-thread"; actor: string; with: string; context?: OfferTerms }
+  | {
+      type: "send-offer";
+      actor: string;
+      thread: string;
+      offer: OfferTerms & { rate: number; note: string };
+    }
+  | {
+      type: "answer-offer";
+      actor: string;
+      offer: string;
+      answer: "accept" | "decline" | "changes";
+      note?: string;
+    }
   | { type: "open-chat"; actor: string; response: string }
   | {
       type: "availability";
@@ -1250,12 +1424,12 @@ export function transition(original: Data, action: Action): Data {
       .forEach((n) => (n.read = true));
   if (action.type === "profile") {
     const m = member(data, action.actor);
-    const { name, bio, roles, skills, customSkills, alert, phone, email, postcode, venue } =
+    const { name, bio, roles, skills, customSkills, alert, phone, email, postcode, minRate, venue } =
       action.patch;
     Object.assign(
       m,
       Object.fromEntries(
-        Object.entries({ name, bio, roles, skills, customSkills, alert, phone, email, postcode }).filter(
+        Object.entries({ name, bio, roles, skills, customSkills, alert, phone, email, postcode, minRate }).filter(
           ([, v]) => v !== undefined,
         ),
       ),
@@ -1670,44 +1844,7 @@ export function transition(original: Data, action: Action): Data {
                 `shift/${s.id}`,
               );
             });
-        // This person's other waiting answers lose the clashing days.
-        const booked = bookingServices(data, b);
-        data.responses
-          .filter(
-            (o) =>
-              o.talent === talent &&
-              o.shift !== s.id &&
-              ["invited", "can-cover"].includes(o.status),
-          )
-          .forEach((o) => {
-            const other = data.shifts.find((x) => x.id === o.shift)!;
-            const clashing = other.days
-              .filter((d) => overlap([d], booked))
-              .map((d) => d.date);
-            if (!clashing.length) return;
-            const remaining = offeredDates(other, o).filter(
-              (d) => !clashing.includes(d),
-            );
-            if (o.status === "can-cover" && remaining.length) {
-              o.days = remaining;
-              event(
-                data,
-                o,
-                `${t.name} is now booked elsewhere on ${datesLabel(clashing)} and can still cover ${datesLabel(remaining)}.`,
-              );
-              return;
-            }
-            if (o.status === "invited" && remaining.length) return;
-            o.status = "lapsed";
-            event(data, o, "No longer available — booked elsewhere.");
-            notify(
-              data,
-              other.venue,
-              `${t.name} is no longer available`,
-              `${shiftLabel(other)} · booked elsewhere for those hours.`,
-              `shift/${o.shift}`,
-            );
-          });
+        trimClashes(data, b);
       }
     }
   }
@@ -1812,7 +1949,201 @@ export function transition(original: Data, action: Action): Data {
       `booking/${b.id}`,
     );
   }
-  if (action.type === "open-chat" || action.type === "message") {
+  if (action.type === "open-thread") {
+    const other = member(data, action.with);
+    const me = member(data, action.actor);
+    if (!other?.approved || !me || other.side === me.side)
+      throw new Error("Venues and talent can message each other.");
+    const venue = me.side === "venue" ? me.id : other.id;
+    const talent = me.side === "talent" ? me.id : other.id;
+    data.threads ??= [];
+    let t = threadBetween(data, venue, talent);
+    if (!t) {
+      t = { id: uid(), venue, talent, started: data.now };
+      data.threads.push(t);
+    }
+    if (action.context && me.side === "venue") t.context = action.context;
+  }
+  if (action.type === "send-offer") {
+    const t = (data.threads ?? []).find((t) => t.id === action.thread);
+    if (!t || t.venue !== action.actor)
+      throw new Error("Only the venue in this conversation can send a booking.");
+    const o = action.offer;
+    if (!FAMILIES[o.family]?.roles.includes(o.role))
+      throw new Error("Choose the position you need.");
+    if (!(o.rate > 0) || !Number.isFinite(o.rate))
+      throw new Error("Add an hourly rate in pounds.");
+    const days = offerDays(o);
+    if (days[0].from <= data.now)
+      throw new Error("The shift must start in the future. Choose a later time.");
+    data.offers ??= [];
+    const previous = data.offers.filter(
+      (x) => x.thread === t.id && ["sent", "changes"].includes(x.status),
+    );
+    previous.forEach((x) => (x.status = "replaced"));
+    const offer: Offer = {
+      id: uid(),
+      thread: t.id,
+      family: o.family,
+      role: o.role,
+      dates: [...new Set(o.dates)].sort(),
+      start: o.start,
+      end: o.end,
+      rate: o.rate,
+      note: o.note,
+      status: "sent",
+      time: data.now,
+    };
+    data.offers.push(offer);
+    data.messages.push({
+      id: uid(),
+      response: t.id,
+      from: action.actor,
+      text: previous.length ? "Revised booking request" : "Booking request",
+      time: data.now,
+      system: false,
+      offer: offer.id,
+    });
+    notify(
+      data,
+      t.talent,
+      `${member(data, t.venue).name} ${previous.length ? "revised their booking request" : "wants to book you"}`,
+      `${o.role} · ${datesLabel(o.dates)} · ${o.start}–${o.end} · £${o.rate}/h`,
+      `chat/${t.id}`,
+    );
+  }
+  if (action.type === "answer-offer") {
+    const o = (data.offers ?? []).find((o) => o.id === action.offer);
+    const t = (data.threads ?? []).find((t) => t.id === o?.thread);
+    if (!o || !t || t.talent !== action.actor)
+      throw new Error("This booking request is not yours to answer.");
+    if (o.status !== "sent")
+      throw new Error(
+        o.status === "replaced"
+          ? "The venue has sent a newer version. Answer that one instead."
+          : "This booking request has already been answered.",
+      );
+    const venueName = member(data, t.venue).name;
+    const talentName = member(data, t.talent).name;
+    const days = offerDays(o);
+    const label = `${datesLabel(o.dates)} · ${o.start}–${o.end}`;
+    const system = (text: string) =>
+      data.messages.push({
+        id: uid(),
+        response: t.id,
+        from: "system",
+        text,
+        time: data.now,
+        system: true,
+      });
+    if (action.answer === "accept") {
+      if (days[0].from <= data.now)
+        throw new Error("This shift has started. Ask the venue for a new date.");
+      if (conflict(data, t.talent, days))
+        throw new Error("You're booked elsewhere for these hours. Ask for changes instead.");
+      const venue = member(data, t.venue);
+      const s: Shift = {
+        id: uid(),
+        venue: venue.id,
+        roles: [o.role],
+        family: o.family,
+        days,
+        capacity: 1,
+        rate: o.rate,
+        note: o.note,
+        mode: "invite",
+        status: "filled",
+        created: data.now,
+        address: fullAddress(venue),
+        contact: contactLine(venue),
+        phone: venue.phone,
+        ownerAlerted: false,
+        together: days.length > 1,
+      };
+      data.shifts.unshift(s);
+      data.responses.push({
+        id: uid(),
+        shift: s.id,
+        talent: t.talent,
+        source: "invite",
+        status: "booked",
+        note: "",
+        chat: true,
+        thread: t.id,
+      });
+      const b: Booking = {
+        id: uid(),
+        shift: s.id,
+        talent: t.talent,
+        days: days.map((d) => d.date),
+        cancelled: false,
+        bookedAt: data.now,
+        outcomes: {},
+      };
+      data.bookings.unshift(b);
+      o.status = "accepted";
+      o.booking = b.id;
+      system(`Booked: ${label} · £${o.rate}/h. Both sides are committed to these hours and pay.`);
+      notify(
+        data,
+        t.venue,
+        `${talentName} accepted`,
+        `Booked for ${o.role} · ${label}`,
+        `booking/${b.id}`,
+      );
+      trimClashes(data, b);
+    } else if (action.answer === "decline") {
+      o.status = "declined";
+      system(`${talentName} declined this booking request.`);
+      notify(data, t.venue, `${talentName} declined`, `${o.role} · ${label}`, `chat/${t.id}`);
+    } else {
+      o.status = "changes";
+      o.reply = action.note?.trim() || "";
+      if (o.reply)
+        data.messages.push({
+          id: uid(),
+          response: t.id,
+          from: t.talent,
+          text: o.reply,
+          time: data.now,
+          system: false,
+        });
+      system(`${talentName} asked for changes. ${venueName} can send a revised booking.`);
+      notify(
+        data,
+        t.venue,
+        `${talentName} asked for changes`,
+        o.reply || `${o.role} · ${label}`,
+        `chat/${t.id}`,
+      );
+    }
+  }
+  const thread =
+    (action.type === "open-chat" || action.type === "message") &&
+    !data.responses.some((r) => r.id === action.response)
+      ? (data.threads ?? []).find((t) => t.id === action.response)
+      : undefined;
+  if (thread && action.type === "message") {
+    if (![thread.venue, thread.talent].includes(action.actor))
+      throw new Error("This conversation is private.");
+    if (!action.text.trim()) throw new Error("Write a message first.");
+    data.messages.push({
+      id: uid(),
+      response: thread.id,
+      from: action.actor,
+      text: action.text.trim(),
+      time: data.now,
+      system: false,
+    });
+    data.messageDrafts[`${action.actor}/${thread.id}`] = "";
+    notify(
+      data,
+      action.actor === thread.talent ? thread.venue : thread.talent,
+      `Message from ${member(data, action.actor).name}`,
+      action.text.trim(),
+      `chat/${thread.id}`,
+    );
+  } else if (action.type === "open-chat" || action.type === "message") {
     const r = data.responses.find((r) => r.id === action.response)!;
     const s = data.shifts.find((s) => s.id === r.shift)!;
     if (![r.talent, s.venue].includes(action.actor))
@@ -1887,7 +2218,7 @@ export function transition(original: Data, action: Action): Data {
   }
   return data;
 }
-export function unreadChat(data: Data, actor: string, r: Response) {
+export function unreadChat(data: Data, actor: string, r: { id: string }) {
   const messages = data.messages.filter((m) => m.response === r.id);
   const idx = messages.findIndex((m) => m.id === data.read[`${actor}/${r.id}`]);
   // Status events (booked, filled) show in the thread but aren't unread messages.
