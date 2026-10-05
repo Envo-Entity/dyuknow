@@ -3,10 +3,10 @@ import { useState } from "react";
 import { ArrowRightIcon } from "@/components/icons";
 import {
   FAMILIES,
+  activeDays,
   availableDates,
   bookingServices,
   datesLabel,
-  firstName,
   member,
   offeredDates,
   londonDate,
@@ -15,10 +15,8 @@ import {
   shortDay,
   offerableDates,
   venueSummary,
-  currentOffer,
   openDates,
   standing,
-  type Offer,
   type Booking,
   type Data,
   type Shift,
@@ -77,7 +75,7 @@ function BookingRow({ b }: { b: Booking }) {
       person={other}
       name={other.name}
       title={shiftLabel(s)}
-      sub={whenLine(data, s, b.days)}
+      sub={whenLine(data, s, b.cancelled ? b.days : activeDays(b))}
       status={b.cancelled ? "Cancelled" : past ? "Past" : "Booked"}
       good={!b.cancelled && !past}
       onClick={() => go(`booking/${b.id}`)}
@@ -99,37 +97,6 @@ function upcomingFirst(data: Data, list: Booking[]) {
         bookingServices(data, b)[0].from,
       ),
     );
-}
-// An unsent draft says exactly what it is, and can be thrown away.
-function DraftCard() {
-  const { data, actor, act, go } = usePreview();
-  const d = data.draft!;
-  const [kind, id] = (d.origin || "").split("/");
-  const roles = d.roles?.join(" or ") || d.family || "";
-  const label =
-    kind === "edit"
-      ? `Unsent changes to your ${roles} shift`
-      : kind === "again"
-        ? `Unsent invite to ${firstName(member(data, d.repeatTalent!))}`
-        : kind === "replace"
-          ? `Unsent replacement for your ${roles} shift`
-          : `Unsent ${d.family?.toLowerCase()} shift`;
-  return (
-    <div className="pv-attention pv-draft">
-      <strong>{label}</strong>
-      <span className="pv-draft-actions">
-        <Button
-          variant="secondary"
-          onClick={() => act({ type: "save-draft", actor, draft: null }, "Draft discarded.")}
-        >
-          Discard
-        </Button>
-        <Button onClick={() => go(kind ? `compose/${kind}/${id}` : "new")}>
-          Continue
-        </Button>
-      </span>
-    </div>
-  );
 }
 export function VenueHome() {
   const { data, actor, go } = usePreview();
@@ -159,7 +126,6 @@ export function VenueHome() {
         }}
         onPick={(name) => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
       />
-      {data.draft && <DraftCard />}
       {coming.length > 0 && (
         <Section title="Coming up">
           <div className="pv-rows">
@@ -205,7 +171,7 @@ function NextBooking({ b }: { b: Booking }) {
 export function TalentHome() {
   const { data, actor, me, go } = usePreview();
   const [others, setOthers] = useState(false);
-  const [view, setView] = useState("Shifts");
+  const [view, setView] = useState("Open jobs");
   const mine = data.responses.filter((r) => r.talent === actor);
   const bookings = myBookings(data, actor, "talent");
   const coming = upcomingFirst(data, bookings);
@@ -213,11 +179,6 @@ export function TalentHome() {
     (r) =>
       r.status === "invited" &&
       data.shifts.find((s) => s.id === r.shift)!.status === "open",
-  );
-  const offers = (data.offers ?? []).filter(
-    (o) =>
-      o.status === "sent" &&
-      (data.threads ?? []).some((t) => t.id === o.thread && t.talent === actor),
   );
   const waiting = mine.filter((r) => r.status === "can-cover");
   const ended = mine.filter((r) =>
@@ -262,7 +223,7 @@ export function TalentHome() {
         title={shiftLabel(s)}
         sub={whenLine(data, s, offeredDates(s, r))}
         status={status}
-        attention={status === "Invited you"}
+        attention={status === "Waiting for you"}
         onClick={() => go(`shift/${s.id}`)}
       />
     );
@@ -281,27 +242,10 @@ export function TalentHome() {
           </div>
         </Section>
       )}
-      {(invites.length > 0 || offers.length > 0) && (
-        <Section title="Invitations">
+      {invites.length > 0 && (
+        <Section title="Booking requests">
           <div className="pv-rows">
-            {offers.map((o) => {
-              const t = (data.threads ?? []).find((t) => t.id === o.thread)!;
-              const v = member(data, t.venue);
-              return (
-                <Row
-                  key={o.id}
-                  photo={v.photo}
-                  person={v}
-                  name={v.name}
-                  title={o.role}
-                  sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
-                  status="Booking request"
-                  attention
-                  onClick={() => go(`chat/${t.id}`)}
-                />
-              );
-            })}
-            {invites.map((r) => responseRow(r, "Invited you"))}
+            {invites.map((r) => responseRow(r, "Waiting for you"))}
           </div>
         </Section>
       )}
@@ -313,7 +257,7 @@ export function TalentHome() {
         </Section>
       )}
       <div className="pv-home-controls">
-        <Segments options={["Shifts", "Venues"]} value={view} onChange={setView} />
+        <Segments options={["Open jobs", "Venues"]} value={view} onChange={setView} />
       </div>
       {view === "Venues" ? (
         <VenueDirectory />
@@ -334,7 +278,7 @@ export function TalentHome() {
                     good={!!mineHere}
                     label={
                       mineHere
-                        ? `Booked ${mineHere.days.map(shortDay).join(", ")} · ${more.map(shortDay).join(", ")} still open`
+                        ? `Booked ${activeDays(mineHere).map(shortDay).join(", ")} · ${more.map(shortDay).join(", ")} still open`
                         : free.length < s.days.length
                           ? `You can do ${free.length} of ${s.days.length} days`
                           : undefined
@@ -345,7 +289,7 @@ export function TalentHome() {
               {others && other.map((s) => <ShiftCard key={s.id} shift={s} label={shiftLabel(s)} />)}
             </div>
           ) : (
-            <Empty title="Nothing new for your roles right now" />
+            <Empty title="No open jobs for your roles right now" />
           )}
           {other.length > 0 && (
             <button
@@ -483,6 +427,12 @@ export function WorkHub() {
     (b) => b.cancelled || bookingServices(data, b).at(-1)!.to <= data.now,
   );
   const onToday = (dates: string[]) => dates.includes(today);
+  // Days that have finished and still need their hours confirmed.
+  const toConfirm = bookings.filter(
+    (b) =>
+      !b.cancelled &&
+      bookingServices(data, b).some((d) => d.to <= data.now && !b.log[d.date]),
+  );
   const open = data.shifts
     .filter((s) => s.venue === actor && s.status === "open")
     // What needs a decision first, then soonest.
@@ -491,16 +441,10 @@ export function WorkHub() {
         Number(venueSummary(data, b).needs) - Number(venueSummary(data, a).needs) ||
         a.days[0].from.localeCompare(b.days[0].from),
     );
-  const todayBookings = coming.filter((b) => onToday(b.days));
+  const todayBookings = coming.filter((b) => onToday(activeDays(b)));
   const todayOpen = open.filter((s) => onToday(openDates(data, s)));
   const later = coming.filter((b) => !todayBookings.includes(b));
   const laterOpen = open.filter((s) => !todayOpen.includes(s));
-  // Booking cards sent from a conversation that still need the talent's answer
-  // (or the venue's revision).
-  const pending = (data.threads ?? [])
-    .filter((t) => t.venue === actor)
-    .map((t) => currentOffer(data, t.id))
-    .filter((o): o is Offer => !!o && ["sent", "changes"].includes(o.status));
   const closed = data.shifts.filter(
     (s) =>
       s.venue === actor &&
@@ -511,10 +455,19 @@ export function WorkHub() {
   return (
     <>
       <Heading title="Bookings" />
-      {!open.length && !coming.length && !pending.length && (
+      {!open.length && !coming.length && (
         <Empty title="Nothing booked or open">
           <Button onClick={() => go("home")}>Find cover</Button>
         </Empty>
+      )}
+      {toConfirm.length > 0 && (
+        <Section title="Confirm hours">
+          <div className="pv-rows">
+            {toConfirm.map((b) => (
+              <BookingRow key={b.id} b={b} />
+            ))}
+          </div>
+        </Section>
       )}
       {(todayBookings.length > 0 || todayOpen.length > 0) && (
         <section className="pv-section pv-today">
@@ -529,26 +482,9 @@ export function WorkHub() {
           </div>
         </section>
       )}
-      {(laterOpen.length > 0 || pending.length > 0) && (
+      {laterOpen.length > 0 && (
         <Section title="Open">
           <div className="pv-rows">
-            {pending.map((o) => {
-              const t = (data.threads ?? []).find((t) => t.id === o.thread)!;
-              const person = member(data, t.talent);
-              return (
-                <Row
-                  key={o.id}
-                  photo={person.photo}
-                  person={person}
-                  name={person.name}
-                  title={o.role}
-                  sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
-                  status={o.status === "changes" ? "Asked for changes · Revise" : "Booking request sent"}
-                  attention={o.status === "changes"}
-                  onClick={() => go(`chat/${t.id}`)}
-                />
-              );
-            })}
             {laterOpen.map((s) => (
               <VenueShiftRow key={s.id} s={s} />
             ))}

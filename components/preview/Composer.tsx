@@ -2,116 +2,77 @@
 import { useState } from "react";
 import {
   FAMILIES,
-  availableDates,
   datePlus,
   londonDate,
   makeDays,
-  isFree,
   firstName,
   joinNames,
   member,
-  relativeDay,
+  openAnswer,
   serviceLabel,
   similarShift,
-  workedWith,
   defaultRate,
   defaultNote,
-  allSkills,
   type Shift,
   type ShiftDraft,
-  areaOf,
 } from "@/lib/preview/model";
-import { ArrowLeftIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 import { usePreview } from "./context";
-import { ActionBar, Badge, Button, Empty, Heading, ProfilePhoto, ProfileName, InviteToggle } from "./ui";
-import { draftFrom } from "./ShiftDetail";
+import { ActionBar, Button, Heading, Photo } from "./ui";
 import { DateTimeBar, savedWhen } from "./Booking";
 
+// The one form for asking for cover. With people in `to` it sends them a
+// booking request; with nobody it posts a job to everyone in the position.
+// Either way they say yes and the venue books.
 export function ShiftComposer({
   family,
-  resumeInvite = false,
-  origin,
+  to: initialTo = [],
+  role,
 }: {
-  family?: string;
-  resumeInvite?: boolean;
-  // "edit/<shift>", "again/<booking>" or "replace/<booking>".
-  origin?: string;
+  family: string;
+  to?: string[];
+  role?: string;
 }) {
   const { data, actor, me, act, go, toast } = usePreview();
-  const [view, setView] = useState<"form" | "invite">(
-    resumeInvite ? "invite" : "form",
-  );
   const [editingNote, setEditingNote] = useState(false);
   const tomorrow = datePlus(londonDate(data.now), 1);
   const [draft, setDraft] = useState<ShiftDraft>(() => {
-    const fam = family || data.draft?.family || "Kitchen";
+    const to = initialTo.filter((id) => data.members.some((m) => m.id === id && m.side === "talent"));
     // Start from what this venue asked for last time in this team.
     const last = data.shifts.find(
-      (s) => s.venue === actor && s.family === fam,
+      (s) => s.venue === actor && s.family === family,
     ) as Shift | undefined;
-    // The dates and hours the venue already chose on Book.
+    // The positions the chosen people work in this team.
+    const theirs = [
+      ...new Set(
+        to.flatMap((id) =>
+          member(data, id).roles.filter((r) => FAMILIES[family].roles.includes(r)),
+        ),
+      ),
+    ];
     const when = savedWhen(data.now);
-    const chosen = when.dates;
-    const base: ShiftDraft = {
-      roles: last?.roles || [],
-      family: fam,
-      date: chosen[0] || tomorrow,
+    return {
+      roles:
+        role && FAMILIES[family].roles.includes(role)
+          ? [role]
+          : theirs.length
+            ? theirs
+            : last?.roles || [],
+      family,
+      date: when.dates[0] || tomorrow,
       count: 1,
-      dates: chosen.length ? chosen : [tomorrow],
+      dates: when.dates.length ? when.dates : [tomorrow],
       start: when.start,
       end: when.end,
       capacity: 1,
-      // Pre-filled from the venue profile; each shift can change them.
-      rate: defaultRate(me!, fam),
+      // Pre-filled from the venue profile; each request can change them.
+      rate: defaultRate(me!, family),
       note: defaultNote(me!),
-      mode: "post",
-      invitees: [],
+      to,
     };
-    // An unsent draft from the same place picks up where it left off.
-    if (data.draft && (data.draft.origin || "") === (origin || "") &&
-      (origin || !family || family === data.draft.family))
-      return { ...base, ...data.draft } as ShiftDraft;
-    if (origin) {
-      const [kind, id] = origin.split("/");
-      const b = data.bookings.find((x) => x.id === id);
-      const shift = data.shifts.find((x) => x.id === (kind === "edit" ? id : b?.shift));
-      if (shift) {
-        if (kind === "edit") return draftFrom(shift, data.now, { editing: id, origin });
-        if (kind === "again" && b)
-          return draftFrom(shift, data.now, {
-            dates: [tomorrow],
-            capacity: 1,
-            mode: "invite",
-            invitees: [b.talent],
-            repeatTalent: b.talent,
-            together: false,
-            origin,
-          });
-        if (kind === "replace" && b)
-          return draftFrom(
-            shift,
-            data.now,
-            { capacity: 1, replacement: shift.id, origin },
-            b.days,
-          );
-      }
-    }
-    return base;
   });
-  const dates = draft.dates ?? (() => {
-    try {
-      return makeDays(draft).map((d) => d.date);
-    } catch {
-      return [];
-    }
-  })();
-  // Drafts are saved only after a real change, so opening and backing out
-  // never leaves a phantom "unsent" shift behind.
-  function update(patch: Partial<ShiftDraft>) {
-    const value = { ...draft, ...patch };
-    setDraft(value);
-    act({ type: "save-draft", actor, draft: value });
-  }
+  const dates = draft.dates ?? [];
+  const update = (patch: Partial<ShiftDraft>) => setDraft({ ...draft, ...patch });
   let days: ReturnType<typeof makeDays> = [];
   let validation = "";
   try {
@@ -123,181 +84,94 @@ export function ShiftComposer({
   }
   if (!validation && !draft.roles.length)
     validation = "Choose at least one position.";
-  const eligible = data.members.filter(
+  const request = draft.to.length > 0;
+  const people = draft.to.map((id) => member(data, id));
+  const alerted = data.members.filter(
     (m) =>
       m.side === "talent" &&
       m.approved &&
-      m.roles.some((r) => draft.roles.includes(r)),
+      m.roles.some((r) => draft.roles.includes(r)) &&
+      (m.alert === "all" ||
+        (m.alert === "soon" && !!days.length && days[0].date <= tomorrow)),
   );
-  const alerted = eligible.filter(
-    (m) =>
-      m.alert === "all" ||
-      (m.alert === "soon" && !!days.length && days[0].date <= tomorrow),
-  );
-  const repeat = draft.repeatTalent
-    ? member(data, draft.repeatTalent)
-    : undefined;
   const duplicate =
-    days.length && draft.roles.length && !draft.editing
+    days.length && draft.roles.length
       ? similarShift(data, actor, draft.roles, days)
       : undefined;
-  const sorted = [...eligible].sort(
-    (a, b) =>
-      Number(workedWith(data, actor, b.id)) -
-        Number(workedWith(data, actor, a.id)) ||
-      Number(isFree(data, b.id, days)) - Number(isFree(data, a.id, days)) ||
-      a.name.localeCompare(b.name),
-  );
-  // A stand-in shift so per-day availability can be checked before sending.
-  const preview = {
-    id: "draft",
-    venue: actor,
-    roles: draft.roles,
-    family: draft.family,
-    days,
-    capacity: draft.capacity,
-    rate: draft.rate,
-    note: draft.note,
-    mode: "invite",
-    status: "open",
-    created: data.now,
-    ownerAlerted: false,
-  } as Shift;
-  function send(mode: "post" | "invite") {
+  const lowest = Math.max(0, ...people.map((p) => p.minRate || 0));
+  // People already answering one of this venue's asks for these hours.
+  const taken = days.length
+    ? people
+        .map((p) => ({ p, r: openAnswer(data, actor, p.id, days) }))
+        .filter((x) => x.r)
+    : [];
+  if (!validation && taken.length)
+    validation = `${joinNames(taken.map((x) => firstName(x.p)))} already ${taken.length === 1 ? "has" : "have"} an answer with you for these hours.`;
+  function send() {
     if (validation) return toast(validation);
-    const value = { ...draft, mode };
     const result = act(
-      { type: "post", actor, draft: value },
-      mode === "invite"
-        ? "Invite sent."
+      { type: "post", actor, draft },
+      request
+        ? `Sent to ${joinNames(people.map(firstName))}. You’ll book once they say yes.`
         : alerted.length
-          ? `Sent. ${joinNames(alerted.map(firstName))} ${alerted.length === 1 ? "has" : "have"} been texted.`
-          : "Sent. Dyuknow is on it.",
+          ? `Posted. ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`} ${alerted.length === 1 ? "has" : "have"} been texted.`
+          : "Posted.",
     );
     if (result) go(`shift/${result.shifts[0].id}`);
   }
-  const title = draft.editing
-    ? "Edit and resend"
-    : draft.replacement
-      ? "Find a replacement"
-      : repeat
-        ? `Book ${firstName(repeat)} again`
-        : `${draft.family} job post`;
-  if (view === "invite")
-    return (
-      <>
-        <Heading
-          title="Who would you like to invite?"
-          description={`${draft.roles.join(" or ")} · ${days.length ? `${relativeDay(days[0].date, data.now)} · ${draft.start}–${draft.end}` : ""}`}
-        />
-        <Button variant="quiet" className="pv-back-link" onClick={() => setView("form")}>
-          <ArrowLeftIcon /> Back
-        </Button>
-        {sorted.length ? (
-          <div className="pv-pick-list">
-            {sorted.map((t) => {
-              const free = availableDates(data, t.id, preview);
-              const blocked = !free.length;
-              const picked = draft.invitees.includes(t.id);
-              return (
-                <div
-                  key={t.id}
-                  className={`pv-pick ${picked ? "is-picked" : ""} ${blocked ? "is-blocked" : ""}`}
-                >
-                  <ProfilePhoto person={t} />
-                  <span className="pv-pick-text">
-                    <strong><ProfileName person={t} /></strong>
-                    <small>
-                      {t.roles.join(" · ")} · {areaOf(t)}
-                    </small>
-                    <span className="pv-pick-tags">
-                      {workedWith(data, actor, t.id) && (
-                        <Badge good>Worked with you</Badge>
-                      )}
-                      {blocked ? (
-                        <Badge>Booked elsewhere then</Badge>
-                      ) : isFree(data, t.id, days) ? (
-                        <Badge good>Free then</Badge>
-                      ) : free.length < days.length ? (
-                        <Badge>
-                          Free {free.length} of {days.length} days
-                        </Badge>
-                      ) : null}
-                      {allSkills(t).slice(0, 3).map((s) => (
-                        <Badge key={s}>{s}</Badge>
-                      ))}
-                    </span>
-                    {t.bio && <span className="pv-bio-clamp">{t.bio}</span>}
-                  </span>
-                  <InviteToggle
-                    name={t.name}
-                    checked={picked}
-                    disabled={blocked}
-                    onChange={() =>
-                      update({
-                        invitees: picked
-                          ? draft.invitees.filter((id) => id !== t.id)
-                          : [...draft.invitees, t.id],
-                      })
-                    }
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <Empty
-            title="No members in these roles yet"
-          />
-        )}
-        <ActionBar>
-          <p className="pv-bar-note">
-            Accepting books them straight away.
-            {draft.invitees.length > draft.capacity
-              ? ` First ${draft.capacity === 1 ? "to accept is" : `${draft.capacity} to accept are`} booked.`
-              : ""}
-          </p>
-          <Button
-            disabled={!draft.invitees.length}
-            onClick={() => send("invite")}
-          >
-            {draft.invitees.length === 1
-              ? `Invite ${firstName(member(data, draft.invitees[0]))}`
-              : draft.invitees.length
-                ? `Invite ${draft.invitees.length} people`
-                : "Choose who to invite"}
-          </Button>
-        </ActionBar>
-      </>
-    );
   return (
     <>
-      <Heading title={title} back="home" />
+      <Heading
+        title={request ? "Booking request" : `${family} job post`}
+        back={request ? `team/${family}` : "post"}
+      />
       <div className="pv-form-card">
         <div className="pv-form-row">
-          <h3>Who</h3>
+          <h3>To</h3>
+          {request ? (
+            <div className="pv-to-list">
+              {people.map((p) => (
+                <span key={p.id} className="pv-to-person">
+                  <Photo src={p.photo} alt={p.name} />
+                  {p.name}
+                  <button
+                    aria-label={`Remove ${p.name}`}
+                    onClick={() => update({ to: draft.to.filter((id) => id !== p.id) })}
+                  >
+                    <CloseIcon size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="pv-muted">
+              Everyone in {draft.roles.length ? draft.roles.join(" or ") : "the position you choose"}.
+              {alerted.length ? ` Texts ${alerted.length} ${alerted.length === 1 ? "person" : "people"}.` : ""}
+            </p>
+          )}
+        </div>
+        <div className="pv-form-row">
+          <h3>Position</h3>
           <div className="pv-chips pv-position-chips">
-            {FAMILIES[draft.family].roles.map((role) => {
+            {FAMILIES[family].roles.map((r) => {
               const count = data.members.filter(
-                (m) =>
-                  m.approved && m.side === "talent" && m.roles.includes(role),
+                (m) => m.approved && m.side === "talent" && m.roles.includes(r),
               ).length;
               return (
                 <button
-                  key={role}
-                  aria-pressed={draft.roles.includes(role)}
-                  className={draft.roles.includes(role) ? "selected" : ""}
+                  key={r}
+                  aria-pressed={draft.roles.includes(r)}
+                  className={draft.roles.includes(r) ? "selected" : ""}
                   onClick={() =>
                     update({
-                      roles: draft.roles.includes(role)
-                        ? draft.roles.filter((r) => r !== role)
-                        : [...draft.roles, role],
-                      invitees: [],
+                      roles: draft.roles.includes(r)
+                        ? draft.roles.filter((x) => x !== r)
+                        : [...draft.roles, r],
                     })
                   }
                 >
-                  {role}
-                  <span>{count}</span>
+                  {r}
+                  {!request && <span>{count}</span>}
                 </button>
               );
             })}
@@ -324,10 +198,31 @@ export function ShiftComposer({
               {days.length > 1 && <small>Same hours each day</small>}
             </div>
           )}
+          {taken.map(({ p, r }) => (
+            <p key={p.id} className="pv-warning">
+              {firstName(p)}{" "}
+              {r!.status === "booked"
+                ? "is already booked with you"
+                : r!.status === "invited"
+                  ? "already has your booking request"
+                  : "already said yes to your job"}{" "}
+              for these hours.{" "}
+              <button className="pv-text-link" onClick={() => go(`shift/${r!.shift}`)}>
+                {r!.status === "can-cover" ? "Book from there" : "Open it"}
+              </button>
+              {" · "}
+              <button
+                className="pv-text-link"
+                onClick={() => update({ to: draft.to.filter((id) => id !== p.id) })}
+              >
+                Remove
+              </button>
+            </p>
+          ))}
           {duplicate && (
             <p className="pv-warning">
-              You already have an open {duplicate.roles.join(" or ")} shift at this
-              time.{" "}
+              You already have an open {duplicate.roles.join(" or ")} request at
+              this time.{" "}
               <button
                 className="pv-text-link"
                 onClick={() => go(`shift/${duplicate.id}`)}
@@ -343,7 +238,10 @@ export function ShiftComposer({
                 checked={!!draft.together}
                 onChange={(e) => update({ together: e.target.checked })}
               />
-              <span>Each person must cover every day</span>
+              <span>
+                Same person for all days
+                <small>Only people who can do every day can say yes.</small>
+              </span>
             </label>
           )}
         </div>
@@ -389,6 +287,11 @@ export function ShiftComposer({
             £{draft.rate}/h is below the National Living Wage (£12.71).
           </p>
         )}
+        {request && draft.rate >= 12.71 && draft.rate < lowest && (
+          <p className="pv-warning">
+            Below the minimum of {joinNames(people.filter((p) => (p.minRate || 0) > draft.rate).map(firstName))}.
+          </p>
+        )}
         <div className="pv-form-row">
           <h3>
             Note{" "}
@@ -420,50 +323,12 @@ export function ShiftComposer({
         </p>
       )}
       <ActionBar>
-        {repeat ? (
-          <Button
-            disabled={!!validation}
-            onClick={() => {
-              const result = act(
-                {
-                  type: "post",
-                  actor,
-                  draft: { ...draft, mode: "invite", invitees: [repeat.id] },
-                },
-                `Invite sent. Accepting books ${firstName(repeat)}.`,
-              );
-              if (result) go(`shift/${result.shifts[0].id}`);
-            }}
-          >
-            Invite {firstName(repeat)}
-          </Button>
-        ) : null}
-        {repeat ? (
-          <p className="pv-bar-note">
-            Accepting books {firstName(repeat)} straight away.
-          </p>
-        ) : (
-          <div className="pv-choices">
-            <button
-              className="pv-choice is-primary"
-              disabled={!!validation}
-              onClick={() => send("post")}
-            >
-              <strong>
-                {alerted.length || !draft.roles.length
-                  ? "Post job"
-                  : "Ask Dyuknow to find someone"}
-              </strong>
-              <small>
-                {!draft.roles.length
-                  ? "Choose a position first"
-                  : alerted.length
-                    ? `Texts ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`}`
-                    : "No one has this role yet."}
-              </small>
-            </button>
-          </div>
-        )}
+        <p className="pv-bar-note">They say yes, then you choose who to book.</p>
+        <Button disabled={!!validation} onClick={send}>
+          {request
+            ? `Send booking request to ${people.length > 2 ? `${people.length} people` : joinNames(people.map(firstName))}`
+            : "Post job"}
+        </Button>
       </ActionBar>
     </>
   );

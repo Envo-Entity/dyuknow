@@ -173,7 +173,7 @@ function Texts({ me }: { me: Member }) {
           label="Bookings"
           hint={
             side === "talent"
-              ? "Booking requests, invitations, changes and cancellations"
+              ? "Booking requests, bookings and cancellations"
               : "Accepted, declined, changes and cancellations"
           }
           checked
@@ -204,7 +204,7 @@ function Texts({ me }: { me: Member }) {
         ) : (
           <Toggle
             label="Replies to job posts"
-            hint="When someone says they can cover"
+            hint="When someone says yes to your request or job"
             checked={a.texts.replies}
             onChange={(replies) => set({ texts: { ...a.texts, replies } })}
           />

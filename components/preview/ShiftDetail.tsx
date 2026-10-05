@@ -2,18 +2,20 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftIcon } from "@/components/icons";
 import {
+  activeDays,
   audience,
   availableDates,
   bookableDates,
   busyDates,
-  bookedCount,
   bookingPast,
   bookingServices,
   coverage,
-  datePlus,
   datesLabel,
+  dayRecords,
+  displayDate,
   firstName,
   hoursOf,
+  joinNames,
   member,
   offeredDates,
   openDates,
@@ -29,13 +31,12 @@ import {
   type Data,
   type Response,
   type Shift,
-  type ShiftDraft,
   areaOf,
   fullAddress,
   contactLine,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { ProfileCard, useMessage } from "./Booking";
+import { ProfileCard, TimeSelect, useMessage } from "./Booking";
 import {
   ActionBar,
   Badge,
@@ -53,32 +54,6 @@ import {
   Services,
 } from "./ui";
 
-export function draftFrom(
-  shift: Shift,
-  now: string,
-  extra: Partial<ShiftDraft> = {},
-  dates?: string[],
-): ShiftDraft {
-  const future = shift.days.filter(
-    (d) => d.from > now && (!dates || dates.includes(d.date)),
-  );
-  return {
-    roles: shift.roles,
-    family: shift.family,
-    date: future[0]?.date || datePlus(now.slice(0, 10), 1),
-    count: future.length || shift.days.length,
-    dates: future.length ? future.map((d) => d.date) : undefined,
-    start: shift.days[0].start,
-    end: shift.days[0].end,
-    capacity: shift.capacity,
-    rate: shift.rate,
-    note: shift.note,
-    mode: "post",
-    invitees: [],
-    together: shift.together,
-    ...extra,
-  };
-}
 function when(data: Data, s: Shift, dates?: string[]) {
   const span = dates ?? s.days.map((d) => d.date);
   const first = s.days.find((d) => d.date === [...span].sort()[0])!;
@@ -212,7 +187,7 @@ export function ShiftDetail({ id }: { id: string }) {
       </Empty>
     );
   if (side === "talent") return <TalentShift s={s} />;
-  return <VenueShift s={s} readOnly={side === "owner" || s.venue !== actor} />;
+  return <VenueShift s={s} readOnly={s.venue !== actor} />;
 }
 function ResponseCard({
   s,
@@ -223,7 +198,8 @@ function ResponseCard({
   r: Response;
   onBook: () => void;
 }) {
-  const { data, actor, act, go } = usePreview();
+  const { data, go } = usePreview();
+  const message = useMessage();
   const t = member(data, r.talent);
   const venue = member(data, s.venue);
   const n = s.days.length;
@@ -248,8 +224,8 @@ function ResponseCard({
           {n > 1 && (
             <Badge good={offered.length === n}>
               {offered.length === n
-                ? `Offered all ${n} days`
-                : `Offered ${offered.map(weekday).join(", ")}`}
+                ? `Can do all ${n} days`
+                : `Can do ${offered.map(weekday).join(", ")}`}
               {gone.length ? ` (${gone.map(weekday).join(", ")} filled)` : ""}
             </Badge>
           )}
@@ -264,13 +240,7 @@ function ResponseCard({
             Book {firstName(t)}
             {n > 1 ? ` · ${daysPhrase(bookable, n)}` : ""}
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              if (act({ type: "open-chat", actor, response: r.id }))
-                go(`chat/${r.id}`);
-            }}
-          >
+          <Button variant="secondary" onClick={() => message(t.id)}>
             Message
           </Button>
         </div>
@@ -297,15 +267,12 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
       document.removeEventListener("pointerdown", away);
     };
   }, [menu]);
-  const [modal, setModal] = useState<
-    "close" | "note" | "invite" | null
-  >(null);
+  const [modal, setModal] = useState<"close" | "invite" | null>(null);
   const [bookTalent, setBookTalent] = useState<{
     talent: string;
     days?: string[];
   } | null>(null);
   const [reason, setReason] = useState("Cover is no longer needed");
-  const [note, setNote] = useState(s.note);
   const [invitees, setInvitees] = useState<string[]>([]);
   const responses = data.responses.filter((r) => r.shift === s.id);
   const canCover = responses.filter((r) => r.status === "can-cover");
@@ -323,9 +290,6 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   const c = coverage(data, s);
   const status = venueSummary(data, s);
   const open = s.status === "open";
-  function editAndResend() {
-    go(`compose/edit/${s.id}`);
-  }
   const endedLabel = (r: Response) =>
     ({
       declined: "Declined",
@@ -360,40 +324,31 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
             {menu && (
               <div className="pv-menu-list" role="menu">
                 <button role="menuitem" onClick={() => { setMenu(false); setModal("invite"); }}>
-                  Invite more people
-                </button>
-                <button role="menuitem" onClick={() => { setMenu(false); setNote(s.note); setModal("note"); }}>
-                  Edit note
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!!bookedCount(data, s.id)}
-                  onClick={editAndResend}
-                >
-                  Change time, pay or role
+                  Send to more people
                 </button>
                 <button role="menuitem" onClick={() => { setMenu(false); setModal("close"); }}>
-                  Close shift
+                  Close
                 </button>
               </div>
             )}
           </div>
         )}
       </div>
+      <p className="pv-eyebrow">{s.mode === "request" ? "Booking request" : "Job post"}</p>
       <Heading title={shiftLabel(s)} />
       <p className="pv-shift-meta">
         {when(data, s)} · £{s.rate}/h · {s.capacity}{" "}
         {s.capacity === 1 ? "person" : "people"}
         {s.days.length > 1 ? " each day" : ""}
       </p>
-      {(responses.length > 0 || bookings.length > 0 || !open || s.ownerAlerted) && (
+      {(responses.length > 0 || bookings.length > 0 || !open) && (
         <p className={`pv-status-line ${status.good ? "is-good" : ""}`}>
           {status.text}
         </p>
       )}
       {s.together && (
         <p className="pv-muted pv-small">
-          Each person covers all {s.days.length} days.
+          Same person for all {s.days.length} days.
         </p>
       )}
       {s.days.length > 1 && (
@@ -423,7 +378,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                   (can.length ? (
                     <div className="pv-tracker-can">
                       <small>
-                        {can.length} can cover:{" "}
+                        {can.length} can do it:{" "}
                         {can
                           .map((r) => {
                             const o = offeredDates(s, r);
@@ -448,7 +403,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                       )}
                     </div>
                   ) : (
-                    <small className="pv-muted">Nobody has offered this day yet.</small>
+                    <small className="pv-muted">Nobody has said yes to this day yet.</small>
                   ))}
               </div>
             );
@@ -468,7 +423,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                   photo={t.photo}
                   name={t.name}
                   title={t.name}
-                  sub={`${when(data, s, b.days)}${more.length ? ` · also offered ${more.map(weekday).join(", ")}` : ""}`}
+                  sub={`${when(data, s, b.cancelled ? b.days : activeDays(b))}${more.length ? ` · can also do ${more.map(weekday).join(", ")}` : ""}`}
                   status={b.cancelled ? "Cancelled" : "Booked"}
                   good={!b.cancelled}
                   onClick={() => go(`booking/${b.id}`)}
@@ -482,10 +437,10 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         <Section
           title={
             s.days.length > 1 && someDays.length && everyDay.length
-              ? "Can cover every day"
+              ? "Can do every day"
               : s.days.length > 1 && someDays.length
-                ? "Can cover some days"
-                : "Can cover"
+                ? "Can do some days"
+                : "Said yes"
           }
         >
           {(everyDay.length ? everyDay : someDays).map((r) =>
@@ -503,7 +458,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         </Section>
       )}
       {everyDay.length > 0 && someDays.length > 0 && (
-        <Section title="Can cover some days">
+        <Section title="Can do some days">
           {someDays.map((r) => (
             <ResponseCard
               key={r.id}
@@ -524,70 +479,45 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         <div className="pv-fallback">
           {bookings.length > 0 ? (
             // Someone is (or was) booked: say what's still needed, not "no replies".
-            <h3>Find cover for {datesLabel(openDates(data, s))}</h3>
+            <h3>Find someone for {datesLabel(openDates(data, s))}</h3>
           ) : (
-            <p>
-              {s.ownerAlerted
-                ? "Dyuknow is looking for someone."
-                : "No replies yet."}
-            </p>
+            <p>No one has said yes yet.</p>
           )}
           <div className="pv-actions">
-            {bookings.length > 0 && s.mode === "post" && (
-              <Button
-                onClick={() =>
-                  act(
-                    { type: "realert", actor, shift: s.id },
-                    `Texted everyone in ${s.roles.join(" or ")} who’s free then.`,
-                  )
-                }
-              >
-                Text everyone again
-              </Button>
-            )}
             <Button variant="secondary" onClick={() => setModal("invite")}>
-              {bookings.length > 0 ? "Invite people" : "Invite more people"}
+              Send to more people
             </Button>
-            {!s.ownerAlerted && (
-              <Button
-                variant="quiet"
-                onClick={() =>
-                  act(
-                    { type: "ask-owner", actor, shift: s.id },
-                    "Dyuknow is on it.",
-                  )
-                }
-              >
-                Ask Dyuknow to help
-              </Button>
-            )}
           </div>
         </div>
       )}
-      {(invited.length > 0 || silent.length > 0 || ended.length > 0) && (
+      {/* A job post goes to everyone in the position. People who haven't
+          replied aren't candidates, so they're a line, not cards. */}
+      {s.mode === "post" && open && silent.length > 0 && (
+        <p className="pv-muted pv-small">
+          Posted to everyone in {shiftLabel(s)}.{" "}
+          {silent.length <= 3
+            ? `${joinNames(silent.map((id) => firstName(member(data, id))))} ${silent.length === 1 ? "was" : "were"} texted and ${silent.length === 1 ? "hasn’t" : "haven’t"} replied.`
+            : `${silent.length} people were texted and haven’t replied.`}
+        </p>
+      )}
+      {(invited.length > 0 || ended.length > 0) && (
         <Section
           title={
-            canCover.length || bookings.length || ended.length
+            canCover.length || bookings.length
               ? "Everyone else"
-              : "Sent to"
+              : s.mode === "request"
+                ? "Sent to"
+                : "Didn’t go ahead"
           }
         >
           <div className="pv-talent-grid is-medium">
             {[
-              ...invited.map((r) => [r.talent, "Invited · waiting", r.id] as const),
-              ...(open ? silent.map((id) => [id, "No reply yet", ""] as const) : []),
-              ...ended.map((r) => [r.talent, endedLabel(r), r.chat ? r.id : ""] as const),
-            ].map(([id, status, chat]) => (
+              ...invited.map((r) => [r.talent, "Waiting for an answer"] as const),
+              ...ended.map((r) => [r.talent, endedLabel(r)] as const),
+            ].map(([id, status]) => (
               <ProfileCard key={id} person={member(data, id)} size="medium" status={status}>
                 {!readOnly && (
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      // An invitation already has its conversation; otherwise
-                      // talk directly, starting from this job post.
-                      chat ? go(`chat/${chat}`) : message(id, undefined, s.id)
-                    }
-                  >
+                  <Button variant="secondary" onClick={() => message(id)}>
                     Message
                   </Button>
                 )}
@@ -596,7 +526,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           </div>
         </Section>
       )}
-      <Section title="Note to talent">
+      <Section title="Note">
         <p className="pv-muted">{s.note || "No note."}</p>
       </Section>
       {bookTalent && (
@@ -608,7 +538,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         />
       )}
       {modal === "close" && (
-        <Modal title="Close this shift?" onClose={() => setModal(null)}>
+        <Modal title={`Close this ${s.mode === "request" ? "request" : "job post"}?`} onClose={() => setModal(null)}>
           {bookings.some((b) => !b.cancelled) && (
             <p>People already booked stay booked.</p>
           )}
@@ -624,50 +554,26 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               if (
                 act(
                   { type: "close", actor, shift: s.id, reason },
-                  "Shift closed. Anyone waiting has been told.",
+                  "Closed. Anyone waiting has been told.",
                 )
               )
                 setModal(null);
             }}
           >
-            Close shift
-          </Button>
-        </Modal>
-      )}
-      {modal === "note" && (
-        <Modal title="Edit note" onClose={() => setModal(null)}>
-          <Field label="Note to talent">
-            <textarea
-              rows={4}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </Field>
-          <Button
-            onClick={() => {
-              if (
-                act(
-                  { type: "edit-note", actor, shift: s.id, note },
-                  "Note saved.",
-                )
-              )
-                setModal(null);
-            }}
-          >
-            Save note
+            Close
           </Button>
         </Modal>
       )}
       {modal === "invite" && (
-        <Modal title="Invite more people" onClose={() => setModal(null)}>
-          <p>First to accept is booked.</p>
+        <Modal title="Send to more people" onClose={() => setModal(null)}>
+          <p>They get the same booking request. You choose who to book.</p>
           <div className="pv-pick-list">
             {data.members
-              .filter(
-                (t) =>
-                  t.side === "talent" &&
-                  t.approved &&
-                  t.roles.some((role) => s.roles.includes(role)),
+              .filter((t) => t.side === "talent" && t.approved)
+              .sort(
+                (a, b) =>
+                  Number(b.roles.some((r) => s.roles.includes(r))) -
+                  Number(a.roles.some((r) => s.roles.includes(r))),
               )
               .map((t) => {
                 const existing = responses.find(
@@ -686,8 +592,8 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                           ? existing.status === "booked"
                             ? "Booked on this shift"
                             : existing.status === "invited"
-                              ? "Already invited"
-                              : "Already said they can cover"
+                              ? "Already sent"
+                              : "Already said yes"
                           : blocked
                             ? "Booked elsewhere then"
                             : t.roles.join(" · ")}
@@ -715,7 +621,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               if (
                 act(
                   { type: "invite", actor, shift: s.id, talents: invitees },
-                  invitees.length === 1 ? "Invite sent." : "Invites sent.",
+                  "Sent.",
                 )
               ) {
                 setInvitees([]);
@@ -723,7 +629,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               }
             }}
           >
-            {invitees.length > 1 ? `Invite ${invitees.length} people` : "Send invite"}
+            {invitees.length > 1 ? `Send to ${invitees.length} people` : "Send"}
           </Button>
         </Modal>
       )}
@@ -732,9 +638,8 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
 }
 function TalentShift({ s }: { s: Shift }) {
   const { data, actor, me, act, go, back } = usePreview();
-  const [sheet, setSheet] = useState<
-    "respond" | "some" | "more" | "accept" | null
-  >(null);
+  const message = useMessage();
+  const [sheet, setSheet] = useState<"respond" | "more" | null>(null);
   const [note, setNote] = useState("");
   const venue = member(data, s.venue);
   const r = data.responses.find((r) => r.shift === s.id && r.talent === actor);
@@ -750,9 +655,10 @@ function TalentShift({ s }: { s: Shift }) {
   const cancelled = data.bookings.find(
     (b) => b.shift === s.id && b.talent === actor && b.cancelled,
   );
+  const invited = r?.status === "invited";
   const myRole =
     s.roles.find((role) => me?.roles.includes(role)) || shiftLabel(s);
-  const eligible = me?.roles.some((role) => s.roles.includes(role));
+  const eligible = invited || me?.roles.some((role) => s.roles.includes(role));
   const hours = hoursOf(s.days[0]);
   const multi = s.days.length > 1;
   const clashWith = (date: string) => {
@@ -768,19 +674,16 @@ function TalentShift({ s }: { s: Shift }) {
       ? member(data, data.shifts.find((x) => x.id === other.shift)!.venue).name
       : "";
   };
-  function chat() {
-    if (r && act({ type: "open-chat", actor, response: r.id }))
-      go(`chat/${r.id}`);
-  }
   function sendResponse() {
     const result = act(
       { type: "respond", actor, shift: s.id, note, days: picked },
-      `Sent to ${venue.name}.`,
+      `Sent to ${venue.name}. You’re booked once they confirm.`,
     );
     if (result) setSheet(null);
   }
   const waitingDates = r ? offeredDates(s, r) : [];
-  // Open days this person hasn't offered yet, even if booked for others.
+  const mine = b ? activeDays(b) : [];
+  // Open days this person hasn't said yes to yet, even if booked for others.
   const offerable = s.status === "open" ? offerableDates(data, actor, s) : [];
   const offerMore = offerable.length > 0 && (
     <Button
@@ -791,7 +694,19 @@ function TalentShift({ s }: { s: Shift }) {
         setSheet("more");
       }}
     >
-      {offerable.length === 1 ? `Offer ${shortDay(offerable[0])}` : "Offer more days"}
+      {offerable.length === 1 ? `I can also do ${shortDay(offerable[0])}` : "I can do more days"}
+    </Button>
+  );
+  const sayYes = (
+    <Button
+      onClick={() => {
+        setPicked(suggested);
+        setSheet("respond");
+      }}
+    >
+      {multi && free.length < s.days.length
+        ? `I can do ${free.length} of ${s.days.length} days`
+        : "I can do this"}
     </Button>
   );
   let bar;
@@ -799,7 +714,7 @@ function TalentShift({ s }: { s: Shift }) {
     bar = (
       <>
         <p className="pv-bar-note">
-          <Badge good>You’re booked</Badge> {datesLabel(b.days)}
+          <Badge good>You’re booked</Badge> {datesLabel(mine)}
           {r && bookableDates(data, s, r).length > 0
             ? `. ${venue.name} may also book you for ${datesLabel(bookableDates(data, s, r))}.`
             : offerable.length
@@ -825,11 +740,11 @@ function TalentShift({ s }: { s: Shift }) {
     bar = (
       <>
         <p className="pv-bar-note">
-          Waiting for {venue.name}
+          Waiting for {venue.name} to confirm
           {multi ? ` · ${datesLabel(waitingDates)}` : ""}. You’re not booked yet.
         </p>
         <div className="pv-bar-row">
-          {r.chat && <Button onClick={chat}>Message</Button>}
+          <Button onClick={() => message(venue.id)}>Message</Button>
           <Button
             variant="secondary"
             onClick={() =>
@@ -846,87 +761,37 @@ function TalentShift({ s }: { s: Shift }) {
         {offerMore}
       </>
     );
-  else if (r?.status === "invited" && s.status === "open") {
-    const clash = open.some((d) => !free.includes(d));
-    bar = (
-      <>
-        <p className="pv-bar-note">
-          {venue.name} invited you.
-          {clash && free.length
-            ? " You’re booked elsewhere on part of it."
-            : !free.length
-              ? " You’re booked elsewhere then."
-              : " Accepting books you."}
-        </p>
-        <div className="pv-bar-row">
-          <Button
-            disabled={clash}
-            onClick={() => setSheet("accept")}
-          >
-            {multi && open.length > 1 ? `Accept all ${open.length} days` : "Accept and book"}
-          </Button>
-          {multi && !s.together && free.length > 0 && (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPicked(suggested);
-                setSheet("some");
-              }}
-            >
-              I can do some days
-            </Button>
-          )}
-        </div>
-        <div className="pv-bar-row">
-          <Button variant="quiet" onClick={chat}>
-            Message
-          </Button>
-          <Button
-            variant="quiet"
-            onClick={() =>
-              act(
-                { type: "decline", actor, shift: s.id },
-                `Declined. ${venue.name} has been told.`,
-                { undo: true },
-              )
-            }
-          >
-            Decline
-          </Button>
-        </div>
-      </>
-    );
-  } else if (s.status !== "open" || r?.status === "declined")
+  else if (s.status !== "open" || ["declined", "lapsed", "not-selected"].includes(r?.status || ""))
     bar = (
       <>
         <p className="pv-bar-note">
           {r?.status === "declined"
-            ? "You declined this invitation."
+            ? "You declined this booking request."
             : r?.status === "lapsed"
               ? "You’re booked elsewhere at this time."
               : s.status === "expired"
                 ? "This shift has started."
                 : s.status === "closed"
-                  ? "The venue closed this shift."
-                  : "This shift has been filled."}
+                  ? `${venue.name} closed this ${s.mode === "request" ? "request" : "job post"}.`
+                  : "This has been filled."}
         </p>
         <Button variant="secondary" onClick={() => go("home")}>
-          See other shifts
+          See open jobs
         </Button>
       </>
     );
-  else if (s.mode === "invite")
-    bar = null;
+  else if (s.mode === "request" && !invited)
+    bar = <p className="pv-bar-note">This booking request went to other people.</p>;
   else if (!eligible)
     bar = (
       <p className="pv-bar-note">
-        This shift is for {shiftLabel(s)}, which isn’t on your profile.
+        This job is for {shiftLabel(s)}, which isn’t on your profile.
       </p>
     );
   else if (s.together && free.length < s.days.length)
     bar = (
       <p className="pv-bar-note">
-        {venue.name} needs each person to cover all {s.days.length} days.{" "}
+        {venue.name} needs the same person for all {s.days.length} days.{" "}
         {free.length
           ? `You’re at ${s.days.map((d) => clashWith(d.date)).find(Boolean) || "another venue"} on ${s.days
               .filter((d) => !free.includes(d.date))
@@ -941,19 +806,33 @@ function TalentShift({ s }: { s: Shift }) {
         You’re booked at {clashWith(s.days[0].date) || "another venue"} then.
       </p>
     );
-  else
+  else if (invited)
     bar = (
-      <Button
-        onClick={() => {
-          setPicked(suggested);
-          setSheet("respond");
-        }}
-      >
-        {multi && free.length < s.days.length
-          ? `I can do ${free.length} of ${s.days.length} days`
-          : "I can cover this"}
-      </Button>
+      <>
+        <p className="pv-bar-note">
+          {venue.name} sent you a booking request. Say yes and they confirm.
+        </p>
+        <div className="pv-bar-row">
+          {sayYes}
+          <Button
+            variant="secondary"
+            onClick={() =>
+              act(
+                { type: "decline", actor, shift: s.id },
+                `Declined. ${venue.name} has been told.`,
+                { undo: true },
+              )
+            }
+          >
+            Decline
+          </Button>
+        </div>
+        <Button variant="quiet" onClick={() => message(venue.id)}>
+          Message {venue.name}
+        </Button>
+      </>
     );
+  else bar = sayYes;
   return (
     <>
       <Button variant="quiet" className="pv-back" onClick={() => back("home")}>
@@ -968,7 +847,7 @@ function TalentShift({ s }: { s: Shift }) {
             className="pv-eyebrow-link"
             onClick={() => go(`venue/${venue.id}`)}
           >
-            {areaOf(venue)}
+            {s.mode === "request" ? "Booking request" : "Job post"} · {areaOf(venue)}
           </button>
           <h1 className="pv-venue-title"><button onClick={() => go(`venue/${venue.id}`)}>{venue.name}</button></h1>
           {venue.venue && [...venue.venue.types, ...venue.venue.cuisines].length > 0 && (
@@ -977,7 +856,7 @@ function TalentShift({ s }: { s: Shift }) {
             </p>
           )}
           <p className="pv-role-line">
-            {r?.status === "invited" ? myRole : shiftLabel(s)}
+            {invited ? myRole : shiftLabel(s)}
           </p>
           <div className="pv-facts">
             <div>
@@ -986,7 +865,7 @@ function TalentShift({ s }: { s: Shift }) {
               {multi && (
                 <span>
                   {s.days.length} days ·{" "}
-                  {s.together ? "each person covers every day" : "same hours"}
+                  {s.together ? "same person for all days" : "same hours"}
                 </span>
               )}
             </div>
@@ -1007,18 +886,18 @@ function TalentShift({ s }: { s: Shift }) {
                   <div key={d.date}>
                     <span>{serviceLabel(d)}</span>
                     <span>
-                      {b?.days.includes(d.date)
+                      {mine.includes(d.date)
                         ? "You’re booked"
                         : clash
                           ? `You’re at ${clash}`
                           : filled
                             ? d.from <= data.now
                               ? "Started"
-                              : "Covered"
+                              : "Filled"
                             : r &&
                                 ["can-cover", "booked"].includes(r.status) &&
                                 waitingDates.includes(d.date)
-                              ? "Offered"
+                              ? "You said yes"
                               : "Open"}
                     </span>
                   </div>
@@ -1041,15 +920,9 @@ function TalentShift({ s }: { s: Shift }) {
           {bar && <ActionBar>{bar}</ActionBar>}
         </div>
       </div>
-      {(sheet === "respond" || sheet === "some" || sheet === "more") && (
+      {sheet && (
         <Modal
-          title={
-            sheet === "more"
-              ? "Offer more days"
-              : sheet === "some"
-                ? "Which days can you do?"
-                : `Tell ${venue.name} you can cover`
-          }
+          title={sheet === "more" ? "Which other days can you do?" : multi ? "Which days can you do?" : `Tell ${venue.name} you can do it`}
           onClose={() => setSheet(null)}
         >
           {multi && (
@@ -1059,7 +932,7 @@ function TalentShift({ s }: { s: Shift }) {
                 const can = (more ? offerable : free).includes(d.date);
                 const clash = clashWith(d.date);
                 const marked = busy.includes(d.date);
-                const mineBooked = b?.days.includes(d.date);
+                const mineBooked = mine.includes(d.date);
                 const offeredAlready = more && waitingDates.includes(d.date);
                 return (
                   <label key={d.date} className={can ? "" : "is-blocked"}>
@@ -1081,10 +954,10 @@ function TalentShift({ s }: { s: Shift }) {
                         {mineBooked
                           ? "You’re booked"
                           : offeredAlready
-                            ? "Already offered"
+                            ? "Already said yes"
                             : clash
                               ? `You’re at ${clash}`
-                              : "Covered"}
+                              : "Filled"}
                       </small>
                     ) : marked ? (
                       <small>You marked this day not free</small>
@@ -1096,7 +969,7 @@ function TalentShift({ s }: { s: Shift }) {
           )}
           {!multi && <Services shift={s} />}
           {s.together && sheet !== "more" && (
-            <p>Each person covers all {s.days.length} days.</p>
+            <p>Same person for all {s.days.length} days.</p>
           )}
           <p>You’re not booked until {venue.name} confirms.</p>
           {sheet !== "more" && (
@@ -1110,38 +983,13 @@ function TalentShift({ s }: { s: Shift }) {
             </Field>
           )}
           <Button disabled={!picked.length} onClick={sendResponse}>
-            {sheet === "more"
-              ? picked.length === 1
-                ? `Offer ${shortDay(picked[0])}`
-                : `Offer ${picked.length} more days`
-              : !multi
+            {!multi
               ? `Send to ${venue.name}`
-              : picked.length === s.days.length
-                ? `Offer all ${s.days.length} days`
-                : picked.length === 1
-                  ? `Offer 1 day (${weekday(picked[0])} only)`
-                  : picked.length
-                    ? `Offer ${picked.length} of ${s.days.length} days`
-                    : "Tick the days you can do"}
-          </Button>
-        </Modal>
-      )}
-      {sheet === "accept" && (
-        <Modal title="Accept and book?" onClose={() => setSheet(null)}>
-          <Services shift={s} dates={open} />
-          <Button
-            onClick={() => {
-              const next = act(
-                { type: "accept", actor, shift: s.id },
-                `You’re booked at ${venue.name}.`,
-              );
-              if (next) {
-                setSheet(null);
-                go(`booking/${next.bookings[0].id}`);
-              }
-            }}
-          >
-            Accept and book
+              : !picked.length
+                ? "Tick the days you can do"
+                : picked.length === s.days.length
+                  ? `Yes to all ${s.days.length} days`
+                  : `Yes to ${datesLabel(picked)}`}
           </Button>
         </Modal>
       )}
@@ -1184,12 +1032,13 @@ function ics(data: Data, b: Booking, s: Shift, venueName: string, address: strin
 }
 export function BookingDetail({ id }: { id: string }) {
   const { data, actor, side, act, go } = usePreview();
+  const message = useMessage();
   const b = data.bookings.find((b) => b.id === id);
   const [cancel, setCancel] = useState(false);
+  const [cancelDays, setCancelDays] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const [extra, setExtra] = useState("");
-  const [issue, setIssue] = useState(false);
-  const [report, setReport] = useState("");
+  const [confirm, setConfirm] = useState<{ date: string; start: string; end: string } | null>(null);
   if (!b)
     return (
       <Empty
@@ -1200,10 +1049,7 @@ export function BookingDetail({ id }: { id: string }) {
   const s = data.shifts.find((s) => s.id === b.shift)!;
   const v = member(data, s.venue);
   const t = member(data, b.talent);
-  const r = data.responses.find(
-    (r) => r.shift === s.id && r.talent === b.talent,
-  )!;
-  if (side !== "owner" && ![s.venue, b.talent].includes(actor))
+  if (![s.venue, b.talent].includes(actor))
     return (
       <Empty title="This booking is private" text="Open one of your own bookings." />
     );
@@ -1211,10 +1057,11 @@ export function BookingDetail({ id }: { id: string }) {
   const first = services[0];
   const past = bookingPast(data, b);
   const started = first.from <= data.now;
-  const future = services.filter((d) => d.from > data.now);
+  const future = b.cancelled ? [] : services.filter((d) => d.from > data.now);
+  const records = dayRecords(data, b);
   const address = s.address || fullAddress(v);
   const contact = `${s.contact || contactLine(v)} · ${s.phone || v.phone}`;
-  const venueView = side !== "talent";
+  const venueView = side === "venue";
   const rel = relativeDay(first.date, data.now);
   const whenWords = ["Today", "Tomorrow"].includes(rel)
     ? rel.toLowerCase()
@@ -1230,12 +1077,15 @@ export function BookingDetail({ id }: { id: string }) {
         : started
           ? `You’re on service at ${v.name}`
           : `You’re booked at ${v.name}`;
-  function again(mode: "replacement" | "again") {
-    // A cancellation reopens the original shift, so look for cover there.
-    if (mode === "replacement" && s.status === "open") return go(`shift/${s.id}`);
-    go(`compose/${mode === "replacement" ? "replace" : "again"}/${b!.id}`);
-  }
   const person = venueView ? t : v;
+  const worked = records.filter((r) => r.status === "worked");
+  const label = {
+    booked: "Booked",
+    "to-confirm": venueView ? "Confirm hours" : "Waiting for hours",
+    worked: "Worked",
+    "no-show": "Didn’t show",
+    cancelled: "Cancelled",
+  };
   return (
     <>
       <Heading title={title} back="bookings" />
@@ -1256,10 +1106,44 @@ export function BookingDetail({ id }: { id: string }) {
             <p>{b.reason}</p>
           </div>
         )}
-        <Section title={venueView ? "When" : "When and pay"}>
-          <Services shift={s} dates={b.days} />
-          <p>
+        <Section title="Days">
+          <div className="pv-day-records">
+            {records.map((r) => (
+              <div key={r.date} className={`is-${r.status}`}>
+                <span>
+                  <strong>{serviceLabel(r.service)}</strong>
+                  <small>
+                    {r.status === "worked"
+                      ? `${r.start}–${r.end} · ${r.hours} hours · £${r.pay}${r.log?.auto ? " · confirmed automatically" : ""}`
+                      : r.status === "cancelled"
+                        ? `${member(data, r.log!.by).name}: ${r.log!.reason}`
+                        : r.status === "to-confirm"
+                          ? venueView
+                            ? "Confirms itself 48 hours after the shift"
+                            : `${v.name} has 48 hours to confirm`
+                          : `${r.hours} hours · about £${r.pay}`}
+                  </small>
+                </span>
+                {venueView && r.status === "to-confirm" ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirm({ date: r.date, start: r.start, end: r.end })}
+                  >
+                    Confirm hours
+                  </Button>
+                ) : (
+                  <Badge good={["booked", "worked"].includes(r.status)} attention={r.status === "to-confirm" && venueView}>
+                    {label[r.status]}
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="pv-muted">
             £{s.rate}/h · {shiftLabel(s)} · paid directly by {v.name}
+            {worked.length
+              ? ` · ${worked.reduce((n, r) => n + r.hours, 0)} hours worked so far`
+              : ""}
           </p>
         </Section>
         {!b.cancelled && !past && (
@@ -1292,107 +1176,70 @@ export function BookingDetail({ id }: { id: string }) {
             </dl>
           </Section>
         )}
-        {side !== "owner" && (
-          <div className="pv-actions">
-            <Button onClick={() => go(`chat/${r.id}`)}>
-              Message {firstName(person)}
+        <div className="pv-actions">
+          <Button onClick={() => message(person.id)}>
+            Message {firstName(person)}
+          </Button>
+          <a className="pv-button pv-secondary" href={`tel:${(venueView ? t.phone : s.phone || v.phone).replace(/\s/g, "")}`}>
+            Call
+          </a>
+          {!b.cancelled && !past && (
+            <Button variant="secondary" onClick={() => ics(data, b, s, v.name, address)}>
+              Add to calendar
             </Button>
-            <a className="pv-button pv-secondary" href={`tel:${(venueView ? t.phone : s.phone || v.phone).replace(/\s/g, "")}`}>
-              Call
-            </a>
-            {!b.cancelled && !past && (
-              <Button variant="secondary" onClick={() => ics(data, b, s, v.name, address)}>
-                Add to calendar
-              </Button>
-            )}
+          )}
+        </div>
+        {venueView && s.status === "open" && openDates(data, s).length > 0 && records.some((r) => r.status === "cancelled") && (
+          <div className="pv-callout">
+            <p>{datesLabel(openDates(data, s))} {openDates(data, s).length === 1 ? "needs" : "need"} someone again.</p>
+            <Button onClick={() => go(`shift/${s.id}`)}>Find someone</Button>
           </div>
         )}
-        {venueView &&
-          side === "venue" &&
-          ((b.cancelled && future.length > 0) ||
-            (b.outcomes[actor] && b.outcomes[actor] !== "Yes, worked")) && (
-            <div className="pv-callout">
-              <Button onClick={() => again("replacement")}>Find a replacement</Button>
-            </div>
-          )}
-        {b.cancelled && side === "talent" && (
-          <button className="pv-text-link" onClick={() => go("bookings")}>
-            Update when you’re free
-          </button>
-        )}
-        {past && !b.cancelled && side !== "owner" && !b.outcomes[actor] && (
-          <Section title="Did it go ahead?">
-              <div className="pv-actions">
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    act(
-                      { type: "outcome", actor, booking: id, value: "Yes, worked" },
-                      "Thanks.",
-                    )
-                  }
-                >
-                  Yes
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setReport("No-show");
-                    setIssue(true);
-                  }}
-                >
-                  No-show
-                </Button>
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setReport("There was an issue");
-                    setIssue(true);
-                  }}
-                >
-                  There was a problem
-                </Button>
-              </div>
-          </Section>
-        )}
-        {side === "venue" && (past || b.cancelled) && (
-          <Button variant="secondary" onClick={() => again("again")}>
+        {venueView && (past || b.cancelled) && (
+          <Button variant="secondary" onClick={() => go(`new/${s.family}/${t.id}`)}>
             Book {firstName(t)} again
           </Button>
         )}
-        {!past && !b.cancelled && side !== "owner" && (
+        {future.length > 0 && (
           <div className="pv-actions pv-sensitive-actions">
             <Button
               variant="quiet"
+              className="pv-danger-text"
               onClick={() => {
-                setReport("");
-                setIssue(true);
+                setCancelDays(future.map((d) => d.date));
+                setCancel(true);
               }}
             >
-              Report a problem
-            </Button>
-            <Button variant="quiet" className="pv-danger-text" onClick={() => setCancel(true)}>
-              Cancel booking
+              {future.length > 1 ? "Cancel days" : "Cancel booking"}
             </Button>
           </div>
         )}
-        {side === "owner" && (
-          <Section title="Private reports">
-            {Object.entries(b.outcomes).length ? (
-              Object.entries(b.outcomes).map(([m, value]) => (
-                <p key={m}>
-                  {member(data, m).name}: {value}
-                </p>
-              ))
-            ) : (
-              <p className="pv-muted">Nothing reported.</p>
-            )}
-          </Section>
-        )}
       </div>
       {cancel && (
-        <Modal title="Cancel this booking?" onClose={() => setCancel(false)}>
-          <Services shift={s} dates={future.map((d) => d.date)} />
+        <Modal title={future.length > 1 ? "Which days are you cancelling?" : "Cancel this booking?"} onClose={() => setCancel(false)}>
+          {future.length > 1 ? (
+            <div className="pv-day-picks">
+              {future.map((d) => (
+                <label key={d.date}>
+                  <input
+                    type="checkbox"
+                    checked={cancelDays.includes(d.date)}
+                    onChange={(e) =>
+                      setCancelDays(
+                        e.target.checked
+                          ? [...cancelDays, d.date].sort()
+                          : cancelDays.filter((x) => x !== d.date),
+                      )
+                    }
+                  />
+                  <span>{serviceLabel(d)}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <Services shift={s} dates={future.map((d) => d.date)} />
+          )}
+          <p>Both calendars free up and {venueView ? "the day reopens for others" : `${v.name} can find someone else`}.</p>
           <Field label="Reason">
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
               <option value="">Choose a reason</option>
@@ -1408,7 +1255,7 @@ export function BookingDetail({ id }: { id: string }) {
           </Field>
           <Button
             variant="danger"
-            disabled={!reason}
+            disabled={!reason || !cancelDays.length}
             onClick={() => {
               if (
                 act(
@@ -1416,6 +1263,7 @@ export function BookingDetail({ id }: { id: string }) {
                     type: "cancel",
                     actor,
                     booking: id,
+                    days: cancelDays,
                     reason: `${reason}${extra ? ` — ${extra}` : ""}`,
                   },
                   `Cancelled. ${venueView ? firstName(t) : v.name} has been texted.`,
@@ -1424,31 +1272,47 @@ export function BookingDetail({ id }: { id: string }) {
                 setCancel(false);
             }}
           >
-            Cancel booking · text {venueView ? firstName(t) : v.name}
+            Cancel {cancelDays.length > 1 ? `${cancelDays.length} days` : cancelDays.length ? shortDay(cancelDays[0]) : "booking"} · text {venueView ? firstName(t) : v.name}
           </Button>
           <Button variant="quiet" onClick={() => setCancel(false)}>
             Keep booking
           </Button>
         </Modal>
       )}
-      {issue && (
-        <Modal title="Report a problem" onClose={() => setIssue(false)}>
-          <Field label="What happened?">
-            <textarea value={report} onChange={(e) => setReport(e.target.value)} rows={3} />
-          </Field>
+      {confirm && (
+        <Modal title={`Hours on ${displayDate(confirm.date)}`} onClose={() => setConfirm(null)}>
+          <p>Change the times if {firstName(t)} started or finished at a different time.</p>
+          <div className="pv-time-pair">
+            <TimeSelect label="From" value={confirm.start} onChange={(start) => setConfirm({ ...confirm, start })} />
+            <TimeSelect label="To" value={confirm.end} onChange={(end) => setConfirm({ ...confirm, end })} />
+          </div>
           <Button
-            disabled={!report.trim()}
             onClick={() => {
               if (
                 act(
-                  { type: "outcome", actor, booking: id, value: report },
-                  "Reported.",
+                  { type: "confirm-day", actor, booking: id, date: confirm.date, status: "worked", start: confirm.start, end: confirm.end },
+                  `Hours confirmed. ${firstName(t)} has been texted.`,
                 )
               )
-                setIssue(false);
+                setConfirm(null);
             }}
           >
-            Send
+            Confirm {confirm.start}–{confirm.end}
+          </Button>
+          <Button
+            variant="quiet"
+            className="pv-danger-text"
+            onClick={() => {
+              if (
+                act(
+                  { type: "confirm-day", actor, booking: id, date: confirm.date, status: "no-show" },
+                  `Recorded that ${firstName(t)} didn’t show.`,
+                )
+              )
+                setConfirm(null);
+            }}
+          >
+            {firstName(t)} didn’t show
           </Button>
         </Modal>
       )}

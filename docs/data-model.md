@@ -78,7 +78,7 @@ The additive SQL is recorded in [the migration](../supabase/migrations/202610020
 - Existing skill check widened to accept Sushi and Guest Relations while retaining every formerly accepted value.
 - Existing insert-only access policies retained. Additional restrictive insert policies prevent applicants from granting themselves approval. No public SELECT or UPDATE access was added.
 - Existing rows have `approved = null`, meaning no recorded decision. New rows default to pending (`false`). No existing member was silently approved or rejected.
-- Live approval is managed through trusted database administration; the preview's owner controls remain local demo controls. A live owner dashboard and a database-backed preview are separate work.
+- Live approval is managed through trusted database administration; the preview has no owner controls. A live owner dashboard and a database-backed preview are separate work.
 
 The existing 10 talent rows and 8 venue rows were compared before and after the schema change. Counts and fingerprints of **all original fields** matched. No existing answers were modified, no rows were deduplicated, and blank or test records were left untouched.
 

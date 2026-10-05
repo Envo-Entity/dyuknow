@@ -5,114 +5,90 @@ import { Button, Heading, Modal } from "./ui";
 import { navigateRoute, resetPreview } from "@/lib/preview/store";
 export const STORIES = [
   {
-    title: "Find vetted people and book them in chat",
-    who: "Spruce → Theo → Spruce",
+    title: "Pick a date, pick people, send a booking request",
+    who: "Spruce → Poppy and Theo → Spruce",
     start: "/venue/spruce/home",
     steps: [
-      "As Spruce, Book opens on tomorrow with Dinner (17:00–23:00). Untick tomorrow and tap Wed 7. The arrows move two weeks at a time; you can pick up to seven dates. Each team tile says how many people are free then.",
-      "Tap Kitchen, then the CDP chip. Big photo cards: Poppy first, marked Free then. Theo hasn’t set his availability, so his card says so and comes next. Everyone else on Dyuknow follows, so nobody vetted is hidden while the network is small.",
-      "Every card shows the person’s minimum pay: Theo’s is £17/h. Tap Message on his card and say hello. You don’t need a shift to talk.",
-      "In the chat, tap Send booking request. CDP, Wed 7 and 17:00–23:00 are already filled in from the list. Open the dates and add Thu 8 too. Set the pay to £15 to see the below-minimum warning, then send. The request arrives as a card, not a text.",
-      "Switch account → Theo. Shifts shows the card under Invitations. Open it → Ask for changes → “£17 is my minimum, happy to do the full service” → Send.",
-      "Switch to Spruce. Bookings → Open shows “Asked for changes · Revise”. In the chat, Send revised booking at £17. The first card is marked as replaced.",
-      "Switch to Theo → Accept and book. He’s booked for both nights straight away. The booking shows on Theo’s Upcoming shifts and on Spruce’s Bookings, and any later cancellation is posted in this same chat.",
+      "As Spruce, Book opens on tomorrow at Dinner (17:00–23:00). Untick tomorrow and tap Wed 7. Each team tile says how many people are free then.",
+      "Tap Kitchen. Everyone is listed: free people in the team first, then busy or unset, then everyone else. Each card shows their minimum pay.",
+      "Tap Add to request on Poppy and Theo, then Send booking request to Poppy and Theo at the bottom.",
+      "The form is the same one a job post uses: position, dates and hours, pay, people needed, note. Everything is filled in. Send it.",
+      "Switch account → Theo. Shifts shows it under Booking requests. Open it → I can do this → Send. He isn’t booked yet.",
+      "Switch to Poppy and say yes too.",
+      "Switch to Spruce. Bookings → Open shows “2 can do it · Review”. Open it and Book Theo. Poppy is told it’s filled. Theo’s card in chat now says Booked.",
     ],
   },
   {
-    title: "Create a job post instead",
-    who: "Spruce → Poppy",
+    title: "Post a job instead",
+    who: "Spruce → Poppy → Spruce",
     start: "/venue/spruce/post",
     steps: [
-      "As Spruce, tap the black Create a job post button under the sidebar (on phones, the round + in the middle of the tab bar). Choose Kitchen.",
-      "The form asks for the position, dates, hours, pay and people needed. Post shift texts everyone in those positions; Invite specific people sends to a shortlist.",
-      "Switch to Poppy. The post is on Shifts under Open shifts in your roles.",
+      "As Spruce, tap Post a job (the black button in the sidebar; on phones, the round + in the tab bar). Choose Kitchen.",
+      "It’s the same form, with To: everyone in the position. Pick CDP and Sat 3, then Post job. Poppy and Theo are texted.",
+      "Switch to Poppy. It’s on Shifts under Open jobs. Open it → I can do this → add a note → Send.",
+      "Switch to Spruce. Poppy’s yes arrived as a card in your conversation with her, with Book Poppy on it. Book her there or from the job post.",
     ],
   },
   {
-    title: "A posted shift becomes a booking",
-    who: "Spruce → Poppy → Spruce",
-    start: "/venue/spruce/home",
-    steps: [
-      "As Spruce: Create a job post → Kitchen. CDP and Senior CDP are preselected from last time. Pick dates → Sat 3, keep 17:00–23:00, then Post shift (it texts Poppy and Theo).",
-      "Switch account → Poppy. The Spruce shift is on Shifts. Open it → I can cover this → add a note → Send. The bar now says you’re waiting, not booked.",
-      "Switch to Spruce. Home shows “1 can cover · Review”. Open it: Poppy’s card shows the note, skills and “Worked with you” (from Poppy’s past Spruce booking). Tap Message and ask a question.",
-      "In the chat, the pinned card has Book Poppy. Book her there. The screen becomes “Poppy’s coming …”.",
-      "Switch to Poppy. Shifts now starts with the Spruce booking under Upcoming shifts, with the address, Directions and Add to calendar one tap away.",
-    ],
-  },
-  {
-    title: "A personal invitation confirms immediately",
-    who: "The Sea The Sea → Camille",
-    start: "/talent/camille/home",
-    steps: [
-      "Camille’s home shows The Sea The Sea under Invited you. Open it. Message the venue if you have a question.",
-      "Accept and book → confirm. You’re booked straight away; the venue said yes when it invited you.",
-      "Switch to The Sea The Sea → Bookings → Upcoming. The booking reads “Camille’s coming on Sat 3 Oct at 18:00”.",
-    ],
-  },
-  {
-    title: "Partial cover: mix and match by day",
+    title: "Several days: book different people for different days",
     who: "Harper Privé → Poppy / Theo",
     start: "/talent/poppy/shift/harper-weekend",
     steps: [
-      "As Poppy, open Harper Privé’s 3-day CDP shift → I can cover this. Tue is unticked because Poppy marked it not free. Untick Mon too: the button reads Offer 1 day (Sun only).",
-      "As Theo, open the same shift → I can cover this → Offer all 3 days.",
-      "As Harper Privé, open the shift. The day tracker lists each day with who can cover it: “Sun 4 Oct · 2 can cover: Poppy (Sun only), Theo (all 3 days)”.",
-      "On Sun, tap Book Poppy. Sun shows Booked · Poppy; Mon and Tue stay open. Theo’s card now says “Offered all 3 days (Sun filled)” and Book Theo · 2 days.",
-      "On Mon, tap Book Theo (Mon only). Then on Tue, Book Theo again: it adds Tue to Theo’s existing booking rather than creating a second one.",
-      "Try it the other way: right after Harper books Poppy for Sun, open the shift as Poppy. It shows “Booked Sun 4 · Mon 5, Tue 6 still open” with Offer more days.",
+      "As Poppy, open Harper Privé’s 3-day CDP job → I can do this. Tue is unticked because Poppy marked it not free. Untick Mon too, then send a yes to Sun only.",
+      "As Theo, open the same job → I can do this → Yes to all 3 days.",
+      "As Harper Privé, open the job. Each day lists who can do it: “Sun 4 Oct · 2 can do it: Poppy (Sun only), Theo (all 3 days)”.",
+      "On Sun, tap Book Poppy. Mon and Tue stay open. On Mon, Book Theo; then on Tue, Book Theo again. Tue is added to Theo’s booking, not made a second one.",
     ],
   },
   {
-    title: "Each person covers every day",
-    who: "The Sea The Sea → Ethan / Camille",
+    title: "Same person for all days",
+    who: "The Sea The Sea → Ethan",
     start: "/talent/ethan/shift/sea-residency",
     steps: [
-      "When posting more than one day, the venue can switch on “Each person must cover every day”. The Sea The Sea’s 3-night Sous Chef shift already has it on.",
-      "As Ethan, open it → I can cover this. All three days are fixed; the button reads Offer all 3 days.",
-      "Anyone booked elsewhere on one of those nights doesn’t see the shift in their feed, and opening it explains which night clashes.",
+      "With more than one day, the form shows “Same person for all days”. The Sea The Sea’s 3-night Sous Chef job has it on.",
+      "As Ethan, open it → I can do this. All three days are fixed; the button reads Yes to all 3 days.",
+      "Anyone booked elsewhere on one of those nights doesn’t see it in Open jobs, and opening it explains which night clashes.",
     ],
   },
   {
-    title: "Invite a shortlist; first acceptance wins",
-    who: "Spruce → Poppy / Theo",
-    start: "/venue/spruce/new/Kitchen",
+    title: "Answer a booking request",
+    who: "The Sea The Sea → Camille",
+    start: "/talent/camille/home",
     steps: [
-      "As Spruce: pick a date → Invite specific people (accepting books them straight away) → select Poppy and Theo for one place. The note says the first to accept is booked.",
-      "Switch to Poppy → Accept and book.",
-      "Switch to Theo → open the invitation. It says the shift has been filled. Theo was never booked.",
+      "Camille’s Shifts shows The Sea The Sea under Booking requests. Open it. Message the venue if anything doesn’t work.",
+      "I can do this → Send. The Sea The Sea still confirms; Camille sees “Waiting for The Sea The Sea to confirm”.",
+      "Or Decline. To change pay or times, say so in chat; the venue sends a new request.",
     ],
   },
   {
-    title: "Cancel, notify and find replacement cover",
-    who: "Poppy → Spruce → Theo",
+    title: "Cancel days and free both calendars",
+    who: "Poppy → Spruce",
     start: "/talent/poppy/home",
     steps: [
-      "As Poppy, open a booking from Shifts → Upcoming shifts → Cancel booking → choose a reason.",
-      "Switch to Spruce. The shift has reopened: “Poppy cancelled · needs someone”, with Text everyone again and Invite people. Find a replacement on the cancelled booking goes to the same shift.",
-      "Send it, respond as Theo, and book Theo. The cancellation and its replacement stay as separate records.",
+      "Book Poppy for a multi-day job first (story 3 works). As Poppy, open the booking → Cancel days → tick one day → choose a reason.",
+      "The other days stay booked. Her calendar frees up for that day.",
+      "Switch to the venue. The job has reopened for that day: “Poppy cancelled · Mon 5 needs 1 person”, with Send to more people.",
     ],
   },
   {
-    title: "Withdraw, decline, close, or change terms",
-    who: "Either side before booking",
-    start: "/talent/poppy/home",
+    title: "Every day worked is recorded",
+    who: "Spruce → Poppy",
+    start: "/venue/spruce/bookings",
     steps: [
-      "Respond to a shift as Poppy, then Withdraw from the bar at the bottom. The venue sees “Withdrew”.",
-      "As Camille, decline the seeded invitation (reset stories first if already accepted). The Sea The Sea sees Declined.",
-      "As a venue, open an open shift → ⋯ → Change time, pay or role. Back out without changing anything and no draft is left. Change the pay and go home: “Unsent changes to your … shift” with Continue or Discard.",
-      "⋯ → Close shift. Waiting people are told; people already booked stay booked.",
+      "Bookings → Past and cancelled → the seeded Poppy booking. Its Days list shows Mon 28 Sep worked, 17:00–23:00, 6 hours, £108.",
+      "Book someone, open the booking, then Preview controls → Finish this booking.",
+      "Bookings now shows Confirm hours. Open it → Confirm hours → change the finish time if they stayed late → Confirm. Or mark that they didn’t show.",
+      "If the venue does nothing, the day confirms itself at the planned hours 48 hours after it ends.",
     ],
   },
   {
-    title: "Availability, discovery and overnight work",
+    title: "Availability",
     who: "Talent and venue",
     start: "/talent/poppy/bookings",
     steps: [
-      "My shifts is your availability, two weeks at a time; the arrows move to the next two. Choose a day → Free from–to → save. Copy to other dates, or mark Not free. Free all day covers midnight to midnight.",
-      "As Spruce, start a shift → Invite specific people. People you’ve worked with come first, then people free then, then everyone else.",
-      "Set 22:00–02:00 on a shift. The day list shows both calendar dates.",
-      "As talent, Shifts runs top to bottom: upcoming shifts, invitations, then the Shifts / Venues switch. Shifts lists your roles; Show from other roles too adds the rest. Past and closed sits at the bottom.",
+      "Availability shows two weeks at a time; the arrows go up to eight weeks ahead. Choose a day → Free from–to → save, or mark Not free. Copy to other dates.",
+      "Venues see it as Free then / Not free then on each card. It’s a guide, not a block: a venue can still ask someone marked busy.",
+      "Being booked is the only hard block: you can’t be booked twice for the same hours.",
     ],
   },
   {
@@ -120,53 +96,10 @@ export const STORIES = [
     who: "Preview controls makes time and competition testable",
     start: "/venue/spruce/home",
     steps: [
-      "Post a CDP shift and respond as Poppy. Open it as Spruce, then Preview controls → Fill this shift with another person. Poppy’s link now opens a filled shift.",
-      "On an open shift as talent, Preview controls → Create an overlapping booking for me. Clashing days drop out of your other answers, or the answer lapses.",
-      "Preview controls → Go offline, or Fail next save. Nothing pretends to succeed, and drafts stay.",
+      "Post a CDP job and say yes as Poppy. Open it as Spruce, then Preview controls → Fill this shift with another person. Poppy’s link now opens a filled job.",
+      "On an open job as talent, Preview controls → Create an overlapping booking for me. Clashing days drop out of your other yeses, or the yes lapses.",
+      "Preview controls → Go offline, or Fail next save. Nothing pretends to succeed.",
       "Preview controls → Advance to this shift’s start. Unfilled places close.",
-    ],
-  },
-  {
-    title: "No supply, no reply and owner help",
-    who: "Venue → Owner",
-    start: "/venue/spruce/home",
-    steps: [
-      "Create a job post → Sommelier. Nobody has that role yet, so the button reads Ask Dyuknow to find someone.",
-      "On any open shift with no replies, Ask Dyuknow to help alerts the owner. Same-day shifts also alert the owner after 30 minutes.",
-      "Switch account → Owner to see the request.",
-    ],
-  },
-  {
-    title: "After service: private outcomes and book again",
-    who: "Both sides → Owner",
-    start: "/venue/spruce/bookings",
-    steps: [
-      "Bookings → Past and cancelled → the seeded Poppy booking. Answer “Did it go ahead?”. Only Dyuknow sees it.",
-      "Book Poppy again opens a prefilled invite; pick new dates and send.",
-      "Report a problem on an upcoming booking tells Dyuknow without cancelling anything.",
-    ],
-  },
-  {
-    title: "Account: verification, texts and payments",
-    who: "Noor → Owner → Noor",
-    start: "/talent/noor/account",
-    steps: [
-      "As Noor, tap your photo (top right) → Account. Allergen awareness is Needed. Upload any photo or PDF: it becomes Being checked.",
-      "Preview pill → Switch account → Owner → Members. Noor’s document has Verify. Verify it.",
-      "Back as Noor: My profile now shows the tick, and venues see it on Noor’s profile. Use “See it as a venue does” to check.",
-      "Account → Texts: switch Messages off and messages still arrive in the inbox, without a text. Quiet hours hold texts overnight.",
-      "Account → Payments holds bank details and earnings; venues see billing details and invoices. Help reaches Dyuknow; Delete account is a request you can withdraw.",
-    ],
-  },
-  {
-    title: "Joining, claiming, approval and profile defaults",
-    who: "New member → Owner",
-    start: "/",
-    steps: [
-      "From the welcome screen choose Try phone sign-in. Use an existing sample number and code 123456 to claim its preloaded profile.",
-      "Choose Explore new-member setup, finish it, and the account waits for approval.",
-      "Switch account → Owner → Members → Approve. Switch back to the new member.",
-      "Profile → edit roles, skills and alert preferences. Venues edit address, rate and the default note used on new shifts.",
     ],
   },
 ];
@@ -185,15 +118,15 @@ export function Stories() {
           The sample world starts on{" "}
           <strong>Thursday 1 October 2026, 10:00 in London</strong>. Preview
           controls lets you advance time. Profiles, contacts and venues are
-          illustrative; every change is saved in this browser. Follow stories
-          1–7 in order; the October dates keep their bookings separate. For an
+          illustrative; every change is saved in this browser. The October
+          dates keep each story’s bookings separate. For an
           alternative outcome or after advancing time, use Reset all stories to
           return to the starting clock.
         </p>
         <p>
           <strong>Venue entry:</strong> I’m a venue → Enter as Spruce.{" "}
           <strong>Talent entry:</strong> I’m talent → Enter as Poppy. Use
-          Camille for the invitation story.
+          Camille for the booking request story.
         </p>
         <div className="pv-actions">
           <Button onClick={() => navigateRoute("/venue/spruce/home")}>

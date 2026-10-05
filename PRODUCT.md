@@ -6,7 +6,7 @@ flow leading to `/app`. `/preview` shows the same demo UI and uses the same
 browser storage as `/app`.
 
 The current UI, sample world and interactions live in `components/preview/`
-and `lib/preview/`. Venue, talent and owner dashboards, cover requests,
+and `lib/preview/`. Venue and talent dashboards, booking requests, job posts,
 bookings, messages, profiles, availability and demo membership setup remain
 browser-local. Account switching, preview controls and stories stay available.
 The current vocabulary and flows are recorded in `docs/mvp-user-flow.md`.
@@ -14,7 +14,7 @@ The current vocabulary and flows are recorded in `docs/mvp-user-flow.md`.
 The only live intake interface is `/admin/onboarding`. Its existing talent
 and venue forms save to Supabase, including the additive questions recorded
 in `docs/data-model.md`. Public onboarding URLs open local demo setup; they do
-not submit real member records. Demo owner approvals do not approve live rows.
+not submit real member records. The demo has no owner approvals.
 
 Older `/app/talent/*` and `/app/venue/*` URLs redirect into the current demo.
 The accepted preview design stays intact; the old app components remain in

@@ -271,7 +271,7 @@ export function LandingPage() {
           scrolled ? "border-b border-border py-4" : "border-b border-transparent py-[22px]"
         )}
       >
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 lg:px-8">
           <a href="#" className="font-serif text-2xl tracking-[-0.01em]">
             Dyuknow
           </a>
@@ -305,7 +305,7 @@ export function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="px-6 pb-[88px] pt-[144px] lg:px-8 lg:pt-[168px]">
+      <section className="px-5 pb-[88px] pt-[144px] lg:px-8 lg:pt-[168px]">
         <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div>
             <span className="inline-flex items-center gap-2.5 font-serif text-lg italic text-muted before:h-[9px] before:w-[9px] before:flex-none before:rounded-full before:bg-sage before:content-['']">
@@ -376,7 +376,7 @@ export function LandingPage() {
 
       {/* Tagline */}
       <section className="bg-mist py-24">
-        <div className="mx-auto max-w-[1200px] px-6 lg:px-8">
+        <div className="mx-auto max-w-[1200px] px-5 lg:px-8">
           <p className="mb-6 text-[11px] font-bold uppercase tracking-[0.16em] text-faint">The platform for</p>
           <h2 className="font-serif text-[clamp(2.3rem,5vw,4.2rem)] italic leading-[1.12] tracking-[-0.015em]">
             &ldquo;Do you know anyone
@@ -409,7 +409,7 @@ export function LandingPage() {
       </div>
 
       {/* Stats */}
-      <section id="about" className="px-6 py-[104px] lg:px-8">
+      <section id="about" className="px-5 py-[104px] lg:px-8">
         <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {STATS.map((s) => (
             <div key={s.label} className="rounded-[24px] bg-mist px-8 py-10 transition-transform hover:-translate-y-1">
@@ -424,7 +424,7 @@ export function LandingPage() {
       </section>
 
       {/* About */}
-      <section className="px-6 pb-[104px] lg:px-8">
+      <section className="px-5 pb-[104px] lg:px-8">
         <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <div className="aspect-[4/4.6] overflow-hidden rounded-[24px] bg-mist">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -459,7 +459,7 @@ export function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="bg-mist px-6 py-[104px] lg:px-8">
+      <section id="how" className="bg-mist px-5 py-[104px] lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <div className="mb-12 text-center">
             <p className="font-serif text-lg italic text-muted">Simple by design</p>
@@ -506,7 +506,7 @@ export function LandingPage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="px-6 py-[104px] lg:px-8">
+      <section id="features" className="px-5 py-[104px] lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <div className="mb-8">
             <p className="font-serif text-lg italic text-muted">Why Dyuknow</p>
@@ -537,7 +537,7 @@ export function LandingPage() {
 
       {/* Photo marquee */}
       <section className="pt-[104px]">
-        <div className="mx-auto mb-12 max-w-[1200px] px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-[1200px] px-5 lg:px-8">
           <p className="font-serif text-lg italic text-muted">In action</p>
           <h2 className="mt-3.5 text-[clamp(1.9rem,3.6vw,2.9rem)] font-bold leading-[1.08] tracking-[-0.025em]">
             Real people, <em className="font-serif font-normal italic">real shifts</em>
@@ -567,7 +567,7 @@ export function LandingPage() {
       </section>
 
       {/* Roles */}
-      <section id="roles" className="bg-mist px-6 py-[104px] lg:px-8">
+      <section id="roles" className="bg-mist px-5 py-[104px] lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <p className="font-serif text-lg italic text-muted">The roster</p>
           <h2 className="mt-4 text-[clamp(1.9rem,3.6vw,2.9rem)] font-bold leading-[1.08] tracking-[-0.025em]">
@@ -596,7 +596,7 @@ export function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section className="px-6 py-[104px] lg:px-8">
+      <section className="px-5 py-[104px] lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <p className="font-serif text-lg italic text-muted">What they say</p>
           <h2 className="mt-3.5 text-[clamp(1.9rem,3.6vw,2.9rem)] font-bold leading-[1.08] tracking-[-0.025em]">
@@ -623,7 +623,7 @@ export function LandingPage() {
       </section>
 
       {/* Email signup */}
-      <section className="bg-mist px-6 py-[104px] lg:px-8">
+      <section className="bg-mist px-5 py-[104px] lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <div className="grid gap-10 rounded-[24px] bg-paper p-10 lg:grid-cols-2 lg:gap-16 lg:p-16">
             <div>
@@ -670,7 +670,7 @@ export function LandingPage() {
       </section>
 
       {/* CTA split */}
-      <section id="cta" className="px-6 py-[104px] lg:px-8">
+      <section id="cta" className="px-5 py-[104px] lg:px-8">
         <div className="mx-auto grid max-w-[1200px] gap-5 lg:grid-cols-2">
           <div className="rounded-[24px] bg-ink p-11 text-white lg:p-[72px]">
             <span className="mb-5 block font-serif text-lg italic text-sage">For venues</span>
@@ -710,7 +710,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border px-6 pb-12 pt-20 lg:px-8">
+      <footer className="border-t border-border px-5 pb-12 pt-20 lg:px-8">
         <div className="mx-auto max-w-[1200px]">
           <div className="mb-16 grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] lg:gap-14">
             <div>

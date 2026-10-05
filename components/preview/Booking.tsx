@@ -1,44 +1,40 @@
 "use client";
-// Finding vetted people by team and time, and booking them from a
-// conversation with a booking card.
+// Finding people by team and time, and choosing who to send a booking
+// request to.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
 import {
   FAMILIES,
+  MAX_DAYS,
   allSkills,
   areaOf,
   datePlus,
   datesLabel,
-  defaultNote,
-  defaultRate,
+  datesSummary,
+  daysFor,
   displayDate,
   firstName,
-  hoursOf,
+  joinNames,
   londonDate,
   member,
-  offerDays,
+  openAnswer,
   rankTalent,
-  serviceLabel,
-  shiftLabel,
-  clockLabel,
   standing,
   standingLabel,
   threadBetween,
   workedWith,
   type Member,
-  type Offer,
-  type OfferTerms,
   type Service,
 } from "@/lib/preview/model";
 import { replaceRoute } from "@/lib/preview/store";
 import { usePreview } from "./context";
-import { Badge, Button, Empty, Field, Heading, Modal, Photo } from "./ui";
+import { ActionBar, Button, Empty, Heading, InviteToggle, Photo } from "./ui";
 
 export type When = { dates: string[]; start: string; end: string };
 const WHEN_KEY = "pv-when-v2";
-const MAX_DATES = 7;
-// How far ahead the date tiles go: six two-week pages, about three months.
-const WINDOWS_AHEAD = 6;
+const MAX_DATES = MAX_DAYS;
+// How far ahead the date tiles go: four two-week pages, eight weeks.
+const WINDOWS_AHEAD = 4;
 // The venue's chosen time survives moving between Book and a team list.
 export function savedWhen(now: string): When {
   const today = londonDate(now);
@@ -60,7 +56,7 @@ function saveWhen(value: When) {
 }
 export function whenDays(w: When): Service[] {
   try {
-    return offerDays(w);
+    return daysFor(w);
   } catch {
     return [];
   }
@@ -102,11 +98,26 @@ export function useWindow(today: string, start = today, windows = WINDOWS_AHEAD)
     next: page < windows - 1 ? () => setPage(page + 1) : undefined,
   };
 }
-export function WindowNav({ label, prev, next }: { label: string; prev?: () => void; next?: () => void }) {
+export function WindowNav({
+  label,
+  prev,
+  next,
+  onClear,
+}: {
+  label: string;
+  prev?: () => void;
+  next?: () => void;
+  onClear?: () => void;
+}) {
   return (
     <div className="pv-window-nav">
       <strong>{label}</strong>
       <span>
+        {onClear && (
+          <button className="pv-clear-dates" onClick={onClear}>
+            Clear
+          </button>
+        )}
         <button className="pv-square-button" aria-label="Previous two weeks" disabled={!prev} onClick={prev}>
           <ArrowLeftIcon size={18} />
         </button>
@@ -114,6 +125,85 @@ export function WindowNav({ label, prev, next }: { label: string; prev?: () => v
           <ArrowRightIcon size={18} />
         </button>
       </span>
+    </div>
+  );
+}
+
+// The one date picker: two weeks of day tiles at a time, arrows to move,
+// tap to choose any number of days, Clear to start again. Used to ask for
+// cover, to set availability and during setup.
+export function DatePicker({
+  value,
+  onChange,
+  max,
+  last,
+  windows,
+  note,
+  tone,
+  label = "Dates",
+  size = "small",
+}: {
+  value: string[];
+  onChange: (dates: string[]) => void;
+  max?: number;
+  // The latest date that can be chosen.
+  last?: string;
+  windows?: number;
+  // A word under the day number, e.g. "Booked".
+  note?: (date: string) => string | undefined;
+  tone?: (date: string) => "free" | "not-free" | undefined;
+  label?: string;
+  // Large: big tiles with room for a full line about each day (Availability).
+  size?: "small" | "large";
+}) {
+  const { data } = usePreview();
+  const today = londonDate(data.now);
+  const w = useWindow(today, value[0] || today, windows);
+  const full = !!max && value.length >= max;
+  return (
+    <div className="pv-date-picker">
+      <WindowNav {...w} onClear={value.length ? () => onChange([]) : undefined} />
+      {size === "large" ? (
+        <div className="pv-date-grid" role="group" aria-label={label}>
+          {w.dates.map((d) => {
+            const on = value.includes(d);
+            return (
+              <button
+                key={d}
+                aria-pressed={on}
+                className={`${on ? "selected" : ""} ${tone?.(d) || ""}`}
+                disabled={(!on && full) || (!!last && d > last)}
+                onClick={() => onChange(on ? value.filter((x) => x !== d) : [...value, d].sort())}
+              >
+                <span>{displayDate(d).slice(0, 3)}</span>
+                <strong>{Number(d.slice(-2))}</strong>
+                <small>{note?.(d)}</small>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+      <div className="pv-date-picks" role="group" aria-label={label}>
+        {w.dates.map((d, i) => {
+          const on = value.includes(d);
+          const words = note?.(d);
+          return (
+            <button
+              key={d}
+              aria-pressed={on}
+              className={`${on ? "selected" : ""} ${tone?.(d) ? `is-${tone(d)}` : ""}`}
+              style={{ "--i": i } as React.CSSProperties}
+              disabled={(!on && full) || (!!last && d > last)}
+              onClick={() => onChange(on ? value.filter((x) => x !== d) : [...value, d].sort())}
+            >
+              <small>{d === today ? "Today" : displayDate(d).split(" ")[0]}</small>
+              <strong>{Number(d.slice(-2))}</strong>
+              {words && <em>{words}</em>}
+            </button>
+          );
+        })}
+      </div>
+      )}
     </div>
   );
 }
@@ -244,7 +334,7 @@ const PRESETS: [string, string, string][] = [
   ["Dinner", "17:00", "23:00"],
   ["Late", "22:00", "02:00"],
 ];
-// Dates and hours: two weeks of day tiles (any of them, up to seven), then
+// Dates and hours: two weeks of day tiles (any of them, up to 14), then
 // the hours. On Book it folds to its summary line and grows open in place.
 export function DateTimeBar({
   value,
@@ -257,12 +347,9 @@ export function DateTimeBar({
   label?: string;
   collapsible?: boolean;
 }) {
-  const { data } = usePreview();
   const [open, setOpen] = useState(!collapsible);
   // Once fully open, the time wheels may drop below the panel.
   const [settled, setSettled] = useState(false);
-  const today = londonDate(data.now);
-  const w = useWindow(today, value.dates[0] || today);
   const set = (patch: Partial<When>) => {
     const next = { ...value, ...patch };
     if (next.dates.length) saveWhen(next);
@@ -271,33 +358,16 @@ export function DateTimeBar({
   const full = value.dates.length >= MAX_DATES;
   const days = whenDays(value);
   const preset = PRESETS.find(([, start, end]) => value.start === start && value.end === end)?.[0];
+  const glance = datesSummary(value.dates);
   const summary = !value.dates.length
     ? "Choose a date"
     : !days.length
       ? "Choose different start and end times"
-      : `${datesLabel(value.dates)} · ${value.start}–${value.end}${full ? " · up to 7 dates" : ""}`;
+      : `${datesLabel(value.dates)} · ${value.start}–${value.end}${full ? ` · up to ${MAX_DATES} dates` : ""}`;
   const body = (
     <>
-      <WindowNav {...w} />
-      <div className="pv-date-picks pv-when-days" role="group" aria-label="Dates">
-        {w.dates.map((d, i) => {
-          const on = value.dates.includes(d);
-          return (
-            <button
-              key={d}
-              aria-pressed={on}
-              className={on ? "selected" : ""}
-              style={{ "--i": i } as React.CSSProperties}
-              disabled={!on && full}
-              onClick={() =>
-                set({ dates: on ? value.dates.filter((x) => x !== d) : [...value.dates, d].sort() })
-              }
-            >
-              <small>{d === today ? "Today" : displayDate(d).split(" ")[0]}</small>
-              <strong>{Number(d.slice(-2))}</strong>
-            </button>
-          );
-        })}
+      <div className="pv-when-days">
+        <DatePicker value={value.dates} max={MAX_DATES} onChange={(dates) => set({ dates })} />
       </div>
       <div className="pv-when-hours">
         <div className="pv-presets" role="group" aria-label="Service">
@@ -339,14 +409,14 @@ export function DateTimeBar({
           setOpen(!open);
         }}
       >
-        <span>
+        <span className="pv-when-dates">
           <small>When</small>
-          <strong>{value.dates.length ? datesLabel(value.dates) : "Choose a date"}</strong>
+          <strong>{value.dates.length ? glance.main : "Choose a date"}</strong>
+          {glance.sub && <small className="pv-when-sub">{glance.sub}</small>}
         </span>
-        <span>
-          <small>Hours</small>
+        <span className="pv-when-time">
+          <small>{preset || "Hours"}</small>
           <strong>
-            {preset ? `${preset} · ` : ""}
             {value.start}–{value.end}
           </strong>
         </span>
@@ -371,12 +441,11 @@ export function DateTimeBar({
   );
 }
 
-// Opens (or reuses) the conversation with this person, carrying what the
-// venue is looking for so the booking card starts filled in.
+// Opens (or reuses) the one conversation with this person.
 export function useMessage() {
   const { actor, act, go } = usePreview();
-  return (person: string, context?: OfferTerms, shift?: string) => {
-    const next = act({ type: "open-thread", actor, with: person, context, shift });
+  return (person: string) => {
+    const next = act({ type: "open-thread", actor, with: person });
     if (!next) return;
     const me = member(next, actor);
     const t = threadBetween(
@@ -429,25 +498,32 @@ export function ProfileCard({
     </article>
   );
 }
-// Large card on a team list: free or not for the chosen time, and pay.
+// The team a booking request starts from: the one this person works in.
+export function familyOf(t: Member, fallback = "Kitchen") {
+  return (
+    Object.keys(FAMILIES).find((f) => t.roles.some((r) => FAMILIES[f].roles.includes(r))) ||
+    fallback
+  );
+}
+// Large card on a team list: free or not for the chosen time, and pay. Tick
+// people to send them one booking request.
 function TalentCard({
   t,
   when,
-  family,
-  role,
+  picked,
+  onPick,
 }: {
   t: Member;
   when: When;
-  family: string;
-  role?: string;
+  picked: boolean;
+  onPick: (picked: boolean) => void;
 }) {
-  const { data } = usePreview();
+  const { data, actor, go } = usePreview();
   const message = useMessage();
   const days = whenDays(when);
-  const fitting =
-    role && t.roles.includes(role)
-      ? role
-      : t.roles.find((r) => FAMILIES[family].roles.includes(r)) || role || FAMILIES[family].roles[0];
+  // Already answering one of this venue's asks for these hours: go there
+  // instead of sending a second one.
+  const open = days.length ? openAnswer(data, actor, t.id, days) : undefined;
   return (
     <ProfileCard
       person={t}
@@ -467,28 +543,35 @@ function TalentCard({
         <p className="pv-talent-card-skills">{allSkills(t).slice(0, 3).join(" · ")}</p>
       )}
       <div className="pv-talent-card-actions">
-        <Button
-          onClick={() =>
-            message(
-              t.id,
-              days.length
-                ? { family, role: fitting, dates: when.dates, start: when.start, end: when.end }
-                : undefined,
-            )
-          }
-        >
-          Message {firstName(t)}
+        {open ? (
+          <Button onClick={() => go(`shift/${open.shift}`)}>
+            {open.status === "booked"
+              ? "Booked with you"
+              : open.status === "invited"
+                ? "Request sent · View"
+                : "Said yes · Book"}
+          </Button>
+        ) : (
+          <label className={`pv-pick-person ${picked ? "is-picked" : ""}`}>
+            <InviteToggle name={t.name} checked={picked} onChange={onPick} />
+            <span>{picked ? "Added" : "Add to request"}</span>
+          </label>
+        )}
+        <Button variant="secondary" onClick={() => message(t.id)}>
+          Message
         </Button>
       </div>
     </ProfileCard>
   );
 }
 
-// Book → a team: everyone vetted, the people who fit and are free first.
+// Book → a team: everyone, the people who fit and are free first. Tick who
+// to ask, then send them one booking request.
 export function TeamList({ family, initial }: { family: string; initial: When }) {
   const { data, actor, go } = usePreview();
   const [when, setWhen] = useState(initial);
   const [role, setRole] = useState<string | undefined>();
+  const [picked, setPicked] = useState<string[]>([]);
   if (!FAMILIES[family])
     return (
       <Empty title="Team not found">
@@ -498,8 +581,15 @@ export function TeamList({ family, initial }: { family: string; initial: When })
   const days = whenDays(when);
   const { free, unavailable, others } = rankTalent(data, actor, family, role, days);
   const card = (t: Member) => (
-    <TalentCard key={t.id} t={t} when={when} family={family} role={role} />
+    <TalentCard
+      key={t.id}
+      t={t}
+      when={when}
+      picked={picked.includes(t.id)}
+      onPick={(on) => setPicked(on ? [...picked, t.id] : picked.filter((id) => id !== t.id))}
+    />
   );
+  const names = picked.map((id) => firstName(member(data, id)));
   return (
     <>
       <Heading
@@ -541,11 +631,19 @@ export function TeamList({ family, initial }: { family: string; initial: When })
         </span>
         <ArrowRightIcon />
       </button>
+      {picked.length > 0 && (
+        <ActionBar>
+          <p className="pv-bar-note">They say yes, then you choose who to book.</p>
+          <Button onClick={() => go(`new/${family}/${picked.join(",")}${role ? `/${role}` : ""}`)}>
+            Send booking request to {picked.length > 2 ? `${picked.length} people` : joinNames(names)}
+          </Button>
+        </ActionBar>
+      )}
     </>
   );
 }
 
-// The team bento: Book and Create a job post both start by choosing a team.
+// The team bento: Book and Post a job both start by choosing a team.
 // The teams this venue usually needs come first.
 export function TeamMosaic({
   caption,
@@ -585,349 +683,18 @@ export function TeamMosaic({
     </div>
   );
 }
-// The job post action: choose a team, then the job post form.
+// Post a job: choose a team, then the same form a booking request uses.
 export function JobPostStart() {
   const { go } = usePreview();
   return (
     <>
-      <Heading title="Create a job post" back="home" />
+      <Heading title="Post a job" back="home" />
       <TeamMosaic
         caption={(team) =>
-          team.length ? `Texts ${team.length} ${team.length === 1 ? "person" : "people"}` : "We’ll help you find someone"
+          team.length ? `Texts ${team.length} ${team.length === 1 ? "person" : "people"}` : "Nobody in this team yet"
         }
         onPick={(name) => go(`new/${name}`)}
       />
     </>
-  );
-}
-
-const STATUS: Record<Offer["status"], string> = {
-  sent: "Waiting for an answer",
-  accepted: "Booked",
-  declined: "Declined",
-  changes: "Changes asked",
-  replaced: "Replaced by a newer version",
-};
-export function OfferCard({ offer, mine }: { offer: Offer; mine: boolean }) {
-  const { data, actor, side, act, go } = usePreview();
-  const [changes, setChanges] = useState(false);
-  const [confirm, setConfirm] = useState(false);
-  const [note, setNote] = useState("");
-  const days = offerDays(offer);
-  const hours = hoursOf(days[0]);
-  const t = (data.threads ?? []).find((t) => t.id === offer.thread)!;
-  const venue = member(data, t.venue);
-  return (
-    <div className={`pv-offer ${mine ? "from-me" : ""} is-${offer.status}`}>
-      <div className="pv-offer-head">
-        <small>Booking request · {venue.name}</small>
-        <Badge good={offer.status === "accepted"}>{STATUS[offer.status]}</Badge>
-      </div>
-      <h3>{offer.role}</h3>
-      <dl>
-        <div>
-          <dt>When</dt>
-          <dd>
-            {datesLabel(offer.dates)} · {offer.start}–{offer.end}
-            {days.length > 1 && <small>{days.length} days · same hours</small>}
-          </dd>
-        </div>
-        <div>
-          <dt>Pay</dt>
-          <dd>
-            £{offer.rate}/hour
-            <small>
-              About £{Math.round(offer.rate * hours * days.length)} in all · {hours * days.length} hours
-            </small>
-          </dd>
-        </div>
-        <div>
-          <dt>Where</dt>
-          <dd>{areaOf(venue)}</dd>
-        </div>
-        {offer.note && (
-          <div>
-            <dt>Note</dt>
-            <dd>{offer.note}</dd>
-          </div>
-        )}
-      </dl>
-      {offer.status === "changes" && offer.reply && (
-        <p className="pv-response-note">“{offer.reply}”</p>
-      )}
-      {side === "talent" && offer.status === "sent" && !changes && (
-        <div className="pv-actions">
-          <Button onClick={() => setConfirm(true)}>Accept and book</Button>
-          <Button variant="secondary" onClick={() => setChanges(true)}>
-            Ask for changes
-          </Button>
-          <Button
-            variant="quiet"
-            onClick={() =>
-              act(
-                { type: "answer-offer", actor, offer: offer.id, answer: "decline" },
-                `Declined. ${venue.name} has been told.`,
-                { undo: true },
-              )
-            }
-          >
-            Decline
-          </Button>
-        </div>
-      )}
-      {changes && (
-        <div className="pv-offer-changes">
-          <Field label="What would work for you?">
-            <textarea
-              rows={2}
-              value={note}
-              placeholder="e.g. I can do Fri and Sat, 18:00–23:00 at £18/h"
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </Field>
-          <div className="pv-actions">
-            <Button
-              onClick={() => {
-                if (
-                  act(
-                    { type: "answer-offer", actor, offer: offer.id, answer: "changes", note },
-                    "Sent. The venue can now send a revised booking.",
-                  )
-                )
-                  setChanges(false);
-              }}
-            >
-              Send
-            </Button>
-            <Button variant="quiet" onClick={() => setChanges(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-      {offer.status === "accepted" && offer.booking && (
-        <button className="pv-text-link" onClick={() => go(`booking/${offer.booking}`)}>
-          View booking
-        </button>
-      )}
-      {confirm && (
-        <Modal title="Accept and book?" onClose={() => setConfirm(false)}>
-          <div className="pv-confirm-person">
-            <Photo src={venue.photo} alt={venue.name} />
-            <span>
-              <strong>{venue.name}</strong>
-              <small>
-                {offer.role} · £{offer.rate}/h
-              </small>
-            </span>
-          </div>
-          <div className="pv-services">
-            {days.map((d) => (
-              <p key={d.date}>{serviceLabel(d)}</p>
-            ))}
-          </div>
-          <p>
-            About £{Math.round(offer.rate * hours * days.length)} for {hours * days.length} hours.
-          </p>
-          <Button
-            onClick={() => {
-              const next = act(
-                { type: "answer-offer", actor, offer: offer.id, answer: "accept" },
-                `You’re booked at ${venue.name}.`,
-              );
-              if (!next) return;
-              setConfirm(false);
-              const booked = (next.offers ?? []).find((o) => o.id === offer.id)?.booking;
-              if (booked) go(`booking/${booked}`);
-            }}
-          >
-            Accept and book
-          </Button>
-          <Button variant="quiet" onClick={() => setConfirm(false)}>
-            Not yet
-          </Button>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-// The venue writes the booking card: position, dates, hours, pay and note.
-export function OfferForm({
-  thread,
-  onClose,
-}: {
-  thread: string;
-  onClose: () => void;
-}) {
-  const { data, actor, me, act } = usePreview();
-  const t = (data.threads ?? []).find((t) => t.id === thread)!;
-  const talent = member(data, t.talent);
-  const last = (data.offers ?? []).filter((o) => o.thread === thread).at(-1);
-  const reuse = last && last.status !== "accepted" ? last : undefined;
-  const start: OfferTerms = reuse ||
-    t.context || {
-      family:
-        Object.keys(FAMILIES).find((f) =>
-          talent.roles.some((r) => FAMILIES[f].roles.includes(r)),
-        ) || "Kitchen",
-      role: "",
-      ...savedWhen(data.now),
-    };
-  const family = start.family;
-  const [form, setForm] = useState({
-    ...start,
-    role:
-      start.role ||
-      talent.roles.find((r) => FAMILIES[family].roles.includes(r)) ||
-      FAMILIES[family].roles[0],
-    rate: reuse ? reuse.rate : Math.max(defaultRate(me!, family), talent.minRate || 0),
-    note: reuse ? reuse.note : defaultNote(me!),
-  });
-  const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
-  const revising = last && ["sent", "changes"].includes(last.status);
-  const days = whenDays(form);
-  return (
-    <Modal
-      title={revising ? `Revise the booking for ${firstName(talent)}` : `Book ${firstName(talent)}`}
-      onClose={onClose}
-    >
-      {last?.status === "changes" && last.reply && (
-        <p className="pv-response-note">“{last.reply}”</p>
-      )}
-      <h3>Team</h3>
-      <div className="pv-chips">
-        {Object.keys(FAMILIES).map((f) => (
-          <button
-            key={f}
-            className={form.family === f ? "selected" : ""}
-            aria-pressed={form.family === f}
-            onClick={() =>
-              set({
-                family: f,
-                role: talent.roles.find((r) => FAMILIES[f].roles.includes(r)) || FAMILIES[f].roles[0],
-                rate: Math.max(defaultRate(me!, f), talent.minRate || 0),
-              })
-            }
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-      <h3>Position</h3>
-      <div className="pv-chips">
-        {FAMILIES[form.family].roles.map((r) => (
-          <button
-            key={r}
-            className={form.role === r ? "selected" : ""}
-            aria-pressed={form.role === r}
-            onClick={() => set({ role: r })}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-      <h3>Dates and hours</h3>
-      <DateTimeBar
-        value={form}
-        onChange={(w) => set({ dates: w.dates, start: w.start, end: w.end })}
-      />
-      <Field
-        label="Pay · £ per hour"
-        hint={
-          talent.minRate
-            ? `${firstName(talent)}’s minimum is £${talent.minRate}/h.`
-            : `${firstName(talent)} hasn’t set a minimum.`
-        }
-      >
-        <input
-          type="number"
-          min="0.5"
-          step="0.5"
-          value={form.rate}
-          onChange={(e) => set({ rate: Number(e.target.value) })}
-        />
-      </Field>
-      {!!talent.minRate && form.rate < talent.minRate && (
-        <p className="pv-warning">
-          That’s below {firstName(talent)}’s minimum. They may ask for changes.
-        </p>
-      )}
-      <Field label="Note">
-        <textarea rows={2} value={form.note} onChange={(e) => set({ note: e.target.value })} />
-      </Field>
-      <Button
-        disabled={!days.length}
-        onClick={() => {
-          const result = act(
-            {
-              type: "send-offer",
-              actor,
-              thread,
-              offer: {
-                family: form.family,
-                role: form.role,
-                dates: form.dates,
-                start: form.start,
-                end: form.end,
-                rate: form.rate,
-                note: form.note,
-              },
-            },
-            `Sent to ${firstName(talent)}. Accepting books them.`,
-          );
-          if (result) onClose();
-        }}
-      >
-        {revising ? "Send revised booking" : "Send booking request"}
-        {days.length > 1 ? ` · ${days.length} days` : ""}
-      </Button>
-    </Modal>
-  );
-}
-
-// The job post a conversation started from: what the person was sent.
-export function JobPostCard({ shift, mine, time }: { shift: string; mine: boolean; time: string }) {
-  const { data, side, go } = usePreview();
-  const s = data.shifts.find((x) => x.id === shift);
-  if (!s) return null;
-  const venue = member(data, s.venue);
-  const hours = hoursOf(s.days[0]);
-  return (
-    <div className={`pv-offer pv-job-card ${mine ? "from-me" : ""}`}>
-      <div className="pv-offer-head">
-        <small>
-          Job post · {side === "venue" ? "texted" : `from ${venue.name}`} {clockLabel(time)}
-        </small>
-        <Badge>{s.status === "open" ? "Open" : s.status === "filled" ? "Filled" : "Closed"}</Badge>
-      </div>
-      <h3>{shiftLabel(s)}</h3>
-      <dl>
-        <div>
-          <dt>When</dt>
-          <dd>
-            {datesLabel(s.days.map((d) => d.date))} · {s.days[0].start}–{s.days[0].end}
-          </dd>
-        </div>
-        <div>
-          <dt>Pay</dt>
-          <dd>
-            £{s.rate}/hour
-            <small>
-              About £{Math.round(s.rate * hours * s.days.length)} in all
-            </small>
-          </dd>
-        </div>
-        {s.note && (
-          <div>
-            <dt>Note</dt>
-            <dd>{s.note}</dd>
-          </div>
-        )}
-      </dl>
-      <button className="pv-text-link" onClick={() => go(`shift/${s.id}`)}>
-        View job post
-      </button>
-    </div>
   );
 }

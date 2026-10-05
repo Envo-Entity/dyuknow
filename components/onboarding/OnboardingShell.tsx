@@ -14,7 +14,7 @@ interface OnboardingShellProps {
 
 export function OnboardingShell({ step, total, onBack, complete, children }: OnboardingShellProps) {
   return (
-    <div className="animate-view-in flex min-h-screen flex-col items-center bg-paper px-6 pb-14 pt-9 lg:gap-8 lg:bg-mist lg:px-10 lg:py-16">
+    <div className="animate-view-in flex min-h-screen flex-col items-center bg-paper px-5 pb-14 pt-9 lg:gap-8 lg:bg-mist lg:px-10 lg:py-16">
       <div className="flex w-full max-w-[440px] items-center gap-3 lg:max-w-[600px]">
         <button
           type="button"

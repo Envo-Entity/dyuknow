@@ -8,7 +8,7 @@ import {
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, CloseIcon } from "@/components/icons";
 import {
   FAMILIES,
-  datesLabel,
+  datesSummary,
   relativeDay,
   serviceLabel,
   shiftLabel,
@@ -66,7 +66,7 @@ export function ProfileName({ person }: { person: Member }) {
 export function InviteToggle({ name, checked, disabled, onChange }: { name: string; checked: boolean; disabled?: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="pv-invite-toggle">
-      <input type="checkbox" aria-label={`Invite ${name}`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" aria-label={`Choose ${name}`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span><CheckIcon size={18} /></span>
     </label>
   );
@@ -224,7 +224,7 @@ export function ShiftCard({
         <p className="pv-card-role">{shiftLabel(shift)}</p>
         <p>
           {shift.days.length > 1
-            ? datesLabel(shift.days.map((d) => d.date))
+            ? (({ main, sub }) => (sub ? `${main} · ${sub}` : main))(datesSummary(shift.days.map((d) => d.date)))
             : relativeDay(first.date, data.now)}{" "}
           · {first.start}–{first.end}
         </p>

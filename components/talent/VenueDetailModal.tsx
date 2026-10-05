@@ -13,7 +13,7 @@ export function VenueDetailModal({ feedId }: { feedId: string }) {
   return (
     <>
       <div onClick={close} className="animate-fade-in fixed inset-0 z-[74] hidden bg-ink/[0.22] lg:block" />
-      <div className="animate-view-in fixed inset-0 z-[75] overflow-y-auto bg-paper px-5 pb-[150px] pt-[22px] lg:animate-panel-in lg:inset-auto lg:bottom-3.5 lg:right-3.5 lg:top-3.5 lg:w-[min(620px,46vw)] lg:rounded-[30px] lg:px-[30px] lg:pb-[30px] lg:pt-[26px] lg:shadow-[0_40px_110px_rgba(5,5,5,0.30)]">
+      <div className="animate-view-in fixed inset-0 z-[75] overflow-y-auto bg-paper px-4 pb-[150px] pt-[22px] lg:animate-panel-in lg:inset-auto lg:bottom-3.5 lg:right-3.5 lg:top-3.5 lg:w-[min(620px,46vw)] lg:rounded-[30px] lg:px-[30px] lg:pb-[30px] lg:pt-[26px] lg:shadow-[0_40px_110px_rgba(5,5,5,0.30)]">
         <div className="flex items-center gap-3">
           <button
             type="button"

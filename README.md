@@ -1,6 +1,6 @@
 # Dyuknow
 
-The main app uses the accepted MVP preview UI. Venue, talent and owner flows
+The main app uses the accepted MVP preview UI. Venue and talent flows
 are a browser-local demo. Admin onboarding is the live data collection flow.
 
 ## Run locally
@@ -29,15 +29,14 @@ the current demo. Old public onboarding URLs open the matching local demo
 setup. Legacy chats and opportunity details with different sample IDs return
 to the current messages or dashboard screens.
 
-The demo's owner workspace manages sample members only. Real profile approval
-is managed through trusted database administration. No real SMS, payments or
+Real profile approval is managed through trusted database administration; the
+demo has no owner workspace. No real SMS, payments or
 public member setup are connected to the demo.
 
 ## Documentation
 
 - [How to try the demo](docs/MVP-preview-walkthrough.md)
 - [User flows](docs/mvp-user-flow.md)
-- [Flowcharts](docs/MVP-preview-flowcharts.md)
 - [Additive onboarding decisions and database mapping](docs/data-model.md)
 
 The onboarding SQL in `supabase/migrations/` was already applied to the

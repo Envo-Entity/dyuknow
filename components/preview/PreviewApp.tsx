@@ -23,14 +23,10 @@ import {
   SKILLS,
   datePlus,
   londonDate,
-  displayDate,
   member,
   clockLabel,
   uid,
-  shiftLabel,
   unreadChat,
-  currentOffer,
-  serviceLabel,
   allSkills,
   defaultRate,
   fullAddress,
@@ -40,7 +36,6 @@ import {
   type Side,
   type ShiftDraft,
   areaOf,
-  accountOf,
 } from "@/lib/preview/model";
 import { PreviewContext, usePreview } from "./context";
 import { SHIFT_ALERTS } from "@/lib/catalogue";
@@ -50,15 +45,13 @@ import {
   Button,
   Empty,
   Field,
-  Heading,
   Modal,
   Photo,
   Segments,
-  Services,
 } from "./ui";
 import { VenueHome, TalentHome, WorkHub, VenueDetail } from "./Discovery";
 import { ShiftComposer } from "./Composer";
-import { JobPostStart, TeamList, parseWhen, savedWhen } from "./Booking";
+import { DatePicker, JobPostStart, TeamList, parseWhen, savedWhen } from "./Booking";
 import { ShiftDetail, BookingDetail } from "./ShiftDetail";
 import {
   AvailabilityEditor,
@@ -73,24 +66,6 @@ import { AccountPage } from "./Account";
 import { Chips } from "./MemberViews";
 import { TEAMS, TEAM_NAMES } from "@/lib/catalogue";
 import "./preview.css";
-function Bell() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
-      <path d="M10 21h4" />
-    </svg>
-  );
-}
 export function PreviewApp() {
   const rawData = usePreviewData();
   // The snapshot an Undo returns to; a ref keeps `act` stable.
@@ -103,15 +78,13 @@ export function PreviewApp() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [route]);
   const parts = route.split("/").filter(Boolean);
-  const side = (
-    ["venue", "talent", "owner"].includes(parts[0]) ? parts[0] : "venue"
-  ) as Side;
+  const side = (parts[0] === "talent" ? "talent" : "venue") as Side;
   const actor = parts[1] || "";
-  const data = { ...rawData, draft: rawData.drafts?.[actor] || null };
+  const data = rawData;
   const page = parts[2] || "home";
   const id = parts[3];
   const me = data.members.find((m) => m.id === actor);
-  const entry = !actor || (side !== "owner" && !me);
+  const entry = !actor || !me;
   const [accounts, setAccounts] = useState(false);
   const [controls, setControls] = useState(false);
   const [rawFeedback, setRawFeedback] = useState<{
@@ -148,7 +121,6 @@ export function PreviewApp() {
             "read-chat",
             "read-notice",
             "draft-message",
-            "save-draft",
             "save-setup",
             "settings",
           ].includes(action.type)
@@ -171,23 +143,17 @@ export function PreviewApp() {
   const [profileBack, setProfileBack] = useState("home");
   function go(path: string) {
     if (/^(talent|venue)\//.test(path) && !["talent", "venue"].includes(page))
-      setProfileBack(page === "new" ? "new/invite" : page === "compose" ? `${parts.slice(2, 5).join("/")}/invite` : parts.slice(2).join("/") || "home");
+      setProfileBack(parts.slice(2).join("/") || "home");
     navigateRoute(`/${side}/${actor}/${path === "home" ? "home" : path}`);
   }
   const unread = data.notices.filter((n) => n.to === actor && !n.read).length;
-  const myThreads = (data.threads ?? []).filter(
+  const myThreads = data.threads.filter(
     (t) => (side === "venue" ? t.venue : t.talent) === actor,
   );
-  // Booking cards waiting on this person: an answer for talent, a revision
-  // for the venue.
-  const offersWaiting = myThreads.filter((t) =>
-    side === "talent"
-      ? currentOffer(data, t.id)?.status === "sent"
-      : currentOffer(data, t.id)?.status === "changes",
-  ).length;
+  // Decisions waiting on this person: booking requests to answer for talent,
+  // people to book for the venue.
   const decisions =
-    offersWaiting +
-    (side === "talent"
+    side === "talent"
       ? data.responses.filter(
           (r) =>
             r.talent === actor &&
@@ -201,93 +167,28 @@ export function PreviewApp() {
               (s) =>
                 s.id === r.shift && s.venue === actor && s.status === "open",
             ),
-        ).length);
+        ).length;
   // Talent decide on Shifts; venues on Bookings.
   const decisionsOn = side === "talent" ? "home" : "bookings";
-  const messageUnread =
-    myThreads.some((t) => unreadChat(data, actor, t)) ||
-    data.responses.some(
-      (r) =>
-        r.chat &&
-        !r.thread &&
-        (side === "venue"
-          ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
-          : r.talent === actor) &&
-        unreadChat(data, actor, r),
-    );
-  const nav =
-    side === "owner"
-      ? [
-          { path: "home", label: "Shifts", icon: HomeIcon },
-          { path: "members", label: "Members", icon: AccountIcon },
-          { path: "owner-bookings", label: "Bookings", icon: BookingsIcon },
-          { path: "notifications", label: "Notifications", icon: Bell },
-        ]
-      : [
-          {
-            path: "home",
-            label: side === "venue" ? "Book" : "Shifts",
-            icon: HomeIcon,
-          },
-          {
-            path: "bookings",
-            label: side === "venue" ? "Bookings" : "My shifts",
-            icon: BookingsIcon,
-          },
-          { path: "messages", label: "Messages", icon: MessagesIcon },
-          { path: "profile", label: "Profile", icon: AccountIcon },
-        ];
+  const messageUnread = myThreads.some((t) => unreadChat(data, actor, t));
+  const nav = [
+    {
+      path: "home",
+      label: side === "venue" ? "Book" : "Shifts",
+      icon: HomeIcon,
+    },
+    {
+      path: "bookings",
+      label: side === "venue" ? "Bookings" : "Availability",
+      icon: BookingsIcon,
+    },
+    { path: "messages", label: "Messages", icon: MessagesIcon },
+    { path: "profile", label: "Profile", icon: AccountIcon },
+  ];
   let content;
   if (entry)
-    content = <Welcome key={`${side}/${actor}`} initialSetupSide={actor === "setup" && side !== "owner" ? side : null} />;
+    content = <Welcome key={`${side}/${actor}`} initialSetupSide={actor === "setup" ? side : null} />;
   else if (page === "guide") content = <Stories />;
-  else if (
-    !me?.approved &&
-    side !== "owner" &&
-    !["profile", "notifications", "setup"].includes(page)
-  )
-    content = (
-      <>
-        <Heading
-          title="We’ll let you know when you’re in."
-        />
-        {page === "shift" &&
-          data.shifts.find((s) => s.id === id) &&
-          (() => {
-            const shift = data.shifts.find((s) => s.id === id)!;
-            const venue = member(data, shift.venue);
-            return (
-              <section className="pv-terms">
-                <h2>
-                  {shiftLabel(shift)} · {venue.name}
-                </h2>
-                <p>
-                  {areaOf(venue)} · London · £{shift.rate}/hour · {shift.capacity}{" "}
-                  {shift.capacity === 1 ? "person" : "people"}
-                </p>
-                <Services shift={shift} />
-                <p>{shift.note}</p>
-              </section>
-            );
-          })()}
-        <div className="pv-pending">
-          <Badge>Waiting for approval</Badge>
-          <p>
-            For this preview, switch to Owner → Members → Approve {me!.name}.
-            Then switch back here to experience the approval notification.
-          </p>
-          <Button onClick={() => go("profile")}>Edit my profile</Button>
-          <Button variant="secondary" onClick={() => setAccounts(true)}>
-            Switch to owner
-          </Button>
-        </div>
-      </>
-    );
-  else if (
-    side === "owner" &&
-    ["home", "members", "owner-bookings"].includes(page)
-  )
-    content = <OwnerView view={page} />;
   else if (page === "home")
     content = side === "venue" ? <VenueHome /> : <TalentHome />;
   else if (page === "bookings") content = <WorkHub key={actor} />;
@@ -300,17 +201,16 @@ export function PreviewApp() {
       />
     );
   else if (page === "post" && side === "venue") content = <JobPostStart />;
-  else if (page === "new" && side === "venue")
+  // new/<team>[/<people>[/<position>]]: one form for a job post (no people)
+  // or a booking request (the people it goes to).
+  else if (page === "new" && side === "venue" && FAMILIES[id])
     content = (
       <ShiftComposer
-        key={id || "new"}
-        family={FAMILIES[id] ? id : undefined}
-        resumeInvite={id === "invite"}
+        key={parts.slice(3).join("/")}
+        family={id}
+        to={parts[4] ? parts[4].split(",") : []}
+        role={parts[5] ? decodeURIComponent(parts[5]) : undefined}
       />
-    );
-  else if (page === "compose" && side === "venue" && id && parts[4])
-    content = (
-      <ShiftComposer key={`${id}/${parts[4]}`} origin={`${id}/${parts[4]}`} resumeInvite={parts[5] === "invite"} />
     );
   else if (page === "shift")
     content = <ShiftDetail key={`${actor}-${id}`} id={id} />;
@@ -351,14 +251,14 @@ export function PreviewApp() {
       <div
         className={`pv-app ${page === "chat" ? "pv-chat-screen" : ""} ${
           // Task screens get the whole phone; Back returns to the tabs.
-          ["new", "compose", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
+          ["new", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
             ? "pv-focus"
             : ""
         }`}
       >
         <PreviewPill
           clock={clockLabel(data.now)}
-          texts={!entry && side !== "owner" ? unread : undefined}
+          texts={!entry ? unread : undefined}
           onTexts={() => go("notifications")}
           onGuide={entry ? undefined : () => go("guide")}
           onControls={() => setControls(true)}
@@ -371,22 +271,22 @@ export function PreviewApp() {
                 Dyuknow
               </button>
               <AccountMenu
-                name={me?.name || "Dyuknow owner"}
-                detail={me ? (me.roles.length ? me.roles.join(" · ") : areaOf(me)) : "Owner"}
-                photo={me?.photo}
-                onProfile={me ? () => go("profile") : undefined}
-                onAccount={me ? () => go("account") : undefined}
+                name={me!.name}
+                detail={me!.roles.length ? me!.roles.join(" · ") : areaOf(me!)}
+                photo={me!.photo}
+                onProfile={() => go("profile")}
+                onAccount={() => go("account")}
               />
             </header>
             <nav className="pv-nav" aria-label="Main navigation">
               {nav.map((item, i) => (
                 <Fragment key={item.path}>
-                {/* Phones: the job post is the round button in the middle of the bar. */}
-                {i === 2 && side === "venue" && me?.approved && (
+                {/* Phones: Post a job is the round button in the middle of the bar. */}
+                {i === 2 && side === "venue" && (
                   <button
                     className={`pv-nav-post ${page === "post" ? "active" : ""}`}
                     onClick={() => go("post")}
-                    aria-label="Create a job post"
+                    aria-label="Post a job"
                   >
                     <span><PlusIcon size={24} /></span>
                   </button>
@@ -411,14 +311,14 @@ export function PreviewApp() {
                 </Fragment>
               ))}
             </nav>
-            {side === "venue" && me?.approved && (
+            {side === "venue" && (
               <button
                 className={`pv-post-job ${page === "post" ? "active" : ""}`}
                 onClick={() => go("post")}
                 aria-current={page === "post" ? "page" : undefined}
               >
                 <PlusIcon size={16} />
-                <span>Create a job post</span>
+                <span>Post a job</span>
               </button>
             )}
           </>
@@ -506,7 +406,7 @@ function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "ta
               for <em>service.</em>
             </h2>
             <p>
-              Find vetted people by team and time. Book them in chat.
+              Pick a date and a team, send a booking request, or post a job.
             </p>
           </div>
           <div className="pv-entry-member">
@@ -531,7 +431,7 @@ function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "ta
               to <em>work.</em>
             </h2>
             <p>
-              Find shifts and manage your availability.
+              Set your availability, answer booking requests, say yes to open jobs.
             </p>
           </div>
           <div className="pv-entry-member">
@@ -545,7 +445,7 @@ function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "ta
             I’m talent · Enter as Poppy
           </Button>
           <button className="pv-entry-link" onClick={() => setChoose("talent")}>
-            Choose Camille for the invitation story
+            Choose Camille for the booking request story
           </button>
         </section>
       </div>
@@ -557,9 +457,6 @@ function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "ta
           </button>
           <button onClick={() => setSetup("talent")}>
             Explore new-member setup
-          </button>
-          <button onClick={() => navigateRoute("/owner/owner/home")}>
-            Owner workspace
           </button>
         </div>
       </div>
@@ -602,30 +499,11 @@ function AccountSwitcher({
         action did for the other person.
       </p>
       <Segments
-        options={["venue", "talent", "owner"]}
+        options={["venue", "talent"]}
         value={side}
         onChange={(v) => setSide(v as Side)}
       />
-      {side === "owner" ? (
-        <div className="pv-account-list">
-          <button
-            onClick={() => {
-              navigateRoute("/owner/owner/home");
-              onClose();
-            }}
-          >
-            <AccountIcon />
-            <span>
-              Dyuknow owner
-              <small>
-                Approve members · help with cover · inspect bookings
-              </small>
-            </span>
-            <ArrowRightIcon />
-          </button>
-        </div>
-      ) : (
-        <div className="pv-account-list">
+      <div className="pv-account-list">
           {data.members
             .filter((m) => m.side === side)
             .map((m) => (
@@ -639,10 +517,7 @@ function AccountSwitcher({
                 <Photo src={m.photo} />
                 <span>
                   {m.name}
-                  <small>
-                    {m.roles.length ? m.roles.join(" · ") : areaOf(m)}
-                    {!m.approved && " · Waiting for approval"}
-                  </small>
+                  <small>{m.roles.length ? m.roles.join(" · ") : areaOf(m)}</small>
                 </span>
                 {actor === m.id ? (
                   <Badge good>Current</Badge>
@@ -651,8 +526,7 @@ function AccountSwitcher({
                 )}
               </button>
             ))}
-        </div>
-      )}
+      </div>
       <button
         className="pv-text-link"
         onClick={() => {
@@ -693,7 +567,7 @@ function PhoneLogin({
         <>
           <Photo src={claim.photo} className="pv-claim-photo" />
           <p>
-            The owner preloaded this profile. Review it instead of starting
+            Dyuknow preloaded this profile. Review it instead of starting
             again.
           </p>
           <Button
@@ -1071,28 +945,15 @@ function Setup({
               </label>
               {availability && (
                 <>
-                  <div className="pv-chips">
-                    {Array.from({ length: 7 }, (_, i) =>
-                      datePlus(londonDate(data.now), i),
-                    ).map((date) => (
-                      <button
-                        key={date}
-                        aria-pressed={availabilityDates.includes(date)}
-                        className={
-                          availabilityDates.includes(date) ? "selected" : ""
-                        }
-                        onClick={() => {
-                          const dates = availabilityDates.includes(date)
-                            ? availabilityDates.filter((d) => d !== date)
-                            : [...availabilityDates, date];
-                          rawSetDates(dates);
-                          saveDraft(form, step, availability, dates);
-                        }}
-                      >
-                        {displayDate(date)}
-                      </button>
-                    ))}
-                  </div>
+                  <DatePicker
+                    value={availabilityDates}
+                    windows={1}
+                    last={datePlus(londonDate(data.now), 6)}
+                    onChange={(dates) => {
+                      rawSetDates(dates);
+                      saveDraft(form, step, availability, dates);
+                    }}
+                  />
                   <Segments
                     options={["day", "evening"]}
                     value={availabilityPeriod}
@@ -1144,7 +1005,6 @@ function Setup({
           </p>
           <p>{form.bio}</p>
           <p>{side === "venue" ? fullAddress(form) : allSkills(form).join(" · ")}</p>
-          <p>Dyuknow approves every member before they can post or respond.</p>
           <Button
             onClick={() => {
               const result = act(
@@ -1164,7 +1024,7 @@ function Setup({
                           : ["CDP"],
                   },
                 },
-                "Profile created. Waiting for owner approval.",
+                "Profile created.",
               );
               if (result) {
                 navigateRoute(`/${side}/${form.id}/home`);
@@ -1188,130 +1048,6 @@ function Setup({
     </Modal>
   );
 }
-function OwnerView({ view }: { view: string }) {
-  const { data, act, go } = usePreview();
-  return (
-    <>
-      <Heading
-        title={
-          view === "members"
-            ? "The people behind service."
-            : view === "owner-bookings"
-              ? "Every agreed service."
-              : "Keep an eye on the room."
-        }
-        description="Owner preview. Approvals, cover needing help, cancellation history and private outcomes."
-      />
-      {view === "members" ? (
-        <div className="pv-owner-list">
-          {data.members.map((m) => (
-            <div key={m.id} className="pv-candidate">
-              <Photo src={m.photo} alt={m.name} />
-              <div>
-                <h2>{m.name}</h2>
-                <p>
-                  {[m.side, areaOf(m), ...m.roles].filter(Boolean).join(" · ")}
-                </p>
-                <p>{m.bio}</p>
-                <small>
-                  {m.phone} · {m.email}
-                  {m.venue ? ` · ${m.venue.vacancies} vacancies in a typical week` : ""}
-                </small>
-                {Object.entries(accountOf(m).docs)
-                  .filter(([, d]) => d.status === "review")
-                  .map(([doc, d]) => (
-                    <div key={doc} className="pv-owner-doc">
-                      <span>
-                        {doc} · {d.file}
-                      </span>
-                      <Button
-                        variant="secondary"
-                        onClick={() =>
-                          act(
-                            { type: "verify-doc", actor: "owner", member: m.id, doc },
-                            `${doc} verified for ${m.name}.`,
-                          )
-                        }
-                      >
-                        Verify
-                      </Button>
-                    </div>
-                  ))}
-                {accountOf(m).deletion && <Badge attention>Asked to delete account</Badge>}
-              </div>
-              {m.approved ? (
-                <Badge good>Approved</Badge>
-              ) : (
-                <Button
-                  onClick={() =>
-                    act(
-                      { type: "approve", actor: "owner", member: m.id },
-                      `${m.name} approved. Their notification is ready.`,
-                    )
-                  }
-                >
-                  Approve
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : view === "owner-bookings" ? (
-        <div className="pv-owner-list">
-          {data.bookings.map((b) => {
-            const s = data.shifts.find((s) => s.id === b.shift)!;
-            return (
-              <button
-                className="pv-owner-row"
-                key={b.id}
-                onClick={() => go(`booking/${b.id}`)}
-              >
-                <span>
-                  <strong>
-                    {member(data, s.venue).name} × {member(data, b.talent).name}
-                  </strong>
-                  <small>
-                    {serviceLabel(s.days[0])} ·{" "}
-                    {Object.values(b.outcomes).join(" · ") ||
-                      "Outcome not reported"}
-                  </small>
-                </span>
-                <Badge good={!b.cancelled}>
-                  {b.cancelled
-                    ? "Cancelled"
-                    : s.days.at(-1)!.to <= data.now
-                      ? "Past"
-                      : "Booked"}
-                </Badge>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="pv-owner-list">
-          {data.shifts.map((s) => (
-            <button
-              key={s.id}
-              className="pv-owner-row"
-              onClick={() => go(`shift/${s.id}`)}
-            >
-              <span>
-                <strong>
-                  {member(data, s.venue).name} · {shiftLabel(s)}
-                </strong>
-                <small>
-                  {serviceLabel(s.days[0])}
-                  {s.ownerAlerted && " · Owner help requested"}
-                </small>
-              </span>
-              <Badge>{s.status}</Badge>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
 function PreviewControls({
   page,
   id,
@@ -1331,14 +1067,18 @@ function PreviewControls({
       : b
         ? data.shifts.find((s) => s.id === b.shift)
         : undefined;
+  // Another person says yes and the venue books them: the real two steps.
   function fillOther() {
     if (!shift || shift.status !== "open") return;
     const other = data.members.find(
       (m) =>
         m.side === "talent" &&
-        m.approved &&
         m.id !== actor &&
-        m.roles.some((r) => shift.roles.includes(r)) &&
+        (shift.mode === "post"
+          ? m.roles.some((r) => shift.roles.includes(r))
+          : data.responses.some(
+              (r) => r.shift === shift.id && r.talent === m.id && r.status === "invited",
+            )) &&
         !data.bookings.some(
           (b) => b.shift === shift.id && b.talent === m.id && !b.cancelled,
         ) &&
@@ -1346,49 +1086,26 @@ function PreviewControls({
           (r) =>
             r.shift === shift.id &&
             r.talent === m.id &&
-            ["lapsed", "not-selected", "declined"].includes(r.status),
+            ["lapsed", "not-selected", "declined", "withdrawn"].includes(r.status),
         ),
     );
     if (!other)
       return toast(
-        "No other available sample member for this role. Try a posted CDP shift with Poppy and Theo.",
+        shift.mode === "post"
+          ? "No other sample member in this position. Try a CDP job with Poppy and Theo."
+          : "Send this request to another person first.",
       );
     const r = data.responses.find(
       (r) => r.shift === shift.id && r.talent === other.id,
     );
-    if (shift.mode === "invite") {
-      if (!r || r.status !== "invited")
-        return toast(
-          "Invite another matching member first. This control accepts their real invitation.",
-        );
-      act(
-        { type: "accept", actor: other.id, shift: shift.id },
-        `${other.name} accepted the invitation.`,
-      );
-    } else {
-      let next = data;
-      if (r?.status !== "can-cover") {
-        const result = act({
-          type: "respond",
-          actor: other.id,
-          shift: shift.id,
-          note: "I can cover this service.",
-        });
-        if (!result) return;
-        next = result;
-      }
-      if (next)
-        act(
-          {
-            type: "book",
-            actor: shift.venue,
-            shift: shift.id,
-            talent: other.id,
-          },
-          `${other.name} was booked. Other waiting people see the true current state.`,
-        );
-    }
+    if (r?.status !== "can-cover" && !act({ type: "respond", actor: other.id, shift: shift.id }))
+      return;
+    act(
+      { type: "book", actor: shift.venue, shift: shift.id, talent: other.id },
+      `${other.name} said yes and was booked. Everyone else waiting sees the real state.`,
+    );
   }
+  // Another venue books this talent for the same hours.
   function overlapping() {
     if (!shift || side !== "talent") return;
     const me = member(data, actor);
@@ -1408,14 +1125,15 @@ function PreviewControls({
       capacity: 1,
       rate: defaultRate(venue, family),
       note: "Overlapping sample service for the conflict story.",
-      mode: "invite",
-      invitees: [actor],
+      to: [actor],
     };
     const next = act({ type: "post", actor: venue.id, draft: d });
-    if (next)
+    if (!next) return;
+    const id = next.shifts[0].id;
+    if (act({ type: "respond", actor, shift: id }))
       act(
-        { type: "accept", actor, shift: next.shifts[0].id },
-        "Another venue booked you. Overlapping responses have lapsed.",
+        { type: "book", actor: venue.id, shift: id, talent: actor },
+        `${venue.name} booked you for the same hours. Clashing answers have lapsed.`,
       );
   }
   return (
@@ -1466,7 +1184,7 @@ function PreviewControls({
                   type: "advance",
                   until: new Date(Date.parse(data.now) + 1800000).toISOString(),
                 },
-                "Time advanced. Same-day fallback checked.",
+                "Time advanced.",
               )
             }
           >
@@ -1497,7 +1215,7 @@ function PreviewControls({
               <div>
                 <span>
                   <strong>Another person acts first</strong>
-                  <small>Use another real sample response or invitation.</small>
+                  <small>Another person says yes and the venue books them.</small>
                 </span>
                 <Button variant="secondary" onClick={fillOther}>
                   Fill this shift with another person
@@ -1522,7 +1240,7 @@ function PreviewControls({
                 <span>
                   <strong>After service</strong>
                   <small>
-                    Move this booking to Past, with no assumed outcome.
+                    Move past the last day so the venue can confirm hours.
                   </small>
                 </span>
                 <Button
@@ -1530,7 +1248,7 @@ function PreviewControls({
                   onClick={() =>
                     act(
                       { type: "advance", until: shift.days.at(-1)!.to },
-                      "Service ended. Both sides can report the outcome privately.",
+                      "Service ended. The venue can now confirm the hours.",
                     )
                   }
                 >
@@ -1567,7 +1285,7 @@ function PreviewControls({
           <span>
             <strong>Start fresh</strong>
             <small>
-              Restore seeded invitations and clear preview activity.
+              Restore the sample world and clear preview activity.
             </small>
           </span>
           <Button variant="quiet" onClick={() => setReset(true)}>

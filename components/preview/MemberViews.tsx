@@ -18,9 +18,8 @@ import {
   contactLine,
   defaultNote,
   fullAddress,
-  makeDays,
+  hoursOf,
   workedWith,
-  type ShiftDraft,
   member,
   shiftLabel,
   unreadChat,
@@ -29,76 +28,47 @@ import {
   londonDate,
   serviceLabel,
   bookingServices,
+  bookableDates,
   datesLabel,
   firstName,
   offeredDates,
-  currentOffer,
+  responseLabel,
   verifiedDocs,
+  type Data,
   type Member,
+  type Message,
+  type Shift,
   areaOf,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
-import { JobPostCard, OfferCard, OfferForm, TimeSelect, WindowNav, useMessage, useWindow } from "./Booking";
+import { DatePicker, TimeSelect, familyOf, useMessage } from "./Booking";
+// The latest shift card in a conversation: what the pair is talking about.
+function latestShift(data: Data, thread: string) {
+  const id = data.messages.findLast((m) => m.thread === thread && m.shift)?.shift;
+  return data.shifts.find((s) => s.id === id);
+}
 export function Messages() {
   const { data, actor, side, go } = usePreview();
   // Most recent conversation first; messages are stored in the order sent.
   const lastIndex = (id: string) =>
-    data.messages.findLastIndex((m) => m.response === id);
-  const rows = [
-    // Shift conversations, unless they belong to a direct conversation.
-    ...data.responses
-      .filter(
-        (r) =>
-          r.chat &&
-          !r.thread &&
-          (side === "venue"
-            ? data.shifts.find((s) => s.id === r.shift)!.venue === actor
-            : r.talent === actor),
-      )
-      .map((r) => {
-        const s = data.shifts.find((s) => s.id === r.shift)!;
-        return {
-          id: r.id,
-          other: member(data, side === "venue" ? r.talent : s.venue),
-          about: `${shiftLabel(s)} · ${displayDate(s.days[0].date)}`,
-          status:
-            r.status === "booked"
-              ? "Booked"
-              : r.status === "invited"
-                ? "Invite waiting"
-                : r.status === "can-cover"
-                  ? "Can cover"
-                  : r.status.replaceAll("-", " "),
-          good: r.status === "booked",
-          attention: side === "talent" ? r.status === "invited" : r.status === "can-cover",
-        };
-      }),
-    ...(data.threads ?? [])
-      .filter((t) => (side === "venue" ? t.venue : t.talent) === actor)
-      .map((t) => {
-        const o = currentOffer(data, t.id);
-        return {
-          id: t.id,
-          other: member(data, side === "venue" ? t.talent : t.venue),
-          about: o
-            ? `${o.role} · ${datesLabel(o.dates)}`
-            : "Direct message",
-          status: o
-            ? {
-                sent: side === "talent" ? "Booking to answer" : "Booking sent",
-                accepted: "Booked",
-                declined: "Declined",
-                changes: "Changes asked",
-                replaced: "Revised",
-              }[o.status]
-            : "",
-          good: o?.status === "accepted",
-          attention: side === "talent" ? o?.status === "sent" : o?.status === "changes",
-        };
-      }),
-  ].sort((a, b) => lastIndex(b.id) - lastIndex(a.id));
+    data.messages.findLastIndex((m) => m.thread === id);
+  const rows = data.threads
+    .filter((t) => (side === "venue" ? t.venue : t.talent) === actor)
+    .map((t) => {
+      const s = latestShift(data, t.id);
+      const r = s && data.responses.find((r) => r.shift === s.id && r.talent === t.talent);
+      return {
+        id: t.id,
+        other: member(data, side === "venue" ? t.talent : t.venue),
+        about: s ? `${shiftLabel(s)} · ${datesLabel(s.days.map((d) => d.date))}` : "Message",
+        status: r ? responseLabel(r) : "",
+        good: r?.status === "booked",
+        attention: side === "talent" ? r?.status === "invited" : r?.status === "can-cover",
+      };
+    })
+    .sort((a, b) => lastIndex(b.id) - lastIndex(a.id));
   return (
     <>
       <Heading
@@ -107,7 +77,7 @@ export function Messages() {
       {rows.length ? (
         <div className="pv-thread-list">
           {rows.map((row) => {
-            const last = data.messages.filter((m) => m.response === row.id).at(-1);
+            const last = data.messages.filter((m) => m.thread === row.id).at(-1);
             return (
               <div
                 key={row.id}
@@ -140,143 +110,129 @@ export function Messages() {
           title="No conversations yet"
         >
           <Button onClick={() => go("home")}>
-            {side === "venue" ? "Find people" : "Explore shifts"}
+            {side === "venue" ? "Find people" : "See open jobs"}
           </Button>
         </Empty>
       )}
     </>
   );
 }
+// The one conversation between a venue and a talent member.
 export function Thread({ id }: { id: string }) {
   const { data, actor, side, go } = usePreview();
-  const [booking, setBooking] = useState(false);
-  const r = data.responses.find((r) => r.id === id);
-  // A booking made from a direct conversation keeps talking there.
-  const direct = (data.threads ?? []).find((t) => t.id === (r?.thread || id));
-  if (direct) return <DirectThread id={direct.id} />;
-  const s = data.shifts.find((s) => s.id === r?.shift);
-  if (!r || !s || !r.chat || ![s.venue, r.talent].includes(actor))
-    return <PrivateThread />;
-  const other = member(data, side === "venue" ? r.talent : s.venue);
-  return (
-    <>
-      <Conversation
-        id={id}
-        other={other}
-        pinned={
-          <div className="pv-chat-pinned">
-            <span>
-              <strong>
-                {side === "talent"
-                  ? s.roles.find((role) => member(data, actor).roles.includes(role)) ||
-                    shiftLabel(s)
-                  : shiftLabel(s)}
-              </strong>
-              <small>
-                {datesLabel(offeredDates(s, r))} · {s.days[0].start}–
-                {s.days[0].end} · £{s.rate}/h
-              </small>
-            </span>
-            {side === "venue" && r.status === "can-cover" && s.status === "open" ? (
-              <Button onClick={() => setBooking(true)}>
-                Book {firstName(other)}
-              </Button>
-            ) : side === "talent" && r.status === "invited" && s.status === "open" ? (
-              <Button onClick={() => go(`shift/${s.id}`)}>Accept or decline</Button>
-            ) : r.status === "booked" ? (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  go(
-                    `booking/${data.bookings.find((b) => b.shift === s.id && b.talent === r.talent && !b.cancelled)?.id}`,
-                  )
-                }
-              >
-                Booked · details
-              </Button>
-            ) : (
-              <button className="pv-text-link" onClick={() => go(`shift/${s.id}`)}>
-                {side === "talent" && r.status === "can-cover"
-                  ? "Waiting · view shift"
-                  : "View shift"}
-              </button>
-            )}
-          </div>
-        }
-      />
-      {booking && (
-        <BookConfirm
-          shift={s}
-          talent={r.talent}
-          onClose={() => setBooking(false)}
-        />
-      )}
-    </>
-  );
-}
-function PrivateThread() {
-  const { go } = usePreview();
-  return (
-    <Empty
-      title="This conversation is private"
-      text="Open an available thread from your inbox."
-    ><Button onClick={() => go("messages")}>Back to messages</Button></Empty>
-  );
-}
-// A conversation with no shift behind it. The venue books with a card.
-function DirectThread({ id }: { id: string }) {
-  const { data, actor, side } = usePreview();
-  const [offering, setOffering] = useState(false);
-  const t = (data.threads ?? []).find((t) => t.id === id)!;
-  if (![t.venue, t.talent].includes(actor)) return <PrivateThread />;
+  const t = data.threads.find((t) => t.id === id);
+  if (!t || ![t.venue, t.talent].includes(actor))
+    return (
+      <Empty
+        title="This conversation is private"
+        text="Open an available thread from your inbox."
+      >
+        <Button onClick={() => go("messages")}>Back to messages</Button>
+      </Empty>
+    );
   const other = member(data, side === "venue" ? t.talent : t.venue);
-  const offer = currentOffer(data, id);
   return (
-    <>
-      <Conversation
-        id={id}
-        other={other}
-        pinned={
-          <div className="pv-chat-pinned">
-            <span>
-              <strong>
-                {offer
-                  ? `${offer.role} · ${
-                      offer.status === "accepted"
-                        ? "Booked"
-                        : offer.status === "sent"
-                          ? "Waiting for an answer"
-                          : offer.status === "changes"
-                            ? "Changes asked"
-                            : "Declined"
-                    }`
-                  : side === "venue"
-                    ? `${firstName(other)} · ${other.minRate ? `from £${other.minRate}/h` : "minimum pay not set"}`
-                    : `${other.name} · ${areaOf(other)}`}
-              </strong>
-              <small>
-                {offer
-                  ? `${datesLabel(offer.dates)} · ${offer.start}–${offer.end} · £${offer.rate}/h`
-                  : ""}
-              </small>
-            </span>
-            {side === "venue" && (
-              <Button
-                variant={offer?.status === "sent" ? "secondary" : "primary"}
-                onClick={() => setOffering(true)}
-              >
-                {offer?.status === "changes"
-                  ? "Send revised booking"
-                  : offer?.status === "sent"
-                    ? "Revise booking"
-                    : "Send booking request"}
-              </Button>
-            )}
+    <Conversation
+      id={id}
+      other={other}
+      pinned={
+        <div className="pv-chat-pinned">
+          <span>
+            <strong>
+              {side === "venue"
+                ? `${firstName(other)} · ${other.minRate ? `from £${other.minRate}/h` : "minimum pay not set"}`
+                : `${other.name} · ${areaOf(other)}`}
+            </strong>
+            <small>{other.roles.length ? other.roles.join(" · ") : other.bio}</small>
+          </span>
+          {side === "venue" && (
+            <Button onClick={() => go(`new/${familyOf(other)}/${other.id}`)}>
+              Send booking request
+            </Button>
+          )}
+        </div>
+      }
+    />
+  );
+}
+// A booking request, job post or yes, shown as a card in the conversation.
+// The talent answers on the shift; the venue books from the card.
+function ShiftMessage({ m, talent }: { m: Message; talent: string }) {
+  const { data, actor, side, go } = usePreview();
+  const [booking, setBooking] = useState(false);
+  const s = data.shifts.find((x) => x.id === m.shift) as Shift | undefined;
+  if (!s) return null;
+  const venue = member(data, s.venue);
+  const person = member(data, talent);
+  const r = data.responses.find((r) => r.shift === s.id && r.talent === talent);
+  const b = data.bookings.find((b) => b.shift === s.id && b.talent === talent && !b.cancelled);
+  const fromTalent = m.from === talent;
+  const dates = fromTalent && r ? offeredDates(s, r) : s.days.map((d) => d.date);
+  const hours = hoursOf(s.days[0]);
+  const open = s.status === "open";
+  const status = !r
+    ? open ? "Open" : s.status === "filled" ? "Filled" : "Closed"
+    : r.status === "invited"
+      ? side === "talent" ? "Waiting for you" : `Waiting for ${firstName(person)}`
+      : r.status === "can-cover"
+        ? side === "venue" ? `${firstName(person)} can do it` : `Waiting for ${venue.name}`
+        : responseLabel(r);
+  const canBook = side === "venue" && r?.status === "can-cover" && open && bookableDates(data, s, r).length > 0;
+  return (
+    <div className={`pv-offer ${m.from === actor ? "from-me" : ""} is-${r?.status || s.status}`}>
+      <div className="pv-offer-head">
+        <small>
+          {fromTalent
+            ? `${firstName(person)} said yes`
+            : s.mode === "request"
+              ? `Booking request · ${venue.name}`
+              : `Job post · ${venue.name}`}{" "}
+          · {clockLabel(m.time)}
+        </small>
+        <Badge good={r?.status === "booked"} attention={(side === "talent" && r?.status === "invited") || canBook}>
+          {status}
+        </Badge>
+      </div>
+      <h3>{shiftLabel(s)}</h3>
+      <dl>
+        <div>
+          <dt>When</dt>
+          <dd>
+            {datesLabel(dates)} · {s.days[0].start}–{s.days[0].end}
+            {dates.length > 1 && <small>{dates.length} days · same hours</small>}
+          </dd>
+        </div>
+        <div>
+          <dt>Pay</dt>
+          <dd>
+            £{s.rate}/hour
+            <small>
+              About £{Math.round(s.rate * hours * dates.length)} in all · {hours * dates.length} hours
+            </small>
+          </dd>
+        </div>
+        {s.note && !fromTalent && (
+          <div>
+            <dt>Note</dt>
+            <dd>{s.note}</dd>
           </div>
-        }
-      />
-      {offering && <OfferForm thread={id} onClose={() => setOffering(false)} />}
-    </>
+        )}
+      </dl>
+      {canBook ? (
+        <Button onClick={() => setBooking(true)}>Book {firstName(person)}</Button>
+      ) : b ? (
+        <button className="pv-text-link" onClick={() => go(`booking/${b.id}`)}>
+          View booking
+        </button>
+      ) : side === "talent" && r?.status === "invited" && open ? (
+        <Button onClick={() => go(`shift/${s.id}`)}>Answer</Button>
+      ) : (
+        <button className="pv-text-link" onClick={() => go(`shift/${s.id}`)}>
+          {s.mode === "request" ? "View request" : "View job post"}
+        </button>
+      )}
+      {booking && <BookConfirm shift={s} talent={talent} onClose={() => setBooking(false)} />}
+    </div>
   );
 }
 function Conversation({
@@ -292,7 +248,8 @@ function Conversation({
   const conversation = useRef<HTMLDivElement>(null);
   const messageList = useRef<HTMLDivElement>(null);
   const messageInput = useRef<HTMLTextAreaElement>(null);
-  const messages = data.messages.filter((m) => m.response === id);
+  const messages = data.messages.filter((m) => m.thread === id);
+  const talent = data.threads.find((t) => t.id === id)?.talent || "";
   const last = messages.at(-1)?.id;
   const text = data.messageDrafts[`${actor}/${id}`] || "";
   useEffect(() => {
@@ -322,7 +279,7 @@ function Conversation({
     };
   }, []);
   useEffect(() => {
-    act({ type: "read-chat", actor, response: id });
+    act({ type: "read-chat", actor, thread: id });
   }, [actor, id, last, act]); // Read only this thread, not the whole inbox.
   return (
     <div className="pv-conversation" ref={conversation}>
@@ -339,12 +296,8 @@ function Conversation({
           <div className="pv-chat-messages" ref={messageList} aria-live="polite" role="log" aria-label="Conversation messages">
             {messages.length ? (
               messages.map((m) => {
-                const offer = m.offer && (data.offers ?? []).find((o) => o.id === m.offer);
-                if (m.shift)
-                  return <JobPostCard key={m.id} shift={m.shift} mine={m.from === actor} time={m.time} />;
-                return offer ? (
-                  <OfferCard key={m.id} offer={offer} mine={m.from === actor} />
-                ) : m.system ? (
+                if (m.shift) return <ShiftMessage key={m.id} m={m} talent={talent} />;
+                return m.system ? (
                   <div className="pv-system-message" key={m.id}>
                     {m.text}
                   </div>
@@ -369,7 +322,7 @@ function Conversation({
             className="pv-chat-composer"
             onSubmit={(e) => {
               e.preventDefault();
-              act({ type: "message", actor, response: id, text });
+              act({ type: "message", actor, thread: id, text });
             }}
           >
             <label className="pv-sr-only" htmlFor="chat-message">
@@ -385,7 +338,7 @@ function Conversation({
                 act({
                   type: "draft-message",
                   actor,
-                  response: id,
+                  thread: id,
                   text: e.target.value,
                 })
               }
@@ -452,15 +405,17 @@ export function Notifications() {
 export function AvailabilityEditor({ back }: { back?: string }) {
   const { data, actor, act, go } = usePreview();
   const today = londonDate(data.now);
-  const w = useWindow(today);
-  const dates = w.dates;
   const [selected, setSelected] = useState<string[]>([today]);
   const [kind, setKind] = useState("Hours");
   const [start, setStart] = useState("16:00");
   const [end, setEnd] = useState("23:59");
-  function select(d: string) {
-    setSelected([d]);
-    const a = data.availability.find((a) => a.member === actor && a.date === d);
+  const mark = (d: string) =>
+    data.availability.find((a) => a.member === actor && a.date === d);
+  // Choosing a first day shows what it's already set to.
+  function choose(dates: string[]) {
+    const added = dates.find((d) => !selected.includes(d));
+    setSelected(dates);
+    const a = added && !selected.length ? mark(added) : undefined;
     if (a) {
       setKind(
         a.kind === "not-free"
@@ -482,6 +437,8 @@ export function AvailabilityEditor({ back }: { back?: string }) {
           booking: b.id,
         })),
     );
+  const bookedOn = (d: string) =>
+    booked.find((b) => b.date === d || (b.end < b.start && datePlus(b.date, 1) === d));
   return (
     <>
       <Heading
@@ -490,38 +447,23 @@ export function AvailabilityEditor({ back }: { back?: string }) {
       />
       <div className="pv-availability-layout">
         <div>
-          <WindowNav {...w} />
-          <div className="pv-date-grid">
-            {dates.map((d) => {
-              const a = data.availability.find(
-                (a) => a.member === actor && a.date === d,
-              );
-              const b = booked.find(
-                (b) =>
-                  b.date === d ||
-                  (b.end < b.start && datePlus(b.date, 1) === d),
-              );
-              return (
-                <button
-                  key={d}
-                  className={`${selected.includes(d) ? "selected" : ""} ${a?.kind === "free" ? "free" : a?.kind === "not-free" ? "not-free" : ""}`}
-                  onClick={() => select(d)}
-                >
-                  <span>{displayDate(d).slice(0, 3)}</span>
-                  <strong>{Number(d.slice(-2))}</strong>
-                  <small>
-                    {b
-                      ? `Booked · ${member(data, b.venue).name}`
-                      : a?.kind === "not-free"
-                        ? "Not free"
-                        : a
-                          ? `${a.start}–${a.end}`
-                          : "Not set"}
-                  </small>
-                </button>
-              );
-            })}
-          </div>
+          <DatePicker
+            value={selected}
+            onChange={choose}
+            size="large"
+            note={(d) => {
+              const a = mark(d);
+              const b = bookedOn(d);
+              return b
+                ? `Booked · ${member(data, b.venue).name}`
+                : a?.kind === "not-free"
+                  ? "Not free"
+                  : a
+                    ? `${a.start}–${a.end}`
+                    : "Not set";
+            }}
+            tone={(d) => mark(d)?.kind}
+          />
           <h2 className="pv-section-title">Your confirmed time</h2>
           {booked.filter((b) => b.to > data.now).length ? (
             booked
@@ -545,10 +487,13 @@ export function AvailabilityEditor({ back }: { back?: string }) {
         </div>
         <div className="pv-availability-form">
           <h2>
-            {selected.length === 1
-              ? displayDate(selected[0])
-              : `${selected.length} selected dates`}
+            {!selected.length
+              ? "Choose days"
+              : selected.length === 1
+                ? displayDate(selected[0])
+                : `${selected.length} days`}
           </h2>
+          {selected.length > 1 && <p className="pv-muted">{datesLabel(selected)}</p>}
           <div className="pv-chips">
             {["All day", "Hours", "Not free"].map((k) => (
               <button
@@ -576,56 +521,24 @@ export function AvailabilityEditor({ back }: { back?: string }) {
               <TimeSelect label="To" value={end} onChange={setEnd} />
             </div>
           )}
-          <h3>Copy to other dates</h3>
-          <div className="pv-copy-dates">
-            {dates.map((d) => (
-              <label className="pv-check" key={d}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(d)}
-                  onChange={(e) =>
-                    setSelected(
-                      e.target.checked
-                        ? [...selected, d]
-                        : selected.filter((x) => x !== d),
-                    )
-                  }
-                />
-                {displayDate(d)}
-              </label>
-            ))}
-          </div>
           <Button
             disabled={!selected.length}
-            onClick={() => {
-              if (kind === "All day") {
-                // Represent a full day as an explicit midnight-to-midnight overnight interval.
-                act(
-                  {
-                    type: "availability",
-                    actor,
-                    dates: selected,
-                    kind: "free",
-                    start: "00:00",
-                    end: "00:00",
-                  },
-                  "Availability saved.",
-                );
-              } else
-                act(
-                  {
-                    type: "availability",
-                    actor,
-                    dates: selected,
-                    kind: kind === "Not free" ? "not-free" : "free",
-                    start,
-                    end,
-                  },
-                  "Availability saved.",
-                );
-            }}
+            onClick={() =>
+              act(
+                {
+                  type: "availability",
+                  actor,
+                  dates: selected,
+                  kind: kind === "Not free" ? "not-free" : "free",
+                  // A full day is an explicit midnight-to-midnight interval.
+                  start: kind === "All day" ? "00:00" : start,
+                  end: kind === "All day" ? "00:00" : end,
+                },
+                "Availability saved.",
+              )
+            }
           >
-            Save availability
+            Save {selected.length > 1 ? `${selected.length} days` : "availability"}
           </Button>
         </div>
       </div>
@@ -633,21 +546,13 @@ export function AvailabilityEditor({ back }: { back?: string }) {
   );
 }
 export function TalentProfile({ id }: { id: string }) {
-  const { data, actor, side, go, act, profileBack } = usePreview();
+  const { data, actor, side, go, profileBack } = usePreview();
   const message = useMessage();
   const t = member(data, id);
   if (!t || t.side !== "talent")
     return (
       <Empty title="Member not found" text="Return to your selected roles." />
     );
-  const days = (() => {
-    if (!data.draft) return [];
-    try {
-      return makeDays(data.draft as ShiftDraft);
-    } catch {
-      return [];
-    }
-  })();
   return (
     <>
       <Heading
@@ -674,36 +579,11 @@ export function TalentProfile({ id }: { id: string }) {
               <dd>{t.minRate ? `£${t.minRate} per hour` : "Not set"}</dd>
             </div>
           </dl>
-          {side === "venue" && actor !== id && !(data.draft && /^(new|compose)\//.test(profileBack)) && (
+          {side === "venue" && (
             <div className="pv-actions">
-              <Button onClick={() => message(id)}>Message {firstName(t)}</Button>
+              <Button onClick={() => go(`new/${familyOf(t)}/${t.id}`)}>Send booking request</Button>
+              <Button variant="secondary" onClick={() => message(id)}>Message {firstName(t)}</Button>
             </div>
-          )}
-          {data.draft && /^(new|compose)\//.test(profileBack) && (
-            <>
-              <p>Inviting for {data.draft.roles?.join(" or ")}.</p>
-              {days.map((d) => (
-                <p key={d.date}>{serviceLabel(d)}</p>
-              ))}
-              <Button
-                onClick={() => {
-                  act({
-                    type: "save-draft",
-                    actor,
-                    draft: {
-                      ...data.draft,
-                      mode: "invite",
-                      invitees: [
-                        ...new Set([...(data.draft!.invitees || []), id]),
-                      ],
-                    },
-                  });
-                  go(profileBack);
-                }}
-              >
-                Choose {t.name.split(" ")[0]} to invite
-              </Button>
-            </>
           )}
         </div>
       </div>

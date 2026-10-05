@@ -1,7 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { seed, transition, type Action, type Data } from "./model";
-export const PREVIEW_KEY = "dyuknow_mvp_preview_v7";
+export const PREVIEW_KEY = "dyuknow_mvp_preview_v8";
 const initial = seed();
 let current = initial;
 let loaded = false;
@@ -14,7 +14,7 @@ function load() {
   loaded = true;
   try {
     const value = JSON.parse(localStorage.getItem(PREVIEW_KEY) || "null");
-    if (value?.version === 2) current = value;
+    if (value?.version === 3) current = value;
   } catch {
     /* A fresh preview recovers an unreadable saved state. */
   }
@@ -69,7 +69,6 @@ export function dispatch(action: Action): Data {
         "settings",
         "read-chat",
         "read-notice",
-        "save-draft",
         "draft-message",
         "advance",
       ].includes(action.type)

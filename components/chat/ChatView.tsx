@@ -50,7 +50,7 @@ export function ChatView({ side, chatId }: { side: Side; chatId: string }) {
   }, [messages.length]);
 
   return (
-    <div className="animate-view-in min-h-screen px-5 pb-[170px] pt-4 lg:px-[60px] lg:pb-[90px] lg:pl-[158px] lg:pt-14">
+    <div className="animate-view-in min-h-screen px-4 pb-[170px] pt-4 lg:px-[60px] lg:pb-[90px] lg:pl-[158px] lg:pt-14">
       <div className="lg:grid lg:h-[calc(100vh-150px)] lg:grid-cols-[minmax(0,1fr)_540px] lg:items-stretch lg:gap-10">
         <ChatContextPanel
           mono={isVenue ? chatMono : feedForChat(chatId).mono}
