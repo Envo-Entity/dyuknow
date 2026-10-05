@@ -545,30 +545,58 @@ export function TeamList({ family, initial }: { family: string; initial: When })
   );
 }
 
-// The detached sidebar action: choose a team, then the job post form.
+// The team bento: Book and Create a job post both start by choosing a team.
+// The teams this venue usually needs come first.
+export function TeamMosaic({
+  caption,
+  onPick,
+}: {
+  caption: (team: Member[]) => string;
+  onPick: (team: string) => void;
+}) {
+  const { data, me } = usePreview();
+  return (
+    <div className="pv-role-mosaic">
+      {Object.entries(FAMILIES)
+        .sort(
+          ([a], [b]) =>
+            Number(me?.venue?.teamsNeeded.includes(b)) -
+            Number(me?.venue?.teamsNeeded.includes(a)),
+        )
+        .map(([name, family], i) => {
+          const team = data.members.filter(
+            (m) =>
+              m.side === "talent" &&
+              m.approved &&
+              m.roles.some((r) => family.roles.includes(r)),
+          );
+          return (
+            <button key={name} className={`pv-role pv-role-${i}`} onClick={() => onPick(name)}>
+              <Photo src={family.photo} />
+              <div>
+                <h2>{name}</h2>
+                <span className="pv-role-count">
+                  {caption(team)} <ArrowRightIcon size={18} />
+                </span>
+              </div>
+            </button>
+          );
+        })}
+    </div>
+  );
+}
+// The job post action: choose a team, then the job post form.
 export function JobPostStart() {
-  const { me, go } = usePreview();
+  const { go } = usePreview();
   return (
     <>
       <Heading title="Create a job post" back="home" />
-      <div className="pv-team-tiles">
-        {Object.entries(FAMILIES)
-          .sort(
-            ([a], [b]) =>
-              Number(me?.venue?.teamsNeeded.includes(b)) -
-              Number(me?.venue?.teamsNeeded.includes(a)),
-          )
-          .map(([name, f]) => (
-            <button key={name} className="pv-team-tile" onClick={() => go(`new/${name}`)}>
-              <Photo src={f.photo} />
-              <span>
-                <strong>{name}</strong>
-                <small>{f.roles.slice(0, 4).join(" · ")}{f.roles.length > 4 ? " …" : ""}</small>
-              </span>
-              <ArrowRightIcon />
-            </button>
-          ))}
-      </div>
+      <TeamMosaic
+        caption={(team) =>
+          team.length ? `Texts ${team.length} ${team.length === 1 ? "person" : "people"}` : "We’ll help you find someone"
+        }
+        onPick={(name) => go(`new/${name}`)}
+      />
     </>
   );
 }

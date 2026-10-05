@@ -147,6 +147,18 @@ export const STORIES = [
     ],
   },
   {
+    title: "Account: verification, texts and payments",
+    who: "Noor → Owner → Noor",
+    start: "/talent/noor/account",
+    steps: [
+      "As Noor, tap your photo (top right) → Account. Allergen awareness is Needed. Upload any photo or PDF: it becomes Being checked.",
+      "Preview pill → Switch account → Owner → Members. Noor’s document has Verify. Verify it.",
+      "Back as Noor: My profile now shows the tick, and venues see it on Noor’s profile. Use “See it as a venue does” to check.",
+      "Account → Texts: switch Messages off and messages still arrive in the inbox, without a text. Quiet hours hold texts overnight.",
+      "Account → Payments holds bank details and earnings; venues see billing details and invoices. Help reaches Dyuknow; Delete account is a request you can withdraw.",
+    ],
+  },
+  {
     title: "Joining, claiming, approval and profile defaults",
     who: "New member → Owner",
     start: "/",

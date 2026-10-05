@@ -46,7 +46,41 @@ export type Member = {
   // Talent only: the lowest hourly pay they'll take, shown to venues.
   minRate?: number;
   venue?: VenueDetails;
+  account?: Account;
 };
+export type DocStatus = "verified" | "review" | "missing";
+// Settings a signed-in member manages for themselves. Never shown publicly,
+// except which documents Dyuknow has verified.
+export type Account = {
+  texts: { messages: boolean; reminders: boolean; replies: boolean };
+  quiet: { on: boolean; start: string; end: string };
+  docs: Record<string, { status: DocStatus; file?: string; updated?: string }>;
+  payout?: { holder: string; sortCode: string; last4: string };
+  billing?: { company: string; email: string; vat: string };
+  // When the member asked Dyuknow to delete their account.
+  deletion?: string;
+};
+// What Dyuknow checks before someone can be booked or book.
+export function requiredDocs(m: Pick<Member, "side" | "roles">) {
+  if (m.side === "venue") return ["Business registration", "Premises licence"];
+  const kitchen = m.roles.some((r) => [...TEAMS.Kitchen, ...TEAMS.Pastry].includes(r as never));
+  return ["Right to work", "Photo ID", kitchen ? "Food hygiene certificate" : "Allergen awareness"];
+}
+export function accountOf(m: Member): Account {
+  const docs = Object.fromEntries(
+    requiredDocs(m).map((d) => [d, m.account?.docs[d] ?? { status: "missing" as const }]),
+  );
+  return {
+    texts: { messages: true, reminders: true, replies: true },
+    quiet: { on: false, start: "23:00", end: "08:00" },
+    ...m.account,
+    docs,
+  };
+}
+export function verifiedDocs(m: Member) {
+  const docs = accountOf(m).docs;
+  return Object.keys(docs).filter((d) => docs[d].status === "verified");
+}
 export type Service = {
   date: string;
   start: string;
@@ -833,6 +867,7 @@ export function sweep(data: Data) {
       !data.reminders.includes(booking.id)
     ) {
       data.reminders.push(booking.id);
+      if (accountOf(member(data, booking.talent)).texts.reminders)
       notify(
         data,
         booking.talent,
@@ -1031,6 +1066,22 @@ export function seed(): Data {
       skills: ["Wine Service", "Guest Relations", "Fine Dining"],
     }),
   ];
+  // Sample documents: most checked, a few waiting, so both states show.
+  for (const m of members) {
+    const docs = Object.fromEntries(
+      requiredDocs(m).map((d) => [d, { status: "verified" as DocStatus, updated: "2026-09-20T09:00:00.000Z" }]),
+    );
+    if (m.id === "theo") docs["Food hygiene certificate"] = { status: "review", file: "food-hygiene-level-2.pdf", updated: "2026-09-30T09:00:00.000Z" } as never;
+    if (m.id === "noor") docs["Allergen awareness"] = { status: "missing" } as never;
+    m.account = {
+      texts: { messages: true, reminders: true, replies: true },
+      quiet: { on: false, start: "23:00", end: "08:00" },
+      docs,
+      ...(m.side === "talent"
+        ? { payout: { holder: m.name, sortCode: "12-34-56", last4: String(4821 + members.indexOf(m)) } }
+        : { billing: { company: `${m.name} Ltd`, email: m.email, vat: "" } }),
+    };
+  }
   const data: Data = {
     version: 2,
     now: "2026-10-01T09:00:00.000Z",
@@ -1276,6 +1327,11 @@ export type Action =
       end: string;
     }
   | { type: "profile"; actor: string; patch: Partial<Member> }
+  | { type: "account"; actor: string; patch: Partial<Account> }
+  | { type: "upload-doc"; actor: string; doc: string; file: string }
+  | { type: "verify-doc"; actor: string; member: string; doc: string }
+  | { type: "help"; actor: string; text: string }
+  | { type: "delete-account"; actor: string; cancel?: boolean }
   | { type: "read-notice"; actor: string; id?: string }
   | { type: "read-chat"; actor: string; response: string }
   | { type: "draft-message"; actor: string; response: string; text: string }
@@ -1431,6 +1487,51 @@ export function transition(original: Data, action: Action): Data {
         (n) => n.to === action.actor && (!action.id || action.id === n.id),
       )
       .forEach((n) => (n.read = true));
+  if (action.type === "account") {
+    const m = member(data, action.actor);
+    const a = accountOf(m);
+    m.account = {
+      ...a,
+      ...action.patch,
+      texts: { ...a.texts, ...action.patch.texts },
+      quiet: { ...a.quiet, ...action.patch.quiet },
+      docs: a.docs,
+    };
+    if (action.patch.payout && !/^\d{2}-\d{2}-\d{2}$/.test(action.patch.payout.sortCode))
+      throw new Error("Enter the sort code as 12-34-56.");
+  }
+  if (action.type === "upload-doc") {
+    const m = member(data, action.actor);
+    const a = accountOf(m);
+    if (!(action.doc in a.docs)) throw new Error("Choose one of the listed documents.");
+    a.docs[action.doc] = { status: "review", file: action.file, updated: data.now };
+    m.account = a;
+    notify(data, "owner", "Document to check", `${m.name} · ${action.doc}`, "members");
+  }
+  if (action.type === "verify-doc") {
+    if (action.actor !== "owner") throw new Error("Only Dyuknow verifies documents.");
+    const m = member(data, action.member);
+    const a = accountOf(m);
+    a.docs[action.doc] = { ...a.docs[action.doc], status: "verified", updated: data.now };
+    m.account = a;
+    notify(data, m.id, `${action.doc} verified`, "It now shows on your profile.", "account");
+  }
+  if (action.type === "help") {
+    if (!action.text.trim()) throw new Error("Tell us what happened.");
+    notify(data, "owner", "Help request", `${member(data, action.actor).name}: ${action.text.trim()}`, "members");
+  }
+  if (action.type === "delete-account") {
+    const m = member(data, action.actor);
+    const a = accountOf(m);
+    m.account = { ...a, deletion: action.cancel ? undefined : data.now };
+    notify(
+      data,
+      "owner",
+      action.cancel ? "Deletion request withdrawn" : "Account deletion requested",
+      m.name,
+      "members",
+    );
+  }
   if (action.type === "profile") {
     const m = member(data, action.actor);
     const { name, bio, roles, skills, customSkills, alert, phone, email, postcode, minRate, venue } =
@@ -2168,9 +2269,11 @@ export function transition(original: Data, action: Action): Data {
       system: false,
     });
     data.messageDrafts[`${action.actor}/${thread.id}`] = "";
+    const to = action.actor === thread.talent ? thread.venue : thread.talent;
+    if (accountOf(member(data, to)).texts.messages)
     notify(
       data,
-      action.actor === thread.talent ? thread.venue : thread.talent,
+      to,
       `Message from ${member(data, action.actor).name}`,
       action.text.trim(),
       `chat/${thread.id}`,
@@ -2196,9 +2299,11 @@ export function transition(original: Data, action: Action): Data {
         system: false,
       });
       data.messageDrafts[`${action.actor}/${r.id}`] = "";
+      const to = action.actor === r.talent ? s.venue : r.talent;
+      if (accountOf(member(data, to)).texts.messages)
       notify(
         data,
-        action.actor === r.talent ? s.venue : r.talent,
+        to,
         `Message from ${member(data, action.actor).name}`,
         action.text.trim(),
         `chat/${r.id}`,

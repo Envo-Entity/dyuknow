@@ -40,6 +40,7 @@ import {
   type Side,
   type ShiftDraft,
   areaOf,
+  accountOf,
 } from "@/lib/preview/model";
 import { PreviewContext, usePreview } from "./context";
 import { SHIFT_ALERTS } from "@/lib/catalogue";
@@ -68,6 +69,7 @@ import {
   Thread,
 } from "./MemberViews";
 import { Stories } from "./Stories";
+import { AccountPage } from "./Account";
 import { Chips } from "./MemberViews";
 import { TEAMS, TEAM_NAMES } from "@/lib/catalogue";
 import "./preview.css";
@@ -320,6 +322,7 @@ export function PreviewApp() {
   else if (page === "availability" && side === "talent")
     content = <AvailabilityEditor back="home" />;
   else if (page === "profile" && me) content = <Profile key={actor} />;
+  else if (page === "account" && me) content = <AccountPage />;
   else if (page === "talent") content = <TalentProfile id={id} />;
   else if (page === "venue") content = <VenueDetail id={id} />;
   else
@@ -353,39 +356,27 @@ export function PreviewApp() {
             : ""
         }`}
       >
-        <div className="pv-preview-strip">
-          <span>
-            <span className="pv-dot" /> MVP preview · sample world ·{" "}
-            {clockLabel(data.now)} London
-          </span>
-          <span className="pv-strip-links">
-            {!entry && side !== "owner" && (
-              <button onClick={() => go("notifications")}>
-                Texts{unread ? ` (${unread})` : ""}
-              </button>
-            )}
-            {!entry && <button onClick={() => go("guide")}>Walkthrough</button>}
-            <button onClick={() => setControls(true)}>Preview controls</button>
-          </span>
-        </div>
+        <PreviewPill
+          clock={clockLabel(data.now)}
+          texts={!entry && side !== "owner" ? unread : undefined}
+          onTexts={() => go("notifications")}
+          onGuide={entry ? undefined : () => go("guide")}
+          onControls={() => setControls(true)}
+          onAccounts={entry ? undefined : () => setAccounts(true)}
+        />
         {!entry && (
           <>
             <header className="pv-header">
               <button className="pv-wordmark" onClick={() => go("home")}>
                 Dyuknow
               </button>
-              <div className="pv-header-actions">
-                <button
-                  className="pv-account-button"
-                  onClick={() => setAccounts(true)}
-                >
-                  {me ? <Photo src={me.photo} /> : <AccountIcon />}
-                  <span>
-                    {me?.name || "Owner"}
-                    <small>Switch account</small>
-                  </span>
-                </button>
-              </div>
+              <AccountMenu
+                name={me?.name || "Dyuknow owner"}
+                detail={me ? (me.roles.length ? me.roles.join(" · ") : areaOf(me)) : "Owner"}
+                photo={me?.photo}
+                onProfile={me ? () => go("profile") : undefined}
+                onAccount={me ? () => go("account") : undefined}
+              />
             </header>
             <nav className="pv-nav" aria-label="Main navigation">
               {nav.map((item, i) => (
@@ -402,7 +393,7 @@ export function PreviewApp() {
                 )}
                 <button
                   onClick={() => go(item.path)}
-                  className={page === item.path ? "active" : ""}
+                  className={`${page === item.path ? "active" : ""} ${item.path === "profile" ? "pv-nav-profile" : ""}`}
                   aria-current={page === item.path ? "page" : undefined}
                 >
                   <item.icon />
@@ -1226,6 +1217,27 @@ function OwnerView({ view }: { view: string }) {
                   {m.phone} · {m.email}
                   {m.venue ? ` · ${m.venue.vacancies} vacancies in a typical week` : ""}
                 </small>
+                {Object.entries(accountOf(m).docs)
+                  .filter(([, d]) => d.status === "review")
+                  .map(([doc, d]) => (
+                    <div key={doc} className="pv-owner-doc">
+                      <span>
+                        {doc} · {d.file}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        onClick={() =>
+                          act(
+                            { type: "verify-doc", actor: "owner", member: m.id, doc },
+                            `${doc} verified for ${m.name}.`,
+                          )
+                        }
+                      >
+                        Verify
+                      </Button>
+                    </div>
+                  ))}
+                {accountOf(m).deletion && <Badge attention>Asked to delete account</Badge>}
               </div>
               {m.approved ? (
                 <Badge good>Approved</Badge>
@@ -1584,5 +1596,169 @@ function PreviewControls({
         </div>
       )}
     </Modal>
+  );
+}
+
+// The demo's own tools, kept out of the product's way: one small pill that
+// opens Texts, the walkthrough, preview controls and account switching.
+function PreviewPill({
+  clock,
+  texts,
+  onTexts,
+  onGuide,
+  onControls,
+  onAccounts,
+}: {
+  clock: string;
+  texts?: number;
+  onTexts: () => void;
+  onGuide?: () => void;
+  onControls: () => void;
+  onAccounts?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+  const pick = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <div className={`pv-preview-pill ${open ? "is-open" : ""}`} ref={ref}>
+      <button aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="pv-dot" />
+        Preview<span className="pv-pill-clock"> · {clock}</span>
+        {!!texts && <span className="pv-pill-count">{texts}</span>}
+      </button>
+      {open && (
+        <div className="pv-pill-menu" role="menu">
+          {texts !== undefined && (
+            <button role="menuitem" onClick={pick(onTexts)}>
+              Texts{texts ? ` (${texts})` : ""}
+            </button>
+          )}
+          {onGuide && (
+            <button role="menuitem" onClick={pick(onGuide)}>
+              Walkthrough
+            </button>
+          )}
+          <button role="menuitem" onClick={pick(onControls)}>
+            Preview controls
+          </button>
+          {onAccounts && (
+            <button role="menuitem" onClick={pick(onAccounts)}>
+              Switch account
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The signed-in person, top right on wide screens: their profile and log out.
+// Phones reach the same from the Profile tab.
+function AccountMenu({
+  name,
+  detail,
+  photo,
+  onProfile,
+  onAccount,
+}: {
+  name: string;
+  detail: string;
+  photo?: string;
+  onProfile?: () => void;
+  onAccount?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+  return (
+    <div className="pv-account" ref={ref}>
+      <button
+        className="pv-account-button"
+        aria-label={`${name}: account`}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {photo ? <Photo src={photo} alt={name} /> : <AccountIcon />}
+      </button>
+      {open && (
+        <div className="pv-account-menu" role="menu">
+          <div className="pv-account-who">
+            <strong>{name}</strong>
+            <small>{detail}</small>
+          </div>
+          {onProfile && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onProfile();
+              }}
+            >
+              <AccountIcon size={18} /> My profile
+            </button>
+          )}
+          {onAccount && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onAccount();
+              }}
+            >
+              <SettingsIcon /> Account
+            </button>
+          )}
+          <button role="menuitem" onClick={() => navigateRoute("/")}>
+            <LogOutIcon /> Log out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function SettingsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="10" cy="17" r="2" />
+    </svg>
+  );
+}
+export function LogOutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14" />
+      <path d="M10 8l-4 4 4 4" />
+      <path d="M6 12h10" />
+    </svg>
   );
 }

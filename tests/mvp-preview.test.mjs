@@ -629,3 +629,27 @@ test("messaging someone a job post was sent to shows the post once and pre-fills
   d = transition(d, { type: "open-thread", actor: "spruce", with: "theo", shift: "harper-weekend" });
   assert.ok(!d.messages.some((m) => m.shift === "harper-weekend"));
 });
+test("account: documents go to the owner to verify; texts can be switched off; deletion is a request", async () => {
+  const { accountOf, verifiedDocs, threadBetween } = await import("../lib/preview/model.ts");
+  let d = seed();
+  const noor = d.members.find((m) => m.id === "noor");
+  assert.equal(accountOf(noor).docs["Allergen awareness"].status, "missing");
+  d = transition(d, { type: "upload-doc", actor: "noor", doc: "Allergen awareness", file: "allergen.pdf" });
+  assert.ok(d.notices.some((n) => n.to === "owner" && n.title === "Document to check"));
+  assert.throws(() => transition(d, { type: "verify-doc", actor: "noor", member: "noor", doc: "Allergen awareness" }), /Only Dyuknow/);
+  d = transition(d, { type: "verify-doc", actor: "owner", member: "noor", doc: "Allergen awareness" });
+  assert.ok(verifiedDocs(d.members.find((m) => m.id === "noor")).includes("Allergen awareness"));
+  // Messages off: no text, but the message is still there.
+  d = transition(d, { type: "account", actor: "theo", patch: { texts: { messages: false, reminders: true, replies: true } } });
+  d = transition(d, { type: "open-thread", actor: "spruce", with: "theo" });
+  const t = threadBetween(d, "spruce", "theo");
+  const before = d.notices.length;
+  d = transition(d, { type: "message", actor: "spruce", response: t.id, text: "Free Friday?" });
+  assert.equal(d.notices.length, before);
+  assert.ok(d.messages.some((m) => m.response === t.id && m.text === "Free Friday?"));
+  assert.throws(() => transition(d, { type: "account", actor: "theo", patch: { payout: { holder: "Theo", sortCode: "123456", last4: "1234" } } }), /sort code/);
+  d = transition(d, { type: "delete-account", actor: "theo" });
+  assert.ok(accountOf(d.members.find((m) => m.id === "theo")).deletion);
+  d = transition(d, { type: "delete-account", actor: "theo", cancel: true });
+  assert.equal(accountOf(d.members.find((m) => m.id === "theo")).deletion, undefined);
+});

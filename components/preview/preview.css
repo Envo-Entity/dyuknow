@@ -1987,13 +1987,7 @@
     scroll-behavior: auto !important;
   }
 }
-/* Keep the other side, notifications and walkthrough reachable during a long story. */
-.pv-header {
-  position: sticky;
-  top: 34px;
-  z-index: 25;
-  background: #fff;
-}
+
 
 /* Keep the full fortnight visible at every viewport. */
 .pv-availability-summary {
@@ -3025,7 +3019,7 @@ dl.pv-arrival > div {
 .pv-thread-action { flex: none; min-height: 44px; }
 
 @media (max-width: 760px) {
-  .pv-chat-screen > :is(.pv-preview-strip, .pv-header, .pv-nav) { display: none; }
+  .pv-chat-screen > :is(.pv-preview-pill, .pv-header, .pv-nav) { display: none; }
   .pv-chat-screen .pv-main { padding: 0; margin: 0; }
   .pv-chat-screen .pv-conversation {
     position: fixed;
@@ -3240,43 +3234,6 @@ dl.pv-arrival > div {
   display: block;
   color: #c9cec6;
   font-size: 13px;
-}
-.pv-team-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
-}
-.pv-team-tile {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 18px 10px 10px;
-  border-radius: 22px;
-  background: #f5f6f2;
-  text-align: left;
-}
-.pv-team-tile:hover {
-  background: var(--pv-sage-soft);
-}
-.pv-team-tile > .pv-photo {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  border-radius: 16px;
-  filter: grayscale(1);
-}
-.pv-team-tile > span {
-  flex: 1;
-  min-width: 0;
-}
-.pv-team-tile strong {
-  display: block;
-  font-size: 17px;
-}
-.pv-team-tile small {
-  display: block;
-  color: #5d625c;
-  font-size: 12px;
 }
 /* The job post action: detached under the sidebar on wide screens, the round
    button in the middle of the tab bar on phones. */
@@ -4198,5 +4155,440 @@ dl.pv-arrival > div {
   .pv-talent-grid.is-medium {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+  }
+}
+
+/* Chrome that floats instead of stacking: the wordmark and account sit in
+   the top corners, the demo tools in one small pill. Content starts at the
+   top of the page. */
+.pv-header {
+  position: fixed;
+  z-index: 25;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 28px;
+  pointer-events: none;
+  background: none;
+}
+.pv-header > * {
+  pointer-events: auto;
+}
+.pv-header .pv-wordmark {
+  font-size: 26px;
+}
+.pv-account-button {
+  border-radius: 50%;
+  box-shadow: 0 4px 16px #14201014;
+}
+.pv-account-button .pv-photo,
+.pv-account-button > svg {
+  width: 40px;
+  height: 40px;
+}
+.pv-main {
+  padding-top: 72px;
+}
+.pv-preview-pill {
+  position: fixed;
+  z-index: 40;
+  right: 24px;
+  bottom: 24px;
+}
+.pv-preview-pill > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #3c4a37;
+  box-shadow: 0 6px 24px #14201018, inset 0 0 0 1px #e3e6de;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pv-preview-pill.is-open > button {
+  background: var(--pv-ink);
+  color: #fff;
+  box-shadow: none;
+}
+.pv-pill-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+}
+.pv-pill-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 14px 44px #1420102a, inset 0 0 0 1px #e3e6de;
+  animation: pv-rise-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pv-pill-menu button {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-align: left;
+}
+.pv-pill-menu button:hover {
+  background: #f5f6f2;
+}
+.pv-entry-main {
+  padding-top: 24px;
+}
+@media (max-width: 760px) {
+  /* Phones keep a header row, now without the demo bar above it. */
+  .pv-header {
+    position: sticky;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    pointer-events: auto;
+  }
+  .pv-header .pv-wordmark {
+    font-size: 28px;
+  }
+  .pv-account-button .pv-photo,
+  .pv-account-button > svg {
+    width: 34px;
+    height: 34px;
+  }
+  .pv-main {
+    padding-top: 16px;
+  }
+  .pv-preview-pill {
+    top: 16px;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .pv-preview-pill > button {
+    padding: 6px 11px;
+    font-size: 11px;
+  }
+  .pv-pill-clock {
+    display: none;
+  }
+  .pv-pill-menu {
+    top: calc(100% + 8px);
+    bottom: auto;
+    right: 50%;
+    transform: translateX(50%);
+  }
+}
+
+/* Account: top right on wide screens, the Profile tab on phones. */
+.pv-account {
+  position: relative;
+}
+.pv-account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 230px;
+  padding: 6px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 44px #1420102a, inset 0 0 0 1px #e3e6de;
+  animation: pv-rise-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pv-account-who {
+  padding: 10px 12px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #eceee8;
+}
+.pv-account-who strong {
+  display: block;
+  font-size: 14px;
+}
+.pv-account-who small {
+  display: block;
+  color: #5d625c;
+  font-size: 12px;
+}
+.pv-account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-align: left;
+}
+.pv-account-menu button:hover {
+  background: #f5f6f2;
+}
+@media (min-width: 761px) {
+  .pv-nav > .pv-nav-profile {
+    display: none;
+  }
+  /* Three tabs: the job post button sits closer. */
+  .pv-post-job {
+    top: min(calc(34% + 264px), calc(100vh - 96px));
+  }
+}
+
+
+/* My profile: what Dyuknow has verified. */
+.pv-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pv-verified svg {
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--pv-ink);
+  color: var(--pv-sage);
+}
+/* Account */
+.pv-account-index {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: -12px 0 20px;
+  padding: 5px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 6px 24px #14201014, inset 0 0 0 1px #e3e6de;
+}
+.pv-account-index a {
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pv-account-index a:hover {
+  background: #f5f6f2;
+}
+.pv-account-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+}
+.pv-account-card {
+  scroll-margin-top: 80px;
+  padding: 22px 24px;
+  border-radius: 24px;
+  background: #f5f6f2;
+}
+.pv-account-card > h2 {
+  margin-bottom: 6px;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.pv-account-card > h3 {
+  margin: 22px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pv-doc-list,
+.pv-toggle-list,
+.pv-pay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+.pv-doc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  border-radius: 16px;
+  background: #fff;
+}
+.pv-doc > span,
+.pv-toggle > span,
+.pv-pay-list > div > span,
+.pv-pay-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.pv-doc strong,
+.pv-toggle strong,
+.pv-pay-row strong,
+.pv-pay-list strong {
+  display: block;
+  font-size: 14px;
+}
+.pv-doc small,
+.pv-toggle small,
+.pv-pay-row small,
+.pv-pay-list small {
+  display: block;
+  color: #5d625c;
+  font-size: 12px;
+}
+.pv-doc .pv-button {
+  min-height: 38px;
+  padding: 8px 16px;
+}
+.pv-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+}
+.pv-toggle select {
+  max-width: 50%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f5f6f2;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+}
+.pv-toggle input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: #d9ddd4;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.pv-toggle input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #14201033;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pv-toggle input[type="checkbox"]:checked {
+  background: var(--pv-ink);
+}
+.pv-toggle input[type="checkbox"]:checked::after {
+  transform: translateX(18px);
+}
+.pv-toggle input[type="checkbox"]:disabled {
+  opacity: 0.45;
+}
+.pv-toggle-list .pv-time-pair {
+  padding: 4px 0 0 16px;
+}
+.pv-toggle-list .pv-time-field {
+  background: #fff;
+  box-shadow: none;
+}
+.pv-pay-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 12px 12px 16px;
+  border-radius: 16px;
+  background: #fff;
+}
+.pv-pay-form {
+  margin-top: 14px;
+}
+.pv-pay-list > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fff;
+}
+.pv-help-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0 16px;
+}
+.pv-help-links a {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-help-links small {
+  display: block;
+  color: #c9d3c4;
+  font-size: 12px;
+}
+.pv-help-links strong {
+  font-size: 15px;
+}
+.pv-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e6de;
+}
+.pv-account-card .pv-field input,
+.pv-account-card .pv-field textarea {
+  background: #fff;
+}
+.pv-owner-doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .pv-account-index {
+    top: 70px;
+  }
+  .pv-account-card {
+    padding: 18px 16px;
+  }
+  .pv-help-links {
+    grid-template-columns: 1fr;
+  }
+  .pv-doc {
+    flex-wrap: wrap;
+  }
+  .pv-doc .pv-button {
+    width: 100%;
   }
 }

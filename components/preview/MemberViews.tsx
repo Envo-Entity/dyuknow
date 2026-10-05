@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon, SendIcon } from "@/components/icons";
+import { ArrowLeftIcon, CheckIcon, SendIcon } from "@/components/icons";
 import {
   TEAMS,
   TEAM_NAMES,
@@ -10,7 +10,6 @@ import {
   COVERS_BANDS,
   DRESS_CODES,
   VENUE_KNOWN_FOR,
-  SHIFT_ALERTS,
 } from "@/lib/catalogue";
 import { addCustomSkill } from "@/lib/onboardingModel";
 import {
@@ -34,6 +33,7 @@ import {
   firstName,
   offeredDates,
   currentOffer,
+  verifiedDocs,
   type Member,
   areaOf,
 } from "@/lib/preview/model";
@@ -659,6 +659,7 @@ export function TalentProfile({ id }: { id: string }) {
         <Photo src={t.photo} alt={t.name} />
         <div>
           {workedWith(data, actor, t.id) && <Badge good>Worked with you</Badge>}
+          <Verified m={t} />
           {t.bio && <p>{t.bio}</p>}
           {allSkills(t).length > 0 && (
             <div className="pv-chips">
@@ -797,7 +798,7 @@ function VenueFacts({ v }: { v: Member }) {
 }
 export { VenueFacts };
 export function Profile() {
-  const { actor, me, side, act, toast } = usePreview();
+  const { actor, me, side, act, toast, go } = usePreview();
   const [form, setForm] = useState<Member>(() => structuredClone(me!));
   const [custom, setCustom] = useState("");
   const [edit, setEdit] = useState(false);
@@ -853,6 +854,7 @@ export function Profile() {
         <div>
           {!edit ? (
             <>
+              <Verified m={me!} />
               {me!.bio ? <p>{me!.bio}</p> : <p className="pv-muted">No bio yet.</p>}
               {side === "talent" ? (
                 allSkills(me!).length > 0 && (
@@ -866,14 +868,6 @@ export function Profile() {
                 <VenueFacts v={me!} />
               )}
               <dl className="pv-profile-info">
-                <div>
-                  <dt>Phone</dt>
-                  <dd>{me!.phone}</dd>
-                </div>
-                <div>
-                  <dt>Email</dt>
-                  <dd>{me!.email}</dd>
-                </div>
                 {side === "talent" ? (
                   <>
                     <div>
@@ -883,16 +877,6 @@ export function Profile() {
                     <div>
                       <dt>Minimum pay</dt>
                       <dd>{me!.minRate ? `£${me!.minRate} per hour` : "Not set"}</dd>
-                    </div>
-                    <div>
-                      <dt>Shift alerts</dt>
-                      <dd>
-                        {me!.alert === "all"
-                          ? "All shifts in your positions"
-                          : me!.alert === "soon"
-                            ? "Today and tomorrow only"
-                            : "Off"}
-                      </dd>
                     </div>
                   </>
                 ) : (
@@ -926,14 +910,19 @@ export function Profile() {
                   )
                 )}
               </dl>
-              <Button
-                onClick={() => {
-                  setForm(structuredClone(me!));
-                  setEdit(true);
-                }}
-              >
-                Edit profile
-              </Button>
+              <div className="pv-actions">
+                <Button
+                  onClick={() => {
+                    setForm(structuredClone(me!));
+                    setEdit(true);
+                  }}
+                >
+                  Edit profile
+                </Button>
+                <Button variant="secondary" onClick={() => go(`${side}/${actor}`)}>
+                  See it as {side === "talent" ? "a venue" : "talent"} does
+                </Button>
+              </div>
             </>
           ) : (
             <>
@@ -952,12 +941,6 @@ export function Profile() {
                   }
                   onChange={(e) => setForm({ ...form, bio: e.target.value })}
                 />
-              </Field>
-              <Field label="Phone">
-                <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              </Field>
-              <Field label="Email">
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </Field>
               {side === "venue" && v && (
                 <Field label="Street address">
@@ -1026,14 +1009,6 @@ export function Profile() {
                         setForm({ ...form, minRate: e.target.value ? Number(e.target.value) : undefined })
                       }
                     />
-                  </Field>
-                  <Field label="Shift alerts">
-                    <select
-                      value={form.alert}
-                      onChange={(e) => setForm({ ...form, alert: e.target.value as Member["alert"] })}
-                    >
-                      {SHIFT_ALERTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
                   </Field>
                 </>
               ) : (
@@ -1112,5 +1087,17 @@ export function Profile() {
         </div>
       </div>
     </>
+  );
+}
+
+// Which documents Dyuknow has checked: ticks on a public profile.
+export function Verified({ m }: { m: Member }) {
+  const docs = verifiedDocs(m);
+  if (!docs.length) return null;
+  return (
+    <p className="pv-verified">
+      <CheckIcon size={12} />
+      Verified by Dyuknow · {docs.join(" · ")}
+    </p>
   );
 }

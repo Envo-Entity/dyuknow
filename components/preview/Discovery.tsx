@@ -27,8 +27,8 @@ import {
   contactLine,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
-import { AvailabilityEditor, VenueFacts } from "./MemberViews";
-import { Chevron, DateTimeBar, savedWhen, useMessage, whenDays, whenPath } from "./Booking";
+import { AvailabilityEditor, VenueFacts, Verified } from "./MemberViews";
+import { Chevron, DateTimeBar, TeamMosaic, savedWhen, useMessage, whenDays, whenPath } from "./Booking";
 import {
   Badge,
   Button,
@@ -132,7 +132,7 @@ function DraftCard() {
   );
 }
 export function VenueHome() {
-  const { data, actor, me, go } = usePreview();
+  const { data, actor, go } = usePreview();
   const [when, setWhen] = useState(() => savedWhen(data.now));
   const days = whenDays(when);
   const open = data.shifts
@@ -152,55 +152,28 @@ export function VenueHome() {
         }
       />
       <DateTimeBar collapsible value={when} onChange={setWhen} />
-      <div className="pv-role-mosaic">
-        {Object.entries(FAMILIES)
-          // The teams this venue said it usually needs come first.
-          .sort(
-            ([a], [b]) =>
-              Number(me?.venue?.teamsNeeded.includes(b)) -
-              Number(me?.venue?.teamsNeeded.includes(a)),
-          )
-          .map(([name, family], i) => {
-          const team = data.members.filter(
-            (m) =>
-              m.side === "talent" &&
-              m.approved &&
-              m.roles.some((r) => family.roles.includes(r)),
-          );
+      <TeamMosaic
+        caption={(team) => {
           const free = team.filter((m) => standing(data, m.id, days) === "free").length;
-          return (
-            <button
-              key={name}
-              className={`pv-role pv-role-${i}`}
-              onClick={() => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
-            >
-              <Photo src={family.photo} />
-              <div>
-                <h2>{name}</h2>
-                <span className="pv-role-count">
-                  {free} free then{" "}
-                  <ArrowRightIcon size={18} />
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+          return `${free} free then`;
+        }}
+        onPick={(name) => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
+      />
       {data.draft && <DraftCard />}
-      {open.length > 0 && (
-        <Section title="Your open shifts">
-          <div className="pv-rows">
-            {open.map((s) => (
-              <VenueShiftRow key={s.id} s={s} />
-            ))}
-          </div>
-        </Section>
-      )}
       {coming.length > 0 && (
         <Section title="Coming up">
           <div className="pv-rows">
             {coming.map((b) => (
               <BookingRow key={b.id} b={b} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {open.length > 0 && (
+        <Section title="Your open shifts">
+          <div className="pv-rows">
+            {open.map((s) => (
+              <VenueShiftRow key={s.id} s={s} />
             ))}
           </div>
         </Section>
@@ -463,6 +436,7 @@ export function VenueDetail({ id }: { id: string }) {
       <div className="pv-profile-hero">
         <Photo src={v.photo} alt={v.name} />
         <div>
+          <Verified m={v} />
           {v.bio && <p>{v.bio}</p>}
           <VenueFacts v={v} />
           {side === "talent" && (
