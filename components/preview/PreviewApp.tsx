@@ -14,6 +14,7 @@ import {
   usePreviewRoute,
   dispatch,
   navigateRoute,
+  navigateBack,
   resetPreview,
   restorePreview,
 } from "@/lib/preview/store";
@@ -337,6 +338,7 @@ export function PreviewApp() {
         side,
         me,
         go,
+        back: (fallback: string) => navigateBack(`/${side}/${actor}/${fallback}`),
         act,
         toast,
         error: feedback?.error ? feedback.text : "",

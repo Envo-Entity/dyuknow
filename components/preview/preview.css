@@ -4156,3 +4156,47 @@ dl.pv-arrival > div {
 .pv-form-card .pv-day-list small {
   color: #3c4a37;
 }
+
+/* Medium profile card: same card, smaller. */
+.pv-talent-grid.is-medium {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.pv-talent-card.is-medium {
+  border-radius: 20px;
+}
+.pv-talent-card.is-medium .pv-talent-card-photo {
+  aspect-ratio: 1;
+}
+.pv-talent-card.is-medium .pv-talent-card-name {
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+}
+.pv-talent-card.is-medium .pv-talent-card-name strong {
+  font-size: 22px;
+}
+.pv-talent-card.is-medium .pv-talent-card-name small {
+  font-size: 11px;
+}
+.pv-talent-card.is-medium .pv-talent-status {
+  top: 8px;
+  left: 8px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+.pv-talent-card.is-medium .pv-talent-card-body {
+  padding: 10px;
+}
+.pv-talent-card.is-medium .pv-talent-card-body .pv-button {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: #fff;
+}
+@media (max-width: 760px) {
+  .pv-talent-grid.is-medium {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}

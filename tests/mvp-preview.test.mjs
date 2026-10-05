@@ -617,3 +617,15 @@ test("a booking card can't double-book, and declining tells the venue", async ()
   d = transition(d, { type: "answer-offer", actor: "poppy", offer: o.id, answer: "decline" });
   assert.ok(d.notices.some((n) => n.to === "harper" && /declined/.test(n.title)));
 });
+test("messaging someone a job post was sent to shows the post once and pre-fills the booking", async () => {
+  const { threadBetween } = await import("../lib/preview/model.ts");
+  let d = transition(seed(), { type: "open-thread", actor: "spruce", with: "theo", shift: "spruce-friday" });
+  d = transition(d, { type: "open-thread", actor: "spruce", with: "theo", shift: "spruce-friday" });
+  const t = threadBetween(d, "spruce", "theo");
+  const cards = d.messages.filter((m) => m.response === t.id && m.shift === "spruce-friday");
+  assert.equal(cards.length, 1);
+  assert.deepEqual(t.context, { family: "Kitchen", role: "CDP", dates: ["2026-10-02"], start: "17:00", end: "23:00" });
+  // Another venue's post can't be dropped into this conversation.
+  d = transition(d, { type: "open-thread", actor: "spruce", with: "theo", shift: "harper-weekend" });
+  assert.ok(!d.messages.some((m) => m.shift === "harper-weekend"));
+});

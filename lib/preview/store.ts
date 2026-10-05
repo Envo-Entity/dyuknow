@@ -89,7 +89,20 @@ export function resetPreview() {
 }
 function routeSubscribe(fn: () => void) {
   window.addEventListener("hashchange", fn);
-  return () => window.removeEventListener("hashchange", fn);
+  window.addEventListener("popstate", fn);
+  window.addEventListener("pv-route", fn);
+  return () => {
+    window.removeEventListener("hashchange", fn);
+    window.removeEventListener("popstate", fn);
+    window.removeEventListener("pv-route", fn);
+  };
+}
+// How many in-app screens sit behind this one. Kept on each history entry so
+// the browser's own back and forward stay in step with it.
+function depth() {
+  return typeof history !== "undefined" && typeof history.state?.pv === "number"
+    ? history.state.pv
+    : 0;
 }
 export function usePreviewRoute() {
   return useSyncExternalStore(
@@ -98,7 +111,21 @@ export function usePreviewRoute() {
     () => "",
   );
 }
-export function navigateRoute(path: string) {
-  window.location.hash = path;
+export function navigateRoute(path: string, options: { replace?: boolean } = {}) {
+  const url = `#${path}`;
+  if (window.location.hash === url) return;
+  if (options.replace) history.replaceState({ pv: depth() }, "", url);
+  else history.pushState({ pv: depth() + 1 }, "", url);
+  window.dispatchEvent(new Event("pv-route"));
   window.scrollTo({ top: 0, behavior: "instant" });
+}
+// Back to wherever this screen was opened from; a fresh link with nothing
+// behind it goes to `fallback` instead.
+export function navigateBack(fallback: string) {
+  if (depth() > 0) history.back();
+  else navigateRoute(fallback, { replace: true });
+}
+// Changes this entry's address without adding a step (e.g. a filter).
+export function replaceRoute(path: string) {
+  history.replaceState({ pv: depth() }, "", `#${path}`);
 }

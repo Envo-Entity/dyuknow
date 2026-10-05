@@ -142,6 +142,8 @@ export type Message = {
   time: string;
   system: boolean;
   offer?: string;
+  // A job post this conversation is about, shown as a card.
+  shift?: string;
 };
 export type Notice = {
   id: string;
@@ -1243,7 +1245,14 @@ export type Action =
   | { type: "close"; actor: string; shift: string; reason: string }
   | { type: "cancel"; actor: string; booking: string; reason: string }
   | { type: "message"; actor: string; response: string; text: string }
-  | { type: "open-thread"; actor: string; with: string; context?: OfferTerms }
+  | {
+      type: "open-thread";
+      actor: string;
+      with: string;
+      context?: OfferTerms;
+      // Opened from a job post: the post goes into the conversation.
+      shift?: string;
+    }
   | {
       type: "send-offer";
       actor: string;
@@ -1963,6 +1972,29 @@ export function transition(original: Data, action: Action): Data {
       data.threads.push(t);
     }
     if (action.context && me.side === "venue") t.context = action.context;
+    const post = action.shift
+      ? data.shifts.find((s) => s.id === action.shift && s.venue === venue)
+      : undefined;
+    if (post) {
+      // A booking request from here starts from the post's terms.
+      t.context = {
+        family: post.family,
+        role: post.roles.find((r) => member(data, talent).roles.includes(r)) || post.roles[0],
+        dates: post.days.map((d) => d.date),
+        start: post.days[0].start,
+        end: post.days[0].end,
+      };
+      if (!data.messages.some((m) => m.response === t!.id && m.shift === post.id))
+        data.messages.push({
+          id: uid(),
+          response: t.id,
+          from: venue,
+          text: `Job post: ${shiftLabel(post)}`,
+          time: post.created,
+          system: false,
+          shift: post.id,
+        });
+    }
   }
   if (action.type === "send-offer") {
     const t = (data.threads ?? []).find((t) => t.id === action.thread);

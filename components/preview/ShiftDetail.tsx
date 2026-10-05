@@ -35,6 +35,7 @@ import {
   contactLine,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
+import { ProfileCard, useMessage } from "./Booking";
 import {
   ActionBar,
   Badge,
@@ -278,7 +279,8 @@ function ResponseCard({
   );
 }
 function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
-  const { data, actor, act, go } = usePreview();
+  const { data, actor, act, go, back } = usePreview();
+  const message = useMessage();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   // The menu closes on Escape or a tap anywhere else.
@@ -337,7 +339,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         <Button
           variant="quiet"
           className="pv-back"
-          onClick={() => go(readOnly ? "home" : "bookings")}
+          onClick={() => back(readOnly ? "home" : "bookings")}
         >
           <ArrowLeftIcon /> Back
         </Button>
@@ -570,25 +572,26 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               : "Sent to"
           }
         >
-          <div className="pv-quiet-list">
-            {invited.map((r) => (
-              <span key={r.id}>
-                {member(data, r.talent).name}
-                <small>Invited · waiting</small>
-              </span>
-            ))}
-            {open &&
-              silent.map((id) => (
-                <span key={id}>
-                  {member(data, id).name}
-                  <small>No reply yet</small>
-                </span>
-              ))}
-            {ended.map((r) => (
-              <span key={r.id}>
-                {member(data, r.talent).name}
-                <small>{endedLabel(r)}</small>
-              </span>
+          <div className="pv-talent-grid is-medium">
+            {[
+              ...invited.map((r) => [r.talent, "Invited · waiting", r.id] as const),
+              ...(open ? silent.map((id) => [id, "No reply yet", ""] as const) : []),
+              ...ended.map((r) => [r.talent, endedLabel(r), r.chat ? r.id : ""] as const),
+            ].map(([id, status, chat]) => (
+              <ProfileCard key={id} person={member(data, id)} size="medium" status={status}>
+                {!readOnly && (
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      // An invitation already has its conversation; otherwise
+                      // talk directly, starting from this job post.
+                      chat ? go(`chat/${chat}`) : message(id, undefined, s.id)
+                    }
+                  >
+                    Message
+                  </Button>
+                )}
+              </ProfileCard>
             ))}
           </div>
         </Section>
@@ -728,7 +731,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   );
 }
 function TalentShift({ s }: { s: Shift }) {
-  const { data, actor, me, act, go } = usePreview();
+  const { data, actor, me, act, go, back } = usePreview();
   const [sheet, setSheet] = useState<
     "respond" | "some" | "more" | "accept" | null
   >(null);
@@ -953,7 +956,7 @@ function TalentShift({ s }: { s: Shift }) {
     );
   return (
     <>
-      <Button variant="quiet" className="pv-back" onClick={() => go("home")}>
+      <Button variant="quiet" className="pv-back" onClick={() => back("home")}>
         <ArrowLeftIcon /> Back
       </Button>
       <div className="pv-talent-shift">

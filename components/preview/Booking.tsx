@@ -1,7 +1,7 @@
 "use client";
 // Finding vetted people by team and time, and booking them from a
 // conversation with a booking card.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
 import {
   FAMILIES,
@@ -19,6 +19,8 @@ import {
   offerDays,
   rankTalent,
   serviceLabel,
+  shiftLabel,
+  clockLabel,
   standing,
   standingLabel,
   threadBetween,
@@ -28,6 +30,7 @@ import {
   type OfferTerms,
   type Service,
 } from "@/lib/preview/model";
+import { replaceRoute } from "@/lib/preview/store";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Modal, Photo } from "./ui";
 
@@ -372,8 +375,8 @@ export function DateTimeBar({
 // venue is looking for so the booking card starts filled in.
 export function useMessage() {
   const { actor, act, go } = usePreview();
-  return (person: string, context?: OfferTerms) => {
-    const next = act({ type: "open-thread", actor, with: person, context });
+  return (person: string, context?: OfferTerms, shift?: string) => {
+    const next = act({ type: "open-thread", actor, with: person, context, shift });
     if (!next) return;
     const me = member(next, actor);
     const t = threadBetween(
@@ -385,7 +388,48 @@ export function useMessage() {
   };
 }
 
-// A big photo card: who they are, whether they're free, and what they cost.
+// The one profile card. Large on a team list; medium where people are a
+// supporting list (who a shift was sent to). The photo opens the profile.
+export function ProfileCard({
+  person,
+  size = "large",
+  status,
+  free = false,
+  children,
+}: {
+  person: Member;
+  size?: "large" | "medium";
+  status?: string;
+  free?: boolean;
+  children?: ReactNode;
+}) {
+  const { data, actor, go } = usePreview();
+  return (
+    <article className={`pv-talent-card is-${size}`}>
+      <button className="pv-talent-card-photo" onClick={() => go(`${person.side}/${person.id}`)}>
+        <Photo src={person.photo} alt={person.name} />
+        {status && (
+          <span className={`pv-talent-status ${free ? "is-free" : ""}`}>
+            <span className="pv-dot" />
+            {status}
+          </span>
+        )}
+        {size === "large" && person.side === "talent" && workedWith(data, actor, person.id) && (
+          <span className="pv-talent-flag">Worked with you</span>
+        )}
+        <span className="pv-talent-card-name">
+          <strong>{person.name}</strong>
+          <small>
+            {person.roles.length ? `${person.roles.join(" · ")} · ` : ""}
+            {areaOf(person)}
+          </small>
+        </span>
+      </button>
+      {children && <div className="pv-talent-card-body">{children}</div>}
+    </article>
+  );
+}
+// Large card on a team list: free or not for the chosen time, and pay.
 function TalentCard({
   t,
   when,
@@ -397,61 +441,46 @@ function TalentCard({
   family: string;
   role?: string;
 }) {
-  const { data, actor, go } = usePreview();
+  const { data } = usePreview();
   const message = useMessage();
   const days = whenDays(when);
-  const where = standing(data, t.id, days);
   const fitting =
     role && t.roles.includes(role)
       ? role
       : t.roles.find((r) => FAMILIES[family].roles.includes(r)) || role || FAMILIES[family].roles[0];
   return (
-    <article className="pv-talent-card">
-      <button className="pv-talent-card-photo" onClick={() => go(`talent/${t.id}`)}>
-        <Photo src={t.photo} alt={t.name} />
-        <span className={`pv-talent-status is-${where}`}>
-          <span className="pv-dot" />
-          {days.length ? standingLabel(data, t.id, days) : "Choose a time"}
-        </span>
-        {workedWith(data, actor, t.id) && (
-          <span className="pv-talent-flag">Worked with you</span>
+    <ProfileCard
+      person={t}
+      status={days.length ? standingLabel(data, t.id, days) : "Choose a time"}
+      free={standing(data, t.id, days) === "free"}
+    >
+      <p className="pv-talent-card-pay">
+        {t.minRate ? (
+          <>
+            <strong>£{t.minRate}</strong> / hour minimum
+          </>
+        ) : (
+          "Minimum pay not set"
         )}
-        <span className="pv-talent-card-name">
-          <strong>{t.name}</strong>
-          <small>
-            {t.roles.join(" · ")} · {areaOf(t)}
-          </small>
-        </span>
-      </button>
-      <div className="pv-talent-card-body">
-        <p className="pv-talent-card-pay">
-          {t.minRate ? (
-            <>
-              <strong>£{t.minRate}</strong> / hour minimum
-            </>
-          ) : (
-            "Minimum pay not set"
-          )}
-        </p>
-        {allSkills(t).length > 0 && (
-          <p className="pv-talent-card-skills">{allSkills(t).slice(0, 3).join(" · ")}</p>
-        )}
-        <div className="pv-talent-card-actions">
-          <Button
-            onClick={() =>
-              message(
-                t.id,
-                days.length
-                  ? { family, role: fitting, dates: when.dates, start: when.start, end: when.end }
-                  : undefined,
-              )
-            }
-          >
-            Message {firstName(t)}
-          </Button>
-        </div>
+      </p>
+      {allSkills(t).length > 0 && (
+        <p className="pv-talent-card-skills">{allSkills(t).slice(0, 3).join(" · ")}</p>
+      )}
+      <div className="pv-talent-card-actions">
+        <Button
+          onClick={() =>
+            message(
+              t.id,
+              days.length
+                ? { family, role: fitting, dates: when.dates, start: when.start, end: when.end }
+                : undefined,
+            )
+          }
+        >
+          Message {firstName(t)}
+        </Button>
       </div>
-    </article>
+    </ProfileCard>
   );
 }
 
@@ -485,7 +514,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
           setWhen(next);
           // Keep the address in step without reloading the list.
           if (next.dates.length)
-            history.replaceState(null, "", `#/venue/${actor}/${whenPath(family, next)}`);
+            replaceRoute(`/venue/${actor}/${whenPath(family, next)}`);
         }}
       />
       <div className="pv-chips pv-team-roles" role="group" aria-label="Position">
@@ -826,5 +855,51 @@ export function OfferForm({
         {days.length > 1 ? ` · ${days.length} days` : ""}
       </Button>
     </Modal>
+  );
+}
+
+// The job post a conversation started from: what the person was sent.
+export function JobPostCard({ shift, mine, time }: { shift: string; mine: boolean; time: string }) {
+  const { data, side, go } = usePreview();
+  const s = data.shifts.find((x) => x.id === shift);
+  if (!s) return null;
+  const venue = member(data, s.venue);
+  const hours = hoursOf(s.days[0]);
+  return (
+    <div className={`pv-offer pv-job-card ${mine ? "from-me" : ""}`}>
+      <div className="pv-offer-head">
+        <small>
+          Job post · {side === "venue" ? "texted" : `from ${venue.name}`} {clockLabel(time)}
+        </small>
+        <Badge>{s.status === "open" ? "Open" : s.status === "filled" ? "Filled" : "Closed"}</Badge>
+      </div>
+      <h3>{shiftLabel(s)}</h3>
+      <dl>
+        <div>
+          <dt>When</dt>
+          <dd>
+            {datesLabel(s.days.map((d) => d.date))} · {s.days[0].start}–{s.days[0].end}
+          </dd>
+        </div>
+        <div>
+          <dt>Pay</dt>
+          <dd>
+            £{s.rate}/hour
+            <small>
+              About £{Math.round(s.rate * hours * s.days.length)} in all
+            </small>
+          </dd>
+        </div>
+        {s.note && (
+          <div>
+            <dt>Note</dt>
+            <dd>{s.note}</dd>
+          </div>
+        )}
+      </dl>
+      <button className="pv-text-link" onClick={() => go(`shift/${s.id}`)}>
+        View job post
+      </button>
+    </div>
   );
 }

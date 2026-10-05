@@ -99,11 +99,11 @@ export function Heading({
   back?: string;
   children?: ReactNode;
 }) {
-  const { go } = usePreview();
+  const { back: goBack } = usePreview();
   return (
     <div className="pv-heading">
       {back && (
-        <Button variant="quiet" onClick={() => go(back)}>
+        <Button variant="quiet" onClick={() => goBack(back)}>
           <ArrowLeftIcon /> Back
         </Button>
       )}

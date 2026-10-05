@@ -40,7 +40,7 @@ import {
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
-import { OfferCard, OfferForm, TimeSelect, WindowNav, useMessage, useWindow } from "./Booking";
+import { JobPostCard, OfferCard, OfferForm, TimeSelect, WindowNav, useMessage, useWindow } from "./Booking";
 export function Messages() {
   const { data, actor, side, go } = usePreview();
   // Most recent conversation first; messages are stored in the order sent.
@@ -288,7 +288,7 @@ function Conversation({
   other: Member;
   pinned: React.ReactNode;
 }) {
-  const { data, actor, go, act } = usePreview();
+  const { data, actor, act, back } = usePreview();
   const conversation = useRef<HTMLDivElement>(null);
   const messageList = useRef<HTMLDivElement>(null);
   const messageInput = useRef<HTMLTextAreaElement>(null);
@@ -327,7 +327,7 @@ function Conversation({
   return (
     <div className="pv-conversation" ref={conversation}>
       <header className="pv-conversation-header">
-        <button className="pv-icon-button" aria-label="Back to messages" onClick={() => go("messages")}><ArrowLeftIcon size={22} /></button>
+        <button className="pv-icon-button" aria-label="Back" onClick={() => back("messages")}><ArrowLeftIcon size={22} /></button>
         <ProfilePhoto person={other} />
         <div className="pv-conversation-person">
           <h1><ProfileName person={other} /></h1>
@@ -340,6 +340,8 @@ function Conversation({
             {messages.length ? (
               messages.map((m) => {
                 const offer = m.offer && (data.offers ?? []).find((o) => o.id === m.offer);
+                if (m.shift)
+                  return <JobPostCard key={m.id} shift={m.shift} mine={m.from === actor} time={m.time} />;
                 return offer ? (
                   <OfferCard key={m.id} offer={offer} mine={m.from === actor} />
                 ) : m.system ? (
