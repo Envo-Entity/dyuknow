@@ -86,14 +86,6 @@ export function ShiftComposer({
     validation = "Choose at least one position.";
   const request = draft.to.length > 0;
   const people = draft.to.map((id) => member(data, id));
-  const alerted = data.members.filter(
-    (m) =>
-      m.side === "talent" &&
-      m.approved &&
-      m.roles.some((r) => draft.roles.includes(r)) &&
-      (m.alert === "all" ||
-        (m.alert === "soon" && !!days.length && days[0].date <= tomorrow)),
-  );
   const duplicate =
     days.length && draft.roles.length
       ? similarShift(data, actor, draft.roles, days)
@@ -113,9 +105,7 @@ export function ShiftComposer({
       { type: "post", actor, draft },
       request
         ? `Sent to ${joinNames(people.map(firstName))}. You’ll book once they say yes.`
-        : alerted.length
-          ? `Posted. ${alerted.length <= 3 ? joinNames(alerted.map(firstName)) : `${alerted.length} people`} ${alerted.length === 1 ? "has" : "have"} been texted.`
-          : "Posted.",
+        : "Posted.",
     );
     if (result) go(`shift/${result.shifts[0].id}`);
   }
@@ -146,7 +136,6 @@ export function ShiftComposer({
           ) : (
             <p className="pv-muted">
               Everyone in {draft.roles.length ? draft.roles.join(" or ") : "the position you choose"}.
-              {alerted.length ? ` Texts ${alerted.length} ${alerted.length === 1 ? "person" : "people"}.` : ""}
             </p>
           )}
         </div>

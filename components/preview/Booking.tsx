@@ -691,7 +691,7 @@ export function JobPostStart() {
       <Heading title="Post a job" back="home" />
       <TeamMosaic
         caption={(team) =>
-          team.length ? `Texts ${team.length} ${team.length === 1 ? "person" : "people"}` : "Nobody in this team yet"
+          team.length ? "Post to this team" : "Nobody in this team yet"
         }
         onPick={(name) => go(`new/${name}`)}
       />

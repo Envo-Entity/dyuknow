@@ -623,11 +623,11 @@ export function venueSummary(data: Data, s: Shift) {
     }
     return { text: `${prefix}${text}`, good: false, needs: !!dropped.length };
   }
-  const sent = audience(data, s).map((id) => member(data, id));
   return {
-    text: sent.length
-      ? `Sent to ${sent.length > 3 ? `${sent.length} people` : joinNames(sent.map(firstName))} · no replies yet`
-      : "No members in this role yet",
+    text:
+      s.mode === "request"
+        ? `Waiting to hear from ${joinNames(audience(data, s).map((id) => firstName(member(data, id))))}`
+        : "No one has said yes yet",
     good: false,
     needs: false,
   };

@@ -24,7 +24,7 @@ export const STORIES = [
     start: "/venue/spruce/post",
     steps: [
       "As Spruce, tap Post a job (the black button in the sidebar; on phones, the round + in the tab bar). Choose Kitchen.",
-      "It’s the same form, with To: everyone in the position. Pick CDP and Sat 3, then Post job. Poppy and Theo are texted.",
+      "It’s the same form, with To: everyone in the position. Pick CDP and Sat 3, then Post job.",
       "Switch to Poppy. It’s on Shifts under Open jobs. Open it → I can do this → add a note → Send.",
       "Switch to Spruce. Poppy’s yes arrived as a card in your conversation with her, with Book Poppy on it. Book her there or from the job post.",
     ],

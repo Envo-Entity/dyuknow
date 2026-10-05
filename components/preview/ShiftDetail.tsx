@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeftIcon } from "@/components/icons";
 import {
   activeDays,
-  audience,
   availableDates,
   bookableDates,
   busyDates,
@@ -15,7 +14,6 @@ import {
   displayDate,
   firstName,
   hoursOf,
-  joinNames,
   member,
   offeredDates,
   openDates,
@@ -134,30 +132,9 @@ export function BookConfirm({
       <Button
         disabled={!picked.length}
         onClick={() => {
-          // Work out who will be told it's filled, so the venue hears it now.
-          const c = coverage(data, shift);
-          picked.forEach((d) => c[d].push(talent));
-          const stillOpen = shift.days
-            .filter((d) => c[d.date].length < shift.capacity)
-            .map((d) => d.date);
-          const told = data.responses.filter(
-            (o) =>
-              o.shift === shift.id &&
-              o.talent !== talent &&
-              (stillOpen.length
-                ? o.status === "can-cover" &&
-                  !offeredDates(shift, o).some((d) => stillOpen.includes(d))
-                : ["can-cover", "invited"].includes(o.status)),
-          );
           const next = act(
             { type: "book", actor, shift: shift.id, talent, days: picked },
-            `${firstName(t)} is booked and has been texted.${
-              told.length
-                ? ` We’ve told ${told
-                    .map((o) => firstName(member(data, o.talent)))
-                    .join(" and ")} it’s filled.`
-                : ""
-            }`,
+            `${firstName(t)} is booked.`,
           );
           if (!next) return;
           onClose();
@@ -285,8 +262,6 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
     ["declined", "withdrawn", "lapsed", "not-selected"].includes(r.status),
   );
   const bookings = data.bookings.filter((b) => b.shift === s.id);
-  const replied = new Set(responses.map((r) => r.talent));
-  const silent = audience(data, s).filter((id) => !replied.has(id));
   const c = coverage(data, s);
   const status = venueSummary(data, s);
   const open = s.status === "open";
@@ -490,16 +465,6 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           </div>
         </div>
       )}
-      {/* A job post goes to everyone in the position. People who haven't
-          replied aren't candidates, so they're a line, not cards. */}
-      {s.mode === "post" && open && silent.length > 0 && (
-        <p className="pv-muted pv-small">
-          Posted to everyone in {shiftLabel(s)}.{" "}
-          {silent.length <= 3
-            ? `${joinNames(silent.map((id) => firstName(member(data, id))))} ${silent.length === 1 ? "was" : "were"} texted and ${silent.length === 1 ? "hasn’t" : "haven’t"} replied.`
-            : `${silent.length} people were texted and haven’t replied.`}
-        </p>
-      )}
       {(invited.length > 0 || ended.length > 0) && (
         <Section
           title={
@@ -554,7 +519,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               if (
                 act(
                   { type: "close", actor, shift: s.id, reason },
-                  "Closed. Anyone waiting has been told.",
+                  "Closed.",
                 )
               )
                 setModal(null);
@@ -819,7 +784,7 @@ function TalentShift({ s }: { s: Shift }) {
             onClick={() =>
               act(
                 { type: "decline", actor, shift: s.id },
-                `Declined. ${venue.name} has been told.`,
+                "Declined.",
                 { undo: true },
               )
             }
@@ -1266,13 +1231,13 @@ export function BookingDetail({ id }: { id: string }) {
                     days: cancelDays,
                     reason: `${reason}${extra ? ` — ${extra}` : ""}`,
                   },
-                  `Cancelled. ${venueView ? firstName(t) : v.name} has been texted.`,
+                  "Cancelled.",
                 )
               )
                 setCancel(false);
             }}
           >
-            Cancel {cancelDays.length > 1 ? `${cancelDays.length} days` : cancelDays.length ? shortDay(cancelDays[0]) : "booking"} · text {venueView ? firstName(t) : v.name}
+            Cancel {cancelDays.length > 1 ? `${cancelDays.length} days` : cancelDays.length ? shortDay(cancelDays[0]) : "booking"}
           </Button>
           <Button variant="quiet" onClick={() => setCancel(false)}>
             Keep booking
@@ -1291,7 +1256,7 @@ export function BookingDetail({ id }: { id: string }) {
               if (
                 act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "worked", start: confirm.start, end: confirm.end },
-                  `Hours confirmed. ${firstName(t)} has been texted.`,
+                  "Hours confirmed.",
                 )
               )
                 setConfirm(null);
