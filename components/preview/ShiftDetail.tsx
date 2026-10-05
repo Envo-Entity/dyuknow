@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeftIcon } from "@/components/icons";
 import {
   audience,
@@ -280,6 +280,21 @@ function ResponseCard({
 function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   const { data, actor, act, go } = usePreview();
   const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // The menu closes on Escape or a tap anywhere else.
+  useEffect(() => {
+    if (!menu) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    const away = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [menu]);
   const [modal, setModal] = useState<
     "close" | "note" | "invite" | null
   >(null);
@@ -327,14 +342,18 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           <ArrowLeftIcon /> Back
         </Button>
         {!readOnly && open && (
-          <div className="pv-menu">
+          <div className="pv-menu" ref={menuRef}>
             <button
               className="pv-icon-button"
               aria-label="More actions"
               aria-expanded={menu}
               onClick={() => setMenu(!menu)}
             >
-              ⋯
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
             </button>
             {menu && (
               <div className="pv-menu-list" role="menu">
@@ -813,7 +832,8 @@ function TalentShift({ s }: { s: Shift }) {
             onClick={() =>
               act(
                 { type: "withdraw", actor, shift: s.id },
-                "Withdrawn. You were not booked.",
+                "Withdrawn.",
+                { undo: true },
               )
             }
           >
@@ -864,6 +884,7 @@ function TalentShift({ s }: { s: Shift }) {
               act(
                 { type: "decline", actor, shift: s.id },
                 `Declined. ${venue.name} has been told.`,
+                { undo: true },
               )
             }
           >
@@ -1220,7 +1241,6 @@ export function BookingDetail({ id }: { id: string }) {
           <ProfilePhoto person={person} />
           <span>
             <strong><ProfileName person={person} /></strong>
-            <button className="pv-text-link" onClick={() => go(`${person.side}/${person.id}`)}>View public profile</button>
             <small>
               {venueView ? t.roles.join(" · ") : `${shiftLabel(s)} · ${areaOf(v)}`}
             </small>
@@ -1376,7 +1396,7 @@ export function BookingDetail({ id }: { id: string }) {
               <option>Illness or emergency</option>
               <option>Plans changed</option>
               <option>Unable to travel</option>
-              <option>Cover no longer needed</option>
+              {venueView && <option>Cover no longer needed</option>}
               <option>Other</option>
             </select>
           </Field>
@@ -1401,7 +1421,10 @@ export function BookingDetail({ id }: { id: string }) {
                 setCancel(false);
             }}
           >
-            Cancel booking
+            Cancel booking · text {venueView ? firstName(t) : v.name}
+          </Button>
+          <Button variant="quiet" onClick={() => setCancel(false)}>
+            Keep booking
           </Button>
         </Modal>
       )}

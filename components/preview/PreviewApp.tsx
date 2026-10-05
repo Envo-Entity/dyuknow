@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   AccountIcon,
   BookingsIcon,
@@ -15,6 +15,7 @@ import {
   dispatch,
   navigateRoute,
   resetPreview,
+  restorePreview,
 } from "@/lib/preview/store";
 import {
   FAMILIES,
@@ -89,6 +90,11 @@ function Bell() {
 }
 export function PreviewApp() {
   const rawData = usePreviewData();
+  // The snapshot an Undo returns to; a ref keeps `act` stable.
+  const latest = useRef(rawData);
+  useEffect(() => {
+    latest.current = rawData;
+  }, [rawData]);
   const route = usePreviewRoute();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -109,11 +115,12 @@ export function PreviewApp() {
     text: string;
     error: boolean;
     for: string;
+    undo?: Data;
   } | null>(null);
   // A message meant for one account never carries over to another.
   const feedback = rawFeedback?.for === actor ? rawFeedback : null;
   const setFeedback = useCallback(
-    (value: { text: string; error: boolean } | null) =>
+    (value: { text: string; error: boolean; undo?: Data } | null) =>
       setRawFeedback(
         value && {
           ...value,
@@ -128,10 +135,11 @@ export function PreviewApp() {
     [setFeedback],
   );
   const act = useCallback(
-    (action: Action, success?: string): Data | null => {
+    (action: Action, success?: string, options?: { undo?: boolean }): Data | null => {
       try {
+        const before = options?.undo ? latest.current : undefined;
         const next = dispatch(action);
-        if (success) setFeedback({ text: success, error: false });
+        if (success) setFeedback({ text: success, error: false, undo: before });
         else if (
           ![
             "read-chat",
@@ -151,6 +159,12 @@ export function PreviewApp() {
     },
     [setFeedback],
   );
+  // An Undo offer lasts a few seconds, then the answer stands.
+  useEffect(() => {
+    if (!rawFeedback?.undo) return;
+    const timer = setTimeout(() => setRawFeedback(null), 6000);
+    return () => clearTimeout(timer);
+  }, [rawFeedback]);
   const [profileBack, setProfileBack] = useState("home");
   function go(path: string) {
     if (/^(talent|venue)\//.test(path) && !["talent", "venue"].includes(page))
@@ -310,8 +324,7 @@ export function PreviewApp() {
   else
     content = (
       <Empty
-        title="Let’s get you back to service"
-        text="Open your current shifts or bookings to continue."
+        title="Page not found"
       >
         <Button onClick={() => go("home")}>Go home</Button>
       </Empty>
@@ -429,6 +442,17 @@ export function PreviewApp() {
             role={feedback.error ? "alert" : "status"}
           >
             <span>{feedback.text}</span>
+            {feedback.undo && (
+              <button
+                className="pv-toast-undo"
+                onClick={() => {
+                  restorePreview(feedback.undo!);
+                  setFeedback(null);
+                }}
+              >
+                Undo
+              </button>
+            )}
             <button
               aria-label="Dismiss notification"
               onClick={() => setFeedback(null)}
@@ -489,7 +513,7 @@ function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "ta
               for <em>service.</em>
             </h2>
             <p>
-              Post a shift, invite people you know, and see who’s coming.
+              Find vetted people by team and time. Book them in chat.
             </p>
           </div>
           <div className="pv-entry-member">

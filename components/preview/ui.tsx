@@ -71,15 +71,18 @@ export function InviteToggle({ name, checked, disabled, onChange }: { name: stri
     </label>
   );
 }
+// Sage means settled (booked, free). Ink means it's waiting on you.
 export function Badge({
   children,
   good = false,
+  attention = false,
 }: {
   children: ReactNode;
   good?: boolean;
+  attention?: boolean;
 }) {
   return (
-    <span className={`pv-badge ${good ? "is-good" : ""}`}>
+    <span className={`pv-badge ${attention ? "is-attention" : good ? "is-good" : ""}`}>
       {good && <span className="pv-dot" />}
       {children}
     </span>
@@ -250,6 +253,7 @@ export function Row({
   sub,
   status,
   good = false,
+  attention = false,
   onClick,
   person,
 }: {
@@ -259,6 +263,7 @@ export function Row({
   sub?: ReactNode;
   status?: string;
   good?: boolean;
+  attention?: boolean;
   onClick?: () => void;
   person?: Member;
 }) {
@@ -270,7 +275,7 @@ export function Row({
         <button className="pv-row-details" onClick={onClick} aria-label={`View ${name}’s ${status === "Booked" || status === "Past" || status === "Cancelled" ? "booking" : "shift"} details`}>
           <span>{title}</span>
           {sub && <small>{sub}</small>}
-          {status && <Badge good={good}>{status}</Badge>}
+          {status && <Badge good={good} attention={attention}>{status}</Badge>}
         </button>
       </div>
       <button className="pv-icon-button" onClick={onClick} aria-label={`View details for ${name}`}><ArrowRightIcon size={18} /></button>
@@ -282,7 +287,7 @@ export function Row({
       <span className="pv-row-text">
         <strong>{title}</strong>
         {sub && <small>{sub}</small>}
-        {status && <Badge good={good}>{status}</Badge>}
+        {status && <Badge good={good} attention={attention}>{status}</Badge>}
       </span>
       <ArrowRightIcon size={16} />
     </button>
@@ -327,13 +332,15 @@ export function Segments({
   options,
   value,
   onChange,
+  label = "View",
 }: {
   options: string[];
   value: string;
   onChange: (value: string) => void;
+  label?: string;
 }) {
   return (
-    <div className="pv-segments" aria-label="Choose view">
+    <div className="pv-segments" role="group" aria-label={label}>
       {options.map((option) => (
         <button
           key={option}

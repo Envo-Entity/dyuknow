@@ -131,7 +131,7 @@ Sommelier and Maître d' are new. Adding them means updating `FOH_POSITIONS` in 
 
 **One screen, not three.** Tapping a tile opens a single form; the tab bar hides on phones so the action stays in reach.
 - **Who:** grade chips with member counts ("CDP · 2"). Last time's grades and hours for this team are preselected.
-- **When:** Today · Tomorrow · **Pick dates**, then "17:00 to 23:00". Pick dates shows the next 14 days; tap any of them (up to 7, not necessarily in a row). Every day has the same hours, and the form says "Same hours each day". For different hours, post a second shift. Overnight shows both dates. A start in the past is refused.
+- **When:** two weeks of day tiles, with arrows to the next two weeks (about three months ahead), starting from what the venue chose on Book. Tap any dates, up to 7, same hours each day. Hours: Lunch, Dinner or Late, or pick From and To in half-hour steps. Overnight finishes the next morning. A start in the past is refused.
 - **Each person must cover every day:** a toggle that appears once there's more than one day. Off by default, which allows partial cover. The headcount label becomes "People needed each day".
 - **Pay** (£/hour, prefilled from the venue's rate; warning below £12.71) and **People** (stepper, 1–5) on one line.
 - **Note:** prefilled from venue defaults, collapsed with an Edit link.

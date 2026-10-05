@@ -40,7 +40,7 @@ import {
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
-import { OfferCard, OfferForm, useMessage } from "./Booking";
+import { OfferCard, OfferForm, TimeSelect, WindowNav, useMessage, useWindow } from "./Booking";
 export function Messages() {
   const { data, actor, side, go } = usePreview();
   // Most recent conversation first; messages are stored in the order sent.
@@ -72,6 +72,7 @@ export function Messages() {
                   ? "Can cover"
                   : r.status.replaceAll("-", " "),
           good: r.status === "booked",
+          attention: side === "talent" ? r.status === "invited" : r.status === "can-cover",
         };
       }),
     ...(data.threads ?? [])
@@ -94,6 +95,7 @@ export function Messages() {
               }[o.status]
             : "",
           good: o?.status === "accepted",
+          attention: side === "talent" ? o?.status === "sent" : o?.status === "changes",
         };
       }),
   ].sort((a, b) => lastIndex(b.id) - lastIndex(a.id));
@@ -124,10 +126,10 @@ export function Messages() {
                   </h2>
                   <p>{row.about}</p>
                   <button className="pv-thread-open" onClick={() => go(`chat/${row.id}`)} aria-label={`Open conversation with ${row.other.name}`}>
-                    {last?.text || "Your conversation starts here."}
+                    {last?.text || "No messages yet"}
                   </button>
                 </div>
-                {row.status ? <Badge good={row.good}>{row.status}</Badge> : <span />}
+                {row.status ? <Badge good={row.good} attention={row.attention}>{row.status}</Badge> : <span />}
                 <button className="pv-text-link pv-thread-action" onClick={() => go(`chat/${row.id}`)}>Open chat</button>
               </div>
             );
@@ -329,7 +331,6 @@ function Conversation({
         <ProfilePhoto person={other} />
         <div className="pv-conversation-person">
           <h1><ProfileName person={other} /></h1>
-          <button className="pv-text-link" onClick={() => go(`${other.side}/${other.id}`)}>View public profile</button>
         </div>
       </header>
       <div className="pv-chat-layout">
@@ -352,7 +353,7 @@ function Conversation({
                   >
                     <small>{member(data, m.from).name}</small>
                     <p>{m.text}</p>
-                    <small>{clockLabel(m.time)} · Sent</small>
+                    <small>{clockLabel(m.time)}</small>
                   </div>
                 );
               })
@@ -449,7 +450,8 @@ export function Notifications() {
 export function AvailabilityEditor({ back }: { back?: string }) {
   const { data, actor, act, go } = usePreview();
   const today = londonDate(data.now);
-  const dates = Array.from({ length: 14 }, (_, i) => datePlus(today, i));
+  const w = useWindow(today);
+  const dates = w.dates;
   const [selected, setSelected] = useState<string[]>([today]);
   const [kind, setKind] = useState("Hours");
   const [start, setStart] = useState("16:00");
@@ -486,6 +488,7 @@ export function AvailabilityEditor({ back }: { back?: string }) {
       />
       <div className="pv-availability-layout">
         <div>
+          <WindowNav {...w} />
           <div className="pv-date-grid">
             {dates.map((d) => {
               const a = data.availability.find(
@@ -499,7 +502,7 @@ export function AvailabilityEditor({ back }: { back?: string }) {
               return (
                 <button
                   key={d}
-                  className={`${selected.includes(d) ? "selected" : ""} ${a?.kind === "free" ? "free" : ""}`}
+                  className={`${selected.includes(d) ? "selected" : ""} ${a?.kind === "free" ? "free" : a?.kind === "not-free" ? "not-free" : ""}`}
                   onClick={() => select(d)}
                 >
                   <span>{displayDate(d).slice(0, 3)}</span>
@@ -566,21 +569,9 @@ export function AvailabilityEditor({ back }: { back?: string }) {
             ))}
           </div>
           {kind === "Hours" && (
-            <div className="pv-form-grid">
-              <Field label="From">
-                <input
-                  type="time"
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </Field>
-              <Field label="To">
-                <input
-                  type="time"
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </Field>
+            <div className="pv-time-pair">
+              <TimeSelect label="From" value={start} onChange={setStart} />
+              <TimeSelect label="To" value={end} onChange={setEnd} />
             </div>
           )}
           <h3>Copy to other dates</h3>

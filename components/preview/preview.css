@@ -46,7 +46,7 @@
   gap: 16px;
   min-height: 34px;
   padding: 6px 28px;
-  background: #edf2ea;
+  background: var(--pv-sage-soft);
   color: #354731;
   font-size: 11px;
   font-weight: 600;
@@ -301,8 +301,12 @@
   width: fit-content;
 }
 .pv-badge.is-good {
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   color: #35532b;
+}
+.pv-badge.is-attention {
+  background: #141712;
+  color: #fff;
 }
 .pv-inline {
   display: flex;
@@ -327,7 +331,7 @@
 }
 .pv-attention {
   padding: 22px 26px;
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   border-radius: 24px;
   display: flex;
   justify-content: space-between;
@@ -715,7 +719,7 @@
   gap: 12px;
 }
 .pv-chips button.selected {
-  background: #e1ebda;
+  background: var(--pv-sage-soft);
   color: #2b4526;
   box-shadow: none;
 }
@@ -758,7 +762,7 @@
   margin: 14px 0;
 }
 .pv-reach {
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   padding: 20px;
   border-radius: 20px;
   margin: 22px 0;
@@ -1105,7 +1109,7 @@
 .pv-message.from-me {
   align-self: flex-end;
   border-radius: 18px 18px 4px 18px;
-  background: #e1ebda;
+  background: var(--pv-sage-soft);
   color: #2b4526;
 }
 .pv-message p {
@@ -1195,7 +1199,7 @@
   box-shadow: inset 0 0 0 2px #436438;
 }
 .pv-date-grid button.free {
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
 }
 .pv-date-grid button strong {
   display: block;
@@ -1395,7 +1399,7 @@
   gap: 20px;
   padding: 16px 20px;
   border-radius: 20px;
-  background: #e1ebda;
+  background: var(--pv-sage-soft);
   color: #2b4526;
   box-shadow: 0 10px 36px #1420101a;
   font-size: 13px;
@@ -2113,7 +2117,7 @@
   padding: 14px 20px 14px 14px;
   margin-bottom: 8px;
   border-radius: 24px;
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   text-align: left;
 }
 .pv-next > .pv-photo {
@@ -2404,7 +2408,7 @@
   font-weight: 600;
 }
 .pv-status-line.is-good {
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   color: #35532b;
 }
 .pv-coverage {
@@ -2786,7 +2790,7 @@ dl.pv-arrival > div {
   background: #f5f6f2;
 }
 .pv-tracker > div.is-done {
-  background: #eef3eb;
+  background: var(--pv-sage-soft);
 }
 .pv-tracker-head {
   display: flex;
@@ -3073,206 +3077,6 @@ dl.pv-arrival > div {
 @media (max-width: 760px) {
   .pv-next > .pv-profile-photo-link { width: 64px; height: 72px; }
 }
-/* Dates and hours: one compact bar; the calendar opens below it only while
-   choosing. */
-.pv-when {
-  margin: -8px 0 28px;
-  max-width: 760px;
-}
-.pv-when-label {
-  margin-bottom: 10px;
-  font-family: var(--font-instrument-serif), Georgia, serif;
-  font-size: 26px;
-  font-weight: 400;
-  line-height: 1.1;
-}
-.pv-when-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1.5px #141712;
-  overflow: hidden;
-}
-.pv-when-field {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px 18px;
-  text-align: left;
-}
-.pv-when-field > span {
-  flex: 1;
-  min-width: 0;
-}
-.pv-when-field small {
-  display: block;
-  color: #5d625c;
-  font-size: 11px;
-  line-height: 1.3;
-}
-.pv-when-field strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 15px;
-}
-.pv-when-dates:hover,
-.pv-when.is-open .pv-when-dates {
-  background: #f5f6f2;
-}
-.pv-when-hours {
-  border-left: 1px solid #e3e6de;
-}
-.pv-when-times {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 15px;
-  font-weight: 600;
-}
-.pv-when-times input {
-  min-width: 0;
-  width: 100%;
-  max-width: 112px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-}
-.pv-chevron {
-  flex: none;
-  transition: transform 160ms ease;
-}
-.pv-chevron.is-open {
-  transform: rotate(180deg);
-}
-.pv-when > .pv-error,
-.pv-when > .pv-caption {
-  margin: 8px 0 0;
-}
-.pv-calendar {
-  margin-top: 10px;
-  padding: 18px 20px 14px;
-  border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 14px 44px #14201018, inset 0 0 0 1px #e3e6de;
-}
-.pv-calendar-quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.pv-calendar-quick button {
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  box-shadow: inset 0 0 0 1px #e3e6de;
-}
-.pv-calendar-quick button.selected {
-  background: #141712;
-  color: #fff;
-  box-shadow: none;
-}
-.pv-calendar-months {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-}
-.pv-calendar-prev,
-.pv-calendar-next {
-  position: absolute;
-  top: -6px;
-}
-.pv-calendar-prev {
-  left: -6px;
-}
-.pv-calendar-next {
-  right: -6px;
-}
-.pv-month h3 {
-  margin: 0 0 10px;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 600;
-}
-.pv-month-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-}
-.pv-weekday {
-  padding-bottom: 4px;
-  text-align: center;
-  color: #5d625c;
-  font-size: 11px;
-}
-.pv-month-grid button {
-  aspect-ratio: 1;
-  max-height: 44px;
-  border-radius: 50%;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.pv-month-grid button:hover:not(:disabled):not(.selected) {
-  background: #f5f6f2;
-}
-.pv-month-grid button.is-today {
-  box-shadow: inset 0 0 0 1px #141712;
-}
-.pv-month-grid button.selected {
-  background: #141712;
-  color: #fff;
-  font-weight: 600;
-}
-.pv-calendar .pv-month-grid button:disabled {
-  opacity: 0.28;
-}
-.pv-calendar-foot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #eceee8;
-  font-size: 13px;
-}
-.pv-calendar-foot > span {
-  flex: 1;
-  min-width: 0;
-}
-.pv-calendar-foot small {
-  display: block;
-  color: #5d625c;
-  font-size: 11px;
-}
-.pv-calendar-foot .pv-button {
-  min-height: 40px;
-  padding: 8px 20px;
-}
-.pv-modal .pv-when {
-  margin: 0 0 16px;
-}
-.pv-modal .pv-calendar {
-  padding: 14px 4px 10px;
-  box-shadow: none;
-}
-.pv-modal .pv-calendar-months,
-.pv-form-card .pv-calendar-months {
-  grid-template-columns: 1fr;
-}
-.pv-modal .pv-month.is-second,
-.pv-form-card .pv-month.is-second {
-  display: none;
-}
-.pv-form-card .pv-when {
-  margin: 4px 0 0;
-}
 /* A team: big photo cards, status on the photo. */
 .pv-team-roles {
   margin-bottom: 20px;
@@ -3399,21 +3203,43 @@ dl.pv-arrival > div {
 }
 .pv-talent-card-actions .pv-button {
   flex: 1;
-  min-height: 42px;
+  min-height: 46px;
   padding: 8px 12px;
 }
-.pv-talent-card-actions .pv-secondary {
-  background: #fff;
+.pv-team-divider {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid #e3e6de;
 }
 .pv-team-post {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  margin-top: 36px;
+  width: 100%;
+  margin-top: 28px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  background: #141712;
+  color: #fff;
+  text-align: left;
 }
-.pv-team-post p {
-  margin: 0;
+.pv-team-post:hover {
+  background: #2c3329;
+}
+.pv-team-post > span {
+  flex: 1;
+}
+.pv-team-post strong {
+  display: block;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.pv-team-post small {
+  display: block;
+  color: #c9cec6;
+  font-size: 13px;
 }
 .pv-team-tiles {
   display: grid;
@@ -3430,7 +3256,7 @@ dl.pv-arrival > div {
   text-align: left;
 }
 .pv-team-tile:hover {
-  background: #edf2ea;
+  background: var(--pv-sage-soft);
 }
 .pv-team-tile > .pv-photo {
   width: 64px;
@@ -3458,7 +3284,7 @@ dl.pv-arrival > div {
   position: fixed;
   z-index: 35;
   left: 24px;
-  top: calc(34% + 342px);
+  top: min(calc(34% + 342px), calc(100vh - 96px));
   width: 112px;
   min-height: 72px;
   padding: 12px 10px;
@@ -3500,7 +3326,7 @@ dl.pv-arrival > div {
 }
 /* The terms of a job are what matters most: brand tint, black text. */
 .pv-facts > div {
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   color: #141712;
 }
 .pv-facts small,
@@ -3520,7 +3346,7 @@ dl.pv-arrival > div {
   width: min(100%, 420px);
   padding: 18px 20px;
   border-radius: 22px;
-  background: #e6eee2;
+  background: var(--pv-sage-soft);
   color: #141712;
 }
 .pv-offer.from-me {
@@ -3588,68 +3414,12 @@ dl.pv-arrival > div {
   margin-top: 10px;
 }
 @media (max-width: 760px) {
-  .pv-when {
-    margin: -12px 0 22px;
-  }
-  .pv-when-label {
-    font-size: 22px;
-  }
-  .pv-when-bar {
-    grid-template-columns: 1fr;
-  }
-  .pv-when-hours {
-    border-left: 0;
-    border-top: 1px solid #e3e6de;
-  }
-  .pv-calendar {
-    padding: 14px 12px 12px;
-  }
-  .pv-calendar-months {
-    grid-template-columns: 1fr;
-  }
-  .pv-month.is-second {
-    display: none;
-  }
   .pv-talent-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .pv-talent-card {
-    border-radius: 20px;
-  }
-  .pv-talent-card-name {
-    left: 12px;
-    right: 12px;
-    bottom: 10px;
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
   .pv-talent-card-name strong {
-    font-size: 22px;
-  }
-  .pv-talent-card-name small {
-    font-size: 11px;
-  }
-  .pv-talent-status {
-    top: 8px;
-    left: 8px;
-    font-size: 11px;
-    padding: 4px 9px;
-  }
-  .pv-talent-flag {
-    display: none;
-  }
-  .pv-talent-card-body {
-    padding: 10px 12px 12px;
-  }
-  .pv-talent-card-actions {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .pv-talent-card-actions .pv-button {
-    min-height: 38px;
-  }
-  .pv-team-post {
-    flex-direction: column;
-    align-items: flex-start;
+    font-size: 30px;
   }
   .pv-post-job {
     display: none;
@@ -3684,4 +3454,705 @@ dl.pv-arrival > div {
   .pv-facts strong {
     font-size: 21px;
   }
+}
+
+.pv-toast .pv-toast-undo {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #141712;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Dates and hours: two weeks of day tiles, then the hours. */
+.pv-when {
+  margin: -8px 0 28px;
+  padding: 18px 20px 16px;
+  border-radius: 24px;
+  background: #f5f6f2;
+}
+.pv-when-label {
+  margin-bottom: 8px;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.pv-window-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.pv-window-nav strong {
+  font-size: 14px;
+}
+.pv-window-nav > span {
+  display: flex;
+  gap: 6px;
+}
+.pv-square-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e6de;
+}
+.pv-square-button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px #141712;
+}
+.pv-when .pv-when-days {
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  max-width: none;
+  margin-top: 0;
+}
+.pv-when-hours {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.pv-presets {
+  display: flex;
+  gap: 6px;
+}
+.pv-presets button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 96px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e6de;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.pv-presets button small {
+  color: #5d625c;
+  font-size: 11px;
+  font-weight: 400;
+}
+.pv-presets button.selected {
+  background: #141712;
+  color: #fff;
+  box-shadow: none;
+}
+.pv-presets button.selected small {
+  color: #c9cec6;
+}
+.pv-time-pair {
+  display: flex;
+  gap: 8px;
+}
+.pv-time-select {
+  position: relative;
+}
+.pv-time-field {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 14px;
+  min-width: 120px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e6de;
+  text-align: left;
+}
+.pv-time-field small {
+  grid-column: 1 / -1;
+  color: #5d625c;
+  font-size: 11px;
+}
+.pv-time-field strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.pv-time-field .pv-chevron {
+  justify-self: end;
+}
+.pv-time-field[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 1.5px #141712;
+}
+.pv-time-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  padding: 10px 10px 12px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 44px #1420102a, inset 0 0 0 1px #e3e6de;
+}
+.pv-time-menu > .pv-button {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 8px;
+}
+/* iOS-style wheels: snap to rows, fade at the edges, a band marks the pick. */
+.pv-wheels {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+.pv-wheel-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 80px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f0f2ec;
+  pointer-events: none;
+}
+.pv-wheel {
+  position: relative;
+  width: 64px;
+  height: 200px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent);
+  mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent);
+}
+.pv-wheel::-webkit-scrollbar {
+  display: none;
+}
+.pv-wheel:focus-visible {
+  outline: 2px solid #3f6541;
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+.pv-wheel-pad {
+  display: block;
+  height: 80px;
+}
+.pv-wheel-item {
+  display: grid;
+  place-items: center;
+  height: 40px;
+  scroll-snap-align: center;
+  color: #8c9288;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.pv-wheel-item.selected {
+  color: #141712;
+  font-weight: 600;
+}
+.pv-wheel-colon {
+  position: relative;
+  font-size: 20px;
+  font-weight: 600;
+}
+.pv-when-summary {
+  margin: 12px 0 0;
+  color: #5d625c;
+  font-size: 13px;
+}
+/* In a dialog or form the strip wraps to two rows of seven. */
+.pv-modal .pv-when,
+.pv-form-card .pv-when {
+  margin: 0 0 16px;
+  padding: 0;
+  background: none;
+}
+.pv-modal .pv-when .pv-when-days,
+.pv-form-card .pv-when .pv-when-days {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.pv-modal .pv-date-picks button,
+.pv-form-card .pv-date-picks button {
+  background: #f5f6f2;
+  box-shadow: none;
+}
+.pv-modal .pv-date-picks button.selected,
+.pv-form-card .pv-date-picks button.selected {
+  background: #141712;
+}
+.pv-availability-form .pv-time-pair {
+  margin: 12px 0 4px;
+}
+.pv-availability-form .pv-time-field {
+  min-width: 140px;
+  background: #f5f6f2;
+  box-shadow: none;
+}
+.pv-availability-layout .pv-window-nav {
+  margin-bottom: 12px;
+}
+@media (max-width: 760px) {
+  .pv-when {
+    margin: -12px -4px 22px;
+    padding: 14px;
+  }
+  .pv-when .pv-when-days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .pv-when-hours {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pv-presets button {
+    flex: 1;
+    min-width: 0;
+  }
+  .pv-time-pair .pv-time-select {
+    flex: 1;
+  }
+  .pv-time-field {
+    width: 100%;
+  }
+  .pv-time-menu {
+    left: 0;
+    right: auto;
+  }
+  .pv-time-pair .pv-time-select:last-child .pv-time-menu {
+    left: auto;
+    right: 0;
+  }
+}
+
+/* Availability: days marked not free read as closed. */
+.pv-date-grid button.not-free {
+  background: #141712;
+  color: #fff;
+}
+.pv-date-grid button.not-free small {
+  color: #c9cec6;
+}
+.pv-date-grid button.not-free.selected {
+  box-shadow: inset 0 0 0 2px #141712, inset 0 0 0 4px #a8c5a0;
+}
+@media (max-width: 760px) {
+}
+
+/* Sage and ink: the welcome screen's pairing, used where a moment matters —
+   a booking, the terms of a job, today's service, a confirmation. */
+:root {
+  --pv-sage: #a8c5a0;
+  /* For larger areas on white: brighter than the old pale wash, calmer than
+     full sage. */
+  --pv-sage-soft: #d3e2cc;
+  --pv-ink: #141712;
+}
+/* Talent: an upcoming booking is the ink card. */
+.pv-next {
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-next small {
+  color: #c9d3c4;
+}
+.pv-next .pv-badge.is-good {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-next .pv-badge.is-good .pv-dot {
+  background: var(--pv-ink);
+}
+.pv-next .pv-name-link {
+  color: #fff;
+}
+.pv-next > .pv-icon-button {
+  border-radius: 14px;
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+/* The terms of a job: when in ink, pay in sage. */
+.pv-facts > div:first-child {
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-facts > div:first-child small,
+.pv-facts > div:first-child span {
+  color: #c9d3c4;
+}
+.pv-facts > div:nth-child(2) {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-facts > div:nth-child(2) small,
+.pv-facts > div:nth-child(2) span {
+  color: #2a3d26;
+}
+/* A booking request is sage until it's booked, then ink. */
+.pv-offer.is-sent,
+.pv-offer.is-changes {
+  background: var(--pv-sage);
+}
+.pv-offer.is-sent dl > div,
+.pv-offer.is-changes dl > div {
+  border-top-color: #14171222;
+}
+.pv-offer.is-accepted {
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-offer.is-accepted :is(.pv-offer-head small, dt, dd small) {
+  color: #c9d3c4;
+}
+.pv-offer.is-accepted dl > div {
+  border-top-color: #ffffff1f;
+}
+.pv-offer.is-accepted .pv-offer-head .pv-badge {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-offer.is-accepted .pv-text-link {
+  color: var(--pv-sage);
+}
+/* A confirmed booking opens on a sage card. */
+.pv-booking-person {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-booking-person small {
+  color: #2a3d26;
+}
+/* Venue: today's service sits on ink. */
+.pv-today {
+  padding: 22px;
+  border-radius: 28px;
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-today > .pv-section-title {
+  color: #fff;
+}
+.pv-today .pv-row {
+  background: #22271f;
+  color: #fff;
+}
+.pv-today .pv-row small,
+.pv-today .pv-row-text small {
+  color: #c9d3c4;
+}
+.pv-today .pv-name-link {
+  color: #fff;
+}
+.pv-today .pv-badge {
+  background: #ffffff1a;
+  color: #fff;
+}
+.pv-today .pv-badge.is-good {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-today .pv-icon-button {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+/* Team list: the way out ends on a sage arrow. */
+.pv-team-post > svg {
+  box-sizing: content-box;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+/* Confirmations land in ink with a sage mark; errors stay as they were. */
+.pv-toast:not(.error) {
+  background: var(--pv-ink);
+  color: #fff;
+}
+.pv-toast:not(.error)::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pv-sage);
+}
+.pv-toast:not(.error) > button {
+  color: #fff;
+}
+.pv-toast .pv-toast-undo {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-today .pv-row:hover {
+  background: #2c3329;
+}
+
+/* Book: one sage panel. Folded it's the summary line; it grows open in place
+   (rows 0fr → 1fr), the day tiles ripple in, and it folds back faster. */
+.pv-when-fold {
+  --pv-open: 460ms;
+  --pv-close: 280ms;
+  --pv-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --pv-ease-in: cubic-bezier(0.4, 0, 0.6, 1);
+  padding: 0;
+  overflow: visible;
+}
+.pv-when-head {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  padding: 14px 14px 14px 22px;
+  border-radius: 24px;
+  text-align: left;
+}
+.pv-when-head:disabled {
+  opacity: 1;
+}
+.pv-when-head small {
+  display: block;
+  color: #2a3d26;
+  font-size: 11px;
+}
+.pv-when-head strong {
+  display: block;
+  font-size: 16px;
+}
+.pv-when-fold .pv-when-change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 9px 14px 9px 16px;
+  border-radius: 14px;
+  background: var(--pv-ink);
+  color: #fff;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 150ms var(--pv-ease-out);
+}
+.pv-when-head:active .pv-when-change {
+  transform: scale(0.96);
+}
+.pv-when-change-label {
+  animation: pv-label-in 220ms var(--pv-ease-out);
+}
+.pv-when-fold .pv-chevron {
+  transition: transform var(--pv-close) var(--pv-ease-in);
+}
+.pv-when-fold.is-open .pv-chevron {
+  transition-duration: var(--pv-open);
+  transition-timing-function: var(--pv-ease-out);
+}
+.pv-when-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--pv-close) var(--pv-ease-in);
+}
+.pv-when-fold.is-open .pv-when-body {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--pv-open) var(--pv-ease-out);
+}
+.pv-when-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 20px;
+  opacity: 0;
+  transition:
+    opacity 160ms var(--pv-ease-in),
+    padding var(--pv-close) var(--pv-ease-in);
+}
+.pv-when-fold.is-open .pv-when-inner {
+  padding: 2px 20px 18px;
+  opacity: 1;
+  transition:
+    opacity 240ms var(--pv-ease-out) 60ms,
+    padding var(--pv-open) var(--pv-ease-out);
+}
+/* Time wheels drop out of the panel once it has finished opening. */
+.pv-when-fold.is-settled .pv-when-inner {
+  overflow: visible;
+}
+.pv-when-fold.is-open .pv-when-days button {
+  animation: pv-tile-in 380ms var(--pv-ease-out) both;
+  animation-delay: calc(80ms + min(var(--i), 13) * 14ms);
+}
+.pv-when-fold.is-open .pv-when-hours {
+  animation: pv-rise-in 360ms var(--pv-ease-out) 200ms both;
+}
+.pv-when-fold .pv-window-nav strong {
+  color: var(--pv-ink);
+}
+.pv-when-fold .pv-square-button {
+  box-shadow: none;
+}
+.pv-when-fold .pv-date-picks button,
+.pv-when-fold .pv-presets button,
+.pv-when-fold .pv-time-field {
+  box-shadow: none;
+}
+.pv-when-fold .pv-presets button small,
+.pv-when-fold .pv-time-field small {
+  color: #4a5943;
+}
+.pv-when-fold .pv-presets button.selected small {
+  color: #c9cec6;
+}
+@keyframes pv-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+}
+@keyframes pv-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes pv-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (max-width: 760px) {
+  .pv-when-head {
+    gap: 18px;
+    padding: 12px 12px 12px 16px;
+  }
+  .pv-when-head strong {
+    font-size: 15px;
+  }
+  .pv-when-fold.is-open .pv-when-inner {
+    padding: 2px 14px 14px;
+  }
+  .pv-when-inner {
+    padding: 0 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-when-fold .pv-when-body,
+  .pv-when-fold.is-open .pv-when-body,
+  .pv-when-fold .pv-chevron {
+    transition: none;
+  }
+  .pv-when-fold.is-open .pv-when-days button,
+  .pv-when-fold.is-open .pv-when-hours,
+  .pv-when-change-label {
+    animation: none;
+  }
+  .pv-when-fold.is-open .pv-when-inner {
+    transition: opacity 150ms linear;
+  }
+  .pv-when-fold.is-open .pv-when-inner {
+    overflow: visible;
+  }
+}
+
+/* Every dates-and-hours panel outside a dialog or form: a softer sage than
+   on ink, because it sits behind white tiles. */
+.pv-when {
+  --pv-when-bg: var(--pv-sage-soft);
+  background: var(--pv-when-bg);
+  color: var(--pv-ink);
+}
+.pv-when .pv-date-picks button,
+.pv-when .pv-presets button,
+.pv-when .pv-time-field,
+.pv-when .pv-square-button {
+  box-shadow: none;
+}
+.pv-when .pv-presets button small,
+.pv-when .pv-time-field small {
+  color: #4a5943;
+}
+.pv-when .pv-presets button.selected small {
+  color: #c9cec6;
+}
+.pv-when .pv-window-nav strong,
+.pv-when .pv-when-summary {
+  color: var(--pv-ink);
+}
+.pv-modal .pv-when,
+.pv-form-card .pv-when {
+  background: none;
+}
+
+/* Small sage marks read at full strength. */
+.pv-badge.is-good {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-badge.is-good .pv-dot {
+  background: var(--pv-ink);
+}
+/* Anything selected is ink with white text. */
+.pv-chips button.selected,
+.pv-segments button.active,
+.pv-date-grid button.selected {
+  background: var(--pv-ink);
+  color: #fff;
+  box-shadow: none;
+}
+.pv-chips button.selected span {
+  opacity: 0.75;
+}
+.pv-date-grid button.selected small {
+  color: #c9d3c4;
+}
+/* Availability: a selected not-free day keeps a sage ring to tell it apart. */
+.pv-date-grid button.not-free.selected {
+  box-shadow: inset 0 0 0 3px var(--pv-sage);
+}
+.pv-pick.is-picked {
+  background: var(--pv-ink);
+  color: #fff;
+  box-shadow: none;
+}
+.pv-pick.is-picked .pv-pick-text small {
+  color: #c9d3c4;
+}
+/* Job post form: day tiles are white on the grey card, and the day list below
+   already says what the summary would. */
+.pv-form-card .pv-date-picks button {
+  background: #fff;
+}
+.pv-form-card .pv-date-picks button.selected {
+  background: var(--pv-ink);
+}
+.pv-form-card .pv-when-summary {
+  display: none;
+}
+.pv-pick.is-picked .pv-invite-toggle input:checked + span {
+  background: var(--pv-sage);
+  border-color: var(--pv-sage);
+  color: var(--pv-ink);
+}
+.pv-pick.is-picked .pv-badge {
+  background: #ffffff1f;
+  color: #fff;
+}
+.pv-pick.is-picked .pv-badge.is-good {
+  background: var(--pv-sage);
+  color: var(--pv-ink);
+}
+/* The job post form sits on the same green as the dates panel. */
+.pv-form-card {
+  background: var(--pv-sage-soft);
+}
+.pv-form-card .pv-chips button:not(.selected),
+.pv-form-card .pv-stepper button,
+.pv-form-card textarea,
+.pv-form-card .pv-input {
+  background: #fff;
+  box-shadow: none;
+}
+.pv-form-card .pv-form-row + .pv-form-row {
+  border-top-color: #14171214;
+}
+.pv-form-card .pv-muted,
+.pv-form-card .pv-day-list small {
+  color: #3c4a37;
 }

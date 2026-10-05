@@ -78,6 +78,10 @@ export function dispatch(action: Action): Data {
     throw error;
   }
 }
+// Puts back an earlier snapshot: the preview's Undo for one-tap answers.
+export function restorePreview(value: Data) {
+  write(value);
+}
 export function resetPreview() {
   const fresh = seed();
   write(fresh);

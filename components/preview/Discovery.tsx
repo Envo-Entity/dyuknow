@@ -61,6 +61,7 @@ function VenueShiftRow({ s }: { s: Shift }) {
       sub={whenLine(data, s)}
       status={status.text}
       good={status.good}
+      attention={status.needs}
       onClick={() => go(`shift/${s.id}`)}
     />
   );
@@ -150,7 +151,7 @@ export function VenueHome() {
           </>
         }
       />
-      <DateTimeBar label="When do you need someone?" value={when} onChange={setWhen} />
+      <DateTimeBar collapsible value={when} onChange={setWhen} />
       <div className="pv-role-mosaic">
         {Object.entries(FAMILIES)
           // The teams this venue said it usually needs come first.
@@ -288,7 +289,7 @@ export function TalentHome() {
         title={shiftLabel(s)}
         sub={whenLine(data, s, offeredDates(s, r))}
         status={status}
-        good={status === "Invited you"}
+        attention={status === "Invited you"}
         onClick={() => go(`shift/${s.id}`)}
       />
     );
@@ -322,7 +323,7 @@ export function TalentHome() {
                   title={o.role}
                   sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
                   status="Booking request"
-                  good
+                  attention
                   onClick={() => go(`chat/${t.id}`)}
                 />
               );
@@ -542,7 +543,8 @@ export function WorkHub() {
         </Empty>
       )}
       {(todayBookings.length > 0 || todayOpen.length > 0) && (
-        <Section title="Today">
+        <section className="pv-section pv-today">
+          <h2 className="pv-section-title">Today</h2>
           <div className="pv-rows">
             {todayBookings.map((b) => (
               <BookingRow key={b.id} b={b} />
@@ -551,7 +553,7 @@ export function WorkHub() {
               <VenueShiftRow key={s.id} s={s} />
             ))}
           </div>
-        </Section>
+        </section>
       )}
       {(laterOpen.length > 0 || pending.length > 0) && (
         <Section title="Open">
@@ -568,7 +570,7 @@ export function WorkHub() {
                   title={o.role}
                   sub={`${o.dates.length > 1 ? datesLabel(o.dates) : relativeDay(o.dates[0], data.now)} · ${o.start}–${o.end} · £${o.rate}/h`}
                   status={o.status === "changes" ? "Asked for changes · Revise" : "Booking request sent"}
-                  good={o.status === "changes"}
+                  attention={o.status === "changes"}
                   onClick={() => go(`chat/${t.id}`)}
                 />
               );

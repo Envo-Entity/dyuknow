@@ -18,7 +18,7 @@ The clock starts at 1 October 2026, 10:00 London. Everything is stored in this b
 
 It's Thursday morning, and Spruce is short a CDP for next Wednesday's dinner service.
 
-1. **Choose the time first.** Book opens on tomorrow, 17:00–23:00, in one compact bar. Alex taps the dates and a calendar opens underneath, with two months, quick picks (Today, Tomorrow, This weekend, Next 7 days) and up to six months ahead. Alex picks **Wed 7** and **Thu 8**, taps **Done**, and the calendar folds away again. Each team tile counts who is free then ("3 of 4 free then").
+1. **Choose the time first.** Book opens on tomorrow with Dinner (17:00–23:00). Two weeks of day tiles sit at the top, with arrows to the next two. Alex unticks tomorrow and taps **Wed 7** and **Thu 8**. Hours are Lunch, Dinner or Late, or any From and To in half-hour steps. Each team tile counts who is free then ("3 of 4 free then").
 2. **Open a team, see everyone.** Alex taps **Kitchen**, then **CDP**. While Dyuknow is small, nobody vetted is hidden. People show as big photo cards in one list:
    - first, people in the role who said they're free for those hours (Poppy);
    - then people in the role who are busy, booked or haven't set their calendar (Theo). They might still move things around;
@@ -37,7 +37,7 @@ If Spruce would rather let people come to them, **Create a job post** opens team
 
 - **Venue Bookings:** Today → Open (shifts and booking cards waiting on an answer) → Upcoming → Past and cancelled.
 - **Talent Shifts:** Upcoming shifts → Invitations (including booking cards) → Waiting to hear → **Shifts / Venues** switch. Shifts lists your roles; **Show from other roles too** adds the rest to the same list. Past and closed sits at the bottom.
-- **Talent My shifts:** the "When are you free?" calendar only.
+- **Talent My shifts:** the "When are you free?" screen only, two weeks at a time with arrows.
 
 Checks:
 

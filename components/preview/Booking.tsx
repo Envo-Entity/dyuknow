@@ -1,8 +1,8 @@
 "use client";
 // Finding vetted people by team and time, and booking them from a
 // conversation with a booking card.
-import { useState } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, BookingsIcon } from "@/components/icons";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
 import {
   FAMILIES,
   allSkills,
@@ -11,12 +11,14 @@ import {
   datesLabel,
   defaultNote,
   defaultRate,
+  displayDate,
   firstName,
   hoursOf,
   londonDate,
   member,
   offerDays,
   rankTalent,
+  serviceLabel,
   standing,
   standingLabel,
   threadBetween,
@@ -32,8 +34,8 @@ import { Badge, Button, Empty, Field, Heading, Modal, Photo } from "./ui";
 export type When = { dates: string[]; start: string; end: string };
 const WHEN_KEY = "pv-when-v2";
 const MAX_DATES = 7;
-// How far ahead a venue can book.
-const MONTHS_AHEAD = 6;
+// How far ahead the date tiles go: six two-week pages, about three months.
+const WINDOWS_AHEAD = 6;
 // The venue's chosen time survives moving between Book and a team list.
 export function savedWhen(now: string): When {
   const today = londonDate(now);
@@ -69,14 +71,6 @@ export function parseWhen(dates?: string, hours?: string): When | undefined {
   return { dates: dates.split(",").filter(Boolean), start, end };
 }
 
-function ClockIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5V12l3 2" />
-    </svg>
-  );
-}
 export function Chevron({ open }: { open: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`pv-chevron ${open ? "is-open" : ""}`}>
@@ -85,205 +79,291 @@ export function Chevron({ open }: { open: boolean }) {
   );
 }
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-// "2026-10" → the dates in that month's grid, Monday first, with blanks.
-function monthGrid(month: string) {
-  const first = new Date(`${month}-01T12:00:00Z`);
-  const lead = (first.getUTCDay() + 6) % 7;
-  const cells: (string | null)[] = Array(lead).fill(null);
-  for (let d = `${month}-01`; d.startsWith(month); d = datePlus(d, 1)) cells.push(d);
-  return cells;
-}
-function monthPlus(month: string, n: number) {
-  const d = new Date(`${month}-01T12:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() + n);
-  return d.toISOString().slice(0, 7);
-}
-function monthName(month: string) {
-  return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(
-    new Date(`${month}-01T12:00:00Z`),
+// Two weeks at a time, with arrows to the next two.
+const WINDOW = 14;
+export function useWindow(today: string, start = today, windows = WINDOWS_AHEAD) {
+  const first = Math.max(
+    0,
+    Math.floor(
+      (Date.parse(`${start}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) /
+        (86400000 * WINDOW),
+    ),
   );
+  const [page, setPage] = useState(Math.min(first, windows - 1));
+  const from = datePlus(today, page * WINDOW);
+  const dates = Array.from({ length: WINDOW }, (_, i) => datePlus(from, i));
+  return {
+    dates,
+    label: `${displayDate(dates[0]).replace(/ [A-Za-z]+$/, "")} – ${displayDate(dates[WINDOW - 1])}`,
+    prev: page > 0 ? () => setPage(page - 1) : undefined,
+    next: page < windows - 1 ? () => setPage(page + 1) : undefined,
+  };
 }
-
-function Calendar({
-  value,
-  onChange,
-  onDone,
-}: {
-  value: string[];
-  onChange: (dates: string[]) => void;
-  onDone: () => void;
-}) {
-  const { data } = usePreview();
-  const today = londonDate(data.now);
-  const first = today.slice(0, 7);
-  const last = monthPlus(first, MONTHS_AHEAD);
-  const lastDay = datePlus(monthPlus(last, 1) + "-01", -1);
-  const [month, setMonth] = useState(value[0]?.slice(0, 7) || first);
-  const full = value.length >= MAX_DATES;
-  const toggle = (d: string) =>
-    onChange(value.includes(d) ? value.filter((x) => x !== d) : [...value, d].sort());
-  // Next Saturday and Sunday (today counts if it's the weekend).
-  const wd = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
-  const sat = wd === 6 ? datePlus(today, -1) : datePlus(today, 5 - wd);
-  const quick: [string, string[]][] = [
-    ["Today", [today]],
-    ["Tomorrow", [datePlus(today, 1)]],
-    ["This weekend", [sat, datePlus(sat, 1)].filter((d) => d >= today)],
-    ["Next 7 days", Array.from({ length: 7 }, (_, i) => datePlus(today, i))],
-  ];
+export function WindowNav({ label, prev, next }: { label: string; prev?: () => void; next?: () => void }) {
   return (
-    <div className="pv-calendar" role="group" aria-label="Choose dates">
-      <div className="pv-calendar-quick">
-        {quick.map(([label, dates]) => {
-          const on = dates.length === value.length && dates.every((d) => value.includes(d));
-          return (
-            <button
-              key={label}
-              className={on ? "selected" : ""}
-              aria-pressed={on}
-              onClick={() => {
-                onChange(dates);
-                setMonth(dates[0].slice(0, 7));
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="pv-calendar-months">
-        <button
-          className="pv-icon-button pv-calendar-prev"
-          aria-label="Previous month"
-          disabled={month <= first}
-          onClick={() => setMonth(monthPlus(month, -1))}
-        >
+    <div className="pv-window-nav">
+      <strong>{label}</strong>
+      <span>
+        <button className="pv-square-button" aria-label="Previous two weeks" disabled={!prev} onClick={prev}>
           <ArrowLeftIcon size={18} />
         </button>
-        <button
-          className="pv-icon-button pv-calendar-next"
-          aria-label="Next month"
-          disabled={monthPlus(month, 1) >= last}
-          onClick={() => setMonth(monthPlus(month, 1))}
-        >
+        <button className="pv-square-button" aria-label="Next two weeks" disabled={!next} onClick={next}>
           <ArrowRightIcon size={18} />
         </button>
-        {[month, monthPlus(month, 1)].map((m, i) => (
-          <div key={m} className={`pv-month ${i ? "is-second" : ""}`}>
-            <h3>{monthName(m)}</h3>
-            <div className="pv-month-grid">
-              {WEEKDAYS.map((w) => (
-                <span key={w} className="pv-weekday">
-                  {w.slice(0, 2)}
-                </span>
-              ))}
-              {monthGrid(m).map((d, j) =>
-                d ? (
-                  <button
-                    key={d}
-                    className={`${value.includes(d) ? "selected" : ""} ${d === today ? "is-today" : ""}`}
-                    aria-pressed={value.includes(d)}
-                    aria-label={new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`))}
-                    disabled={d < today || d > lastDay || (full && !value.includes(d))}
-                    onClick={() => toggle(d)}
-                  >
-                    {Number(d.slice(-2))}
-                  </button>
-                ) : (
-                  <span key={`blank-${j}`} />
-                ),
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pv-calendar-foot">
-        <span>
-          {value.length
-            ? `${value.length} ${value.length === 1 ? "date" : "dates"} · ${datesLabel(value)}`
-            : "Tap the dates you need"}
-          {full && <small>Up to {MAX_DATES} dates, same hours each day</small>}
-        </span>
-        {value.length > 0 && (
-          <Button variant="quiet" onClick={() => onChange([])}>
-            Clear
-          </Button>
-        )}
-        <Button disabled={!value.length} onClick={onDone}>
-          Done
-        </Button>
-      </div>
+      </span>
     </div>
   );
 }
 
-// One compact line: dates and hours. The calendar opens below only while
-// choosing, then folds away again.
-export function DateTimeBar({
+// One scroll-snapping column of an iOS-style wheel.
+const ROW = 40;
+function Wheel({
+  items,
   value,
   onChange,
   label,
 }: {
+  items: string[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const current = useRef(value);
+  useEffect(() => {
+    current.current = value;
+  }, [value]);
+  // Start on the chosen value.
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = Math.max(0, items.indexOf(value)) * ROW;
+    // Only on open: later changes come from the wheel itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const to = (i: number) =>
+    ref.current?.scrollTo({ top: Math.min(Math.max(i, 0), items.length - 1) * ROW, behavior: "smooth" });
+  return (
+    <div
+      className="pv-wheel"
+      ref={ref}
+      role="listbox"
+      aria-label={label}
+      tabIndex={0}
+      onScroll={() => {
+        clearTimeout(settle.current);
+        settle.current = setTimeout(() => {
+          const i = Math.min(Math.max(Math.round((ref.current?.scrollTop || 0) / ROW), 0), items.length - 1);
+          if (items[i] !== current.current) onChange(items[i]);
+        }, 90);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        to(items.indexOf(current.current) + (e.key === "ArrowDown" ? 1 : -1));
+      }}
+    >
+      <span className="pv-wheel-pad" />
+      {items.map((item, i) => (
+        <span
+          key={item}
+          role="option"
+          aria-selected={item === value}
+          className={`pv-wheel-item ${item === value ? "selected" : ""}`}
+          onClick={() => to(i)}
+        >
+          {item}
+        </span>
+      ))}
+      <span className="pv-wheel-pad" />
+    </div>
+  );
+}
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+export function TimeSelect({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+  const [h, m] = value.split(":");
+  // Keeps an odd saved minute (e.g. 23:59) on the wheel.
+  const minutes = MINUTES.includes(m) ? MINUTES : [...MINUTES, m].sort();
+  return (
+    <div className="pv-time-select" ref={ref}>
+      <button
+        type="button"
+        className="pv-time-field"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${label}: ${value}`}
+        onClick={() => setOpen(!open)}
+      >
+        <small>{label}</small>
+        <strong>{value}</strong>
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <div className="pv-time-menu" role="dialog" aria-label={label}>
+          <div className="pv-wheels">
+            <span className="pv-wheel-band" aria-hidden="true" />
+            <Wheel label={`${label} hour`} items={HOURS} value={h} onChange={(x) => onChange(`${x}:${m}`)} />
+            <span className="pv-wheel-colon" aria-hidden="true">:</span>
+            <Wheel label={`${label} minutes`} items={minutes} value={m} onChange={(x) => onChange(`${h}:${x}`)} />
+          </div>
+          <Button onClick={() => setOpen(false)}>Done</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PRESETS: [string, string, string][] = [
+  ["Lunch", "11:00", "16:00"],
+  ["Dinner", "17:00", "23:00"],
+  ["Late", "22:00", "02:00"],
+];
+// Dates and hours: two weeks of day tiles (any of them, up to seven), then
+// the hours. On Book it folds to its summary line and grows open in place.
+export function DateTimeBar({
+  value,
+  onChange,
+  label,
+  collapsible = false,
+}: {
   value: When;
   onChange: (value: When) => void;
   label?: string;
+  collapsible?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const { data } = usePreview();
+  const [open, setOpen] = useState(!collapsible);
+  // Once fully open, the time wheels may drop below the panel.
+  const [settled, setSettled] = useState(false);
+  const today = londonDate(data.now);
+  const w = useWindow(today, value.dates[0] || today);
   const set = (patch: Partial<When>) => {
     const next = { ...value, ...patch };
     if (next.dates.length) saveWhen(next);
     onChange(next);
   };
+  const full = value.dates.length >= MAX_DATES;
   const days = whenDays(value);
-  return (
-    <div className={`pv-when ${open ? "is-open" : ""}`}>
-      {label && <h2 className="pv-when-label">{label}</h2>}
-      <div className="pv-when-bar">
-        <button
-          className="pv-when-field pv-when-dates"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          <BookingsIcon />
-          <span>
-            <small>{value.dates.length > 1 ? `${value.dates.length} dates` : "Date"}</small>
-            <strong>{value.dates.length ? datesLabel(value.dates) : "Choose dates"}</strong>
-          </span>
-          <Chevron open={open} />
-        </button>
-        <div className="pv-when-field pv-when-hours">
-          <ClockIcon />
-          <span>
-            <small>Hours{value.dates.length > 1 ? " · each day" : ""}</small>
-            <span className="pv-when-times">
-              <input
-                type="time"
-                aria-label="Start time"
-                value={value.start}
-                onChange={(e) => set({ start: e.target.value })}
-              />
-              <span aria-hidden="true">–</span>
-              <input
-                type="time"
-                aria-label="End time"
-                value={value.end}
-                onChange={(e) => set({ end: e.target.value })}
-              />
-            </span>
-          </span>
+  const preset = PRESETS.find(([, start, end]) => value.start === start && value.end === end)?.[0];
+  const summary = !value.dates.length
+    ? "Choose a date"
+    : !days.length
+      ? "Choose different start and end times"
+      : `${datesLabel(value.dates)} · ${value.start}–${value.end}${full ? " · up to 7 dates" : ""}`;
+  const body = (
+    <>
+      <WindowNav {...w} />
+      <div className="pv-date-picks pv-when-days" role="group" aria-label="Dates">
+        {w.dates.map((d, i) => {
+          const on = value.dates.includes(d);
+          return (
+            <button
+              key={d}
+              aria-pressed={on}
+              className={on ? "selected" : ""}
+              style={{ "--i": i } as React.CSSProperties}
+              disabled={!on && full}
+              onClick={() =>
+                set({ dates: on ? value.dates.filter((x) => x !== d) : [...value.dates, d].sort() })
+              }
+            >
+              <small>{d === today ? "Today" : displayDate(d).split(" ")[0]}</small>
+              <strong>{Number(d.slice(-2))}</strong>
+            </button>
+          );
+        })}
+      </div>
+      <div className="pv-when-hours">
+        <div className="pv-presets" role="group" aria-label="Service">
+          {PRESETS.map(([name, start, end]) => {
+            const on = value.start === start && value.end === end;
+            return (
+              <button key={name} aria-pressed={on} className={on ? "selected" : ""} onClick={() => set({ start, end })}>
+                {name}
+                <small>
+                  {start}–{end}
+                </small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="pv-time-pair">
+          <TimeSelect label="From" value={value.start} onChange={(start) => set({ start })} />
+          <TimeSelect label="To" value={value.end} onChange={(end) => set({ end })} />
         </div>
       </div>
-      {!days.length && value.dates.length > 0 && (
-        <p className="pv-error">Choose different start and end times.</p>
-      )}
-      {open && (
-        <Calendar
-          value={value.dates}
-          onChange={(dates) => set({ dates })}
-          onDone={() => setOpen(false)}
-        />
-      )}
+    </>
+  );
+  if (!collapsible)
+    return (
+      <div className="pv-when">
+        {label && <h2 className="pv-when-label">{label}</h2>}
+        {body}
+        <p className="pv-when-summary">{summary}</p>
+      </div>
+    );
+  return (
+    <div className={`pv-when pv-when-fold ${open ? "is-open" : ""} ${open && settled ? "is-settled" : ""}`}>
+      <button
+        className="pv-when-head"
+        aria-expanded={open}
+        disabled={open && !days.length}
+        onClick={() => {
+          setSettled(false);
+          setOpen(!open);
+        }}
+      >
+        <span>
+          <small>When</small>
+          <strong>{value.dates.length ? datesLabel(value.dates) : "Choose a date"}</strong>
+        </span>
+        <span>
+          <small>Hours</small>
+          <strong>
+            {preset ? `${preset} · ` : ""}
+            {value.start}–{value.end}
+          </strong>
+        </span>
+        <span className="pv-when-change">
+          <span className="pv-when-change-label" key={open ? "done" : "change"}>
+            {open ? "Done" : "Change"}
+          </span>
+          <Chevron open={open} />
+        </span>
+      </button>
+      {/* Grows from nothing to its natural height; hidden content is inert. */}
+      <div
+        className="pv-when-body"
+        inert={!open}
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && open) setSettled(true);
+        }}
+      >
+        <div className="pv-when-inner">{body}</div>
+      </div>
     </div>
   );
 }
@@ -327,11 +407,7 @@ function TalentCard({
       : t.roles.find((r) => FAMILIES[family].roles.includes(r)) || role || FAMILIES[family].roles[0];
   return (
     <article className="pv-talent-card">
-      <button
-        className="pv-talent-card-photo"
-        onClick={() => go(`talent/${t.id}`)}
-        aria-label={`View ${t.name}’s profile`}
-      >
+      <button className="pv-talent-card-photo" onClick={() => go(`talent/${t.id}`)}>
         <Photo src={t.photo} alt={t.name} />
         <span className={`pv-talent-status is-${where}`}>
           <span className="pv-dot" />
@@ -371,10 +447,7 @@ function TalentCard({
               )
             }
           >
-            Message
-          </Button>
-          <Button variant="secondary" onClick={() => go(`talent/${t.id}`)}>
-            Profile
+            Message {firstName(t)}
           </Button>
         </div>
       </div>
@@ -395,7 +468,9 @@ export function TeamList({ family, initial }: { family: string; initial: When })
     );
   const days = whenDays(when);
   const { free, unavailable, others } = rankTalent(data, actor, family, role, days);
-  const people = [...free, ...unavailable, ...others];
+  const card = (t: Member) => (
+    <TalentCard key={t.id} t={t} when={when} family={family} role={role} />
+  );
   return (
     <>
       <Heading
@@ -404,6 +479,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
         back="home"
       />
       <DateTimeBar
+        collapsible
         value={when}
         onChange={(next) => {
           setWhen(next);
@@ -422,11 +498,20 @@ export function TeamList({ family, initial }: { family: string; initial: When })
           </button>
         ))}
       </div>
-      <div className="pv-talent-grid">
-        {people.map((t) => (
-          <TalentCard key={t.id} t={t} when={when} family={family} role={role} />
-        ))}
-      </div>
+      <div className="pv-talent-grid">{[...free, ...unavailable].map(card)}</div>
+      {others.length > 0 && (
+        <>
+          <hr className="pv-team-divider" />
+          <div className="pv-talent-grid">{others.map(card)}</div>
+        </>
+      )}
+      <button className="pv-team-post" onClick={() => go(`new/${family}`)}>
+        <span>
+          <strong>Nobody right?</strong>
+          <small>Post a job to everyone in {role || family}</small>
+        </span>
+        <ArrowRightIcon />
+      </button>
     </>
   );
 }
@@ -469,6 +554,7 @@ const STATUS: Record<Offer["status"], string> = {
 export function OfferCard({ offer, mine }: { offer: Offer; mine: boolean }) {
   const { data, actor, side, act, go } = usePreview();
   const [changes, setChanges] = useState(false);
+  const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState("");
   const days = offerDays(offer);
   const hours = hoursOf(days[0]);
@@ -514,16 +600,7 @@ export function OfferCard({ offer, mine }: { offer: Offer; mine: boolean }) {
       )}
       {side === "talent" && offer.status === "sent" && !changes && (
         <div className="pv-actions">
-          <Button
-            onClick={() =>
-              act(
-                { type: "answer-offer", actor, offer: offer.id, answer: "accept" },
-                `You’re booked at ${venue.name}.`,
-              )
-            }
-          >
-            Accept and book
-          </Button>
+          <Button onClick={() => setConfirm(true)}>Accept and book</Button>
           <Button variant="secondary" onClick={() => setChanges(true)}>
             Ask for changes
           </Button>
@@ -532,7 +609,8 @@ export function OfferCard({ offer, mine }: { offer: Offer; mine: boolean }) {
             onClick={() =>
               act(
                 { type: "answer-offer", actor, offer: offer.id, answer: "decline" },
-                "Declined. The venue has been told.",
+                `Declined. ${venue.name} has been told.`,
+                { undo: true },
               )
             }
           >
@@ -574,6 +652,44 @@ export function OfferCard({ offer, mine }: { offer: Offer; mine: boolean }) {
         <button className="pv-text-link" onClick={() => go(`booking/${offer.booking}`)}>
           View booking
         </button>
+      )}
+      {confirm && (
+        <Modal title="Accept and book?" onClose={() => setConfirm(false)}>
+          <div className="pv-confirm-person">
+            <Photo src={venue.photo} alt={venue.name} />
+            <span>
+              <strong>{venue.name}</strong>
+              <small>
+                {offer.role} · £{offer.rate}/h
+              </small>
+            </span>
+          </div>
+          <div className="pv-services">
+            {days.map((d) => (
+              <p key={d.date}>{serviceLabel(d)}</p>
+            ))}
+          </div>
+          <p>
+            About £{Math.round(offer.rate * hours * days.length)} for {hours * days.length} hours.
+          </p>
+          <Button
+            onClick={() => {
+              const next = act(
+                { type: "answer-offer", actor, offer: offer.id, answer: "accept" },
+                `You’re booked at ${venue.name}.`,
+              );
+              if (!next) return;
+              setConfirm(false);
+              const booked = (next.offers ?? []).find((o) => o.id === offer.id)?.booking;
+              if (booked) go(`booking/${booked}`);
+            }}
+          >
+            Accept and book
+          </Button>
+          <Button variant="quiet" onClick={() => setConfirm(false)}>
+            Not yet
+          </Button>
+        </Modal>
       )}
     </div>
   );

@@ -73,7 +73,7 @@ One screen. Tapping a role tile opens it with the team already chosen.
 ```mermaid
 flowchart TD
     A["Book: tap a role tile, e.g. Kitchen"] --> B["Who: grade chips with member counts; last time's grades preselected"]
-    B --> C["When: Today, Tomorrow or Pick dates (any of the next 14 days, up to 7)"]
+    B --> C["When: two weeks of day tiles with arrows (any dates, up to 7), then hours"]
     C --> D["One start and end time: same hours each day"]
     D --> T{"More than one day?"}
     T -->|"Yes"| TOG["Each person must cover every day: off by default; People needed each day"]
@@ -222,7 +222,7 @@ flowchart TD
     T --> FREE["When I'm free"]
     MS["My shifts: 14-day strip, booked days show the venue"] --> FREE
     FREE --> DAY["Pick a day: Free all day, Free from–to, or Not free"]
-    DAY --> COPY["Copy to other dates, then save"]
+    DAY --> COPY["Copy to other dates, then save (arrows move two weeks)"]
     COPY --> USE["Venues see Free then when choosing who to invite"]
 ```
 

@@ -21,6 +21,7 @@ import {
   type ShiftDraft,
   areaOf,
 } from "@/lib/preview/model";
+import { ArrowLeftIcon } from "@/components/icons";
 import { usePreview } from "./context";
 import { ActionBar, Badge, Button, Empty, Heading, ProfilePhoto, ProfileName, InviteToggle } from "./ui";
 import { draftFrom } from "./ShiftDetail";
@@ -48,16 +49,17 @@ export function ShiftComposer({
     const last = data.shifts.find(
       (s) => s.venue === actor && s.family === fam,
     ) as Shift | undefined;
-    // The dates the venue already chose on Book.
-    const chosen = savedWhen(data.now).dates;
+    // The dates and hours the venue already chose on Book.
+    const when = savedWhen(data.now);
+    const chosen = when.dates;
     const base: ShiftDraft = {
       roles: last?.roles || [],
       family: fam,
       date: chosen[0] || tomorrow,
       count: 1,
       dates: chosen.length ? chosen : [tomorrow],
-      start: last?.days[0].start || "17:00",
-      end: last?.days[0].end || "23:00",
+      start: when.start,
+      end: when.end,
       capacity: 1,
       // Pre-filled from the venue profile; each shift can change them.
       rate: defaultRate(me!, fam),
@@ -180,7 +182,7 @@ export function ShiftComposer({
       ? "Find a replacement"
       : repeat
         ? `Book ${firstName(repeat)} again`
-        : `${draft.family} cover`;
+        : `${draft.family} job post`;
   if (view === "invite")
     return (
       <>
@@ -188,9 +190,9 @@ export function ShiftComposer({
           title="Who would you like to invite?"
           description={`${draft.roles.join(" or ")} · ${days.length ? `${relativeDay(days[0].date, data.now)} · ${draft.start}–${draft.end}` : ""}`}
         />
-        <button className="pv-text-link pv-back-link" onClick={() => setView("form")}>
-          ← Back to the shift
-        </button>
+        <Button variant="quiet" className="pv-back-link" onClick={() => setView("form")}>
+          <ArrowLeftIcon /> Back
+        </Button>
         {sorted.length ? (
           <div className="pv-pick-list">
             {sorted.map((t) => {
@@ -449,7 +451,7 @@ export function ShiftComposer({
             >
               <strong>
                 {alerted.length || !draft.roles.length
-                  ? "Post shift"
+                  ? "Post job"
                   : "Ask Dyuknow to find someone"}
               </strong>
               <small>
@@ -460,16 +462,6 @@ export function ShiftComposer({
                     : "No one has this role yet."}
               </small>
             </button>
-            {eligible.length > 0 && (
-              <button
-                className="pv-choice"
-                disabled={!!validation}
-                onClick={() => setView("invite")}
-              >
-                <strong>Invite specific people</strong>
-                <small>You choose who. Accepting books them straight away.</small>
-              </button>
-            )}
           </div>
         )}
       </ActionBar>

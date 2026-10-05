@@ -9,7 +9,7 @@ export const STORIES = [
     who: "Spruce → Theo → Spruce",
     start: "/venue/spruce/home",
     steps: [
-      "As Spruce, Book opens on tomorrow, 17:00–23:00. Tap the date bar: a calendar opens. Untick tomorrow, tap Wed 7, then Done. You can pick up to seven dates, months ahead. Each team tile says how many people are free then.",
+      "As Spruce, Book opens on tomorrow with Dinner (17:00–23:00). Untick tomorrow and tap Wed 7. The arrows move two weeks at a time; you can pick up to seven dates. Each team tile says how many people are free then.",
       "Tap Kitchen, then the CDP chip. Big photo cards: Poppy first, marked Free then. Theo hasn’t set his availability, so his card says so and comes next. Everyone else on Dyuknow follows, so nobody vetted is hidden while the network is small.",
       "Every card shows the person’s minimum pay: Theo’s is £17/h. Tap Message on his card and say hello. You don’t need a shift to talk.",
       "In the chat, tap Send booking request. CDP, Wed 7 and 17:00–23:00 are already filled in from the list. Open the dates and add Thu 8 too. Set the pay to £15 to see the below-minimum warning, then send. The request arrives as a card, not a text.",
@@ -109,7 +109,7 @@ export const STORIES = [
     who: "Talent and venue",
     start: "/talent/poppy/bookings",
     steps: [
-      "My shifts is your calendar. Choose a day → Free from–to → save. Copy to other dates, or mark Not free. Free all day covers midnight to midnight.",
+      "My shifts is your availability, two weeks at a time; the arrows move to the next two. Choose a day → Free from–to → save. Copy to other dates, or mark Not free. Free all day covers midnight to midnight.",
       "As Spruce, start a shift → Invite specific people. People you’ve worked with come first, then people free then, then everyone else.",
       "Set 22:00–02:00 on a shift. The day list shows both calendar dates.",
       "As talent, Shifts runs top to bottom: upcoming shifts, invitations, then the Shifts / Venues switch. Shifts lists your roles; Show from other roles too adds the rest. Past and closed sits at the bottom.",

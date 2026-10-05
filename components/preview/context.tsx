@@ -7,7 +7,8 @@ export type PreviewContextValue = {
   side: Side;
   me: Member | undefined;
   go: (path: string) => void;
-  act: (action: Action, success?: string) => Data | null;
+  // `undo` adds an Undo button to the success message for a few seconds.
+  act: (action: Action, success?: string, options?: { undo?: boolean }) => Data | null;
   toast: (text: string) => void;
   error: string;
   profileBack: string;
