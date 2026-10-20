@@ -40,7 +40,7 @@ In the model this is one object, a `Shift`, with `mode: "request"` or `mode: "po
 ### Ask for cover: a booking request
 
 1. **Book** opens with a date strip (two weeks at a time, up to eight weeks ahead) and the hours: Lunch, Dinner, Late, or any From–To. Pick up to 14 dates with the same hours.
-2. Tap a team (Kitchen, Pastry, Bar, Sommelier, Floor). The people in that team are listed, free then first, then people who worked here. Each card shows free or not for those hours, minimum pay, skills, and "Worked with you".
+2. Tap a team (Kitchen, Pastry, Bar, Sommelier, Floor). The people in that team are listed, available people first, then people who worked here. Each card shows whether they are available for those hours, minimum pay, skills, and "Worked with you".
 3. Tap **Add to request** on the people you want. **Send booking request to …** stays pinned at the bottom of the screen.
 4. The form opens already filled in: **To** (the people, removable), **Position**, **When**, **Pay** (£/hour, from the venue's last ask in that team), **People needed** (per day), and **Note** (from the venue's last ask).
 5. Send. Each person gets the request as a card in their conversation with the venue, and a text.
@@ -83,7 +83,7 @@ The ⋯ menu has **Send to more people** (the same request, to more people) and 
 
 Opening any of them shows the same screen: venue, position, dates, hours, pay, note, and day-by-day status when it runs several days. The talent taps **I can do this** (or **Accept** on a request sent only to them, for one place). For one day that's it; for several they tick the days they can do (days they marked not free start unticked). On a booking request they can also **Decline**. Before they're booked they can **Withdraw**. One answer per shift: anything else goes in chat.
 
-**Availability** is the second tab: two weeks at a time, up to eight weeks ahead. Tick one or more days and set them free all day, free from–to, or not free. Availability guides venues ("Free then", "Not free then") but doesn't block them. Only a booking blocks time.
+**Availability** is the second tab: two weeks at a time, up to eight weeks ahead. Tick one or more days and set them free all day, free from–to, or not free. Availability guides venues ("Available", "Not available") but doesn't block them. Only a booking blocks time.
 
 ## Messages
 

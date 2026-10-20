@@ -9,13 +9,13 @@ export const STORIES = [
     who: "Spruce → Poppy and Theo → Spruce",
     start: "/venue/spruce/home",
     steps: [
-      "As Spruce, Book opens on tomorrow at Dinner (17:00–23:00). Untick tomorrow and tap Wed 7. Each team tile says how many people are free then.",
-      "Tap Kitchen. Everyone is listed: free people in the team first, then busy or unset, then everyone else. Each card shows their minimum pay.",
+      "As Spruce, Book opens on tomorrow at Dinner (17:00–23:00). Untick tomorrow and tap Wed 7. Each team tile says how many people are available.",
+      "Tap Kitchen. The kitchen team is listed, available people first. Each card shows their minimum pay.",
       "Tap Add to request on Poppy and Theo, then Send booking request to Poppy and Theo at the bottom.",
       "The form is the same one a job post uses: position, dates and hours, pay, people needed, note. Everything is filled in. Send it.",
-      "Switch account → Theo. Shifts shows it under Booking requests. Open it → I can do this → Send. He isn’t booked yet.",
+      "Switch account → Theo. Shifts shows it under Booking requests. Open it → I can do this. Theo isn’t booked yet.",
       "Switch to Poppy and say yes too.",
-      "Switch to Spruce. Bookings → Open shows “2 can do it · Review”. Open it and Book Theo. Poppy is told it’s filled. Theo’s card in chat now says Booked.",
+      "Switch to Spruce. Bookings → Needs you shows “2 said yes · Book”. Open it and Book Theo. Poppy is told it’s filled. Theo’s card in chat now says Booked.",
     ],
   },
   {
@@ -36,7 +36,7 @@ export const STORIES = [
     steps: [
       "As Poppy, open Harper Privé’s 3-day CDP job → I can do this. Tue is unticked because Poppy marked it not free. Untick Mon too, then send a yes to Sun only.",
       "As Theo, open the same job → I can do this → Yes to all 3 days.",
-      "As Harper Privé, open the job. Each day lists who can do it: “Sun 4 Oct · 2 can do it: Poppy (Sun only), Theo (all 3 days)”.",
+      "As Harper Privé, open the job. Each day lists who said yes: “2 can do it: Poppy (Sun only), Theo (all 3 days)”.",
       "On Sun, tap Book Poppy. Mon and Tue stay open. On Mon, Book Theo; then on Tue, Book Theo again. Tue is added to Theo’s booking, not made a second one.",
     ],
   },
@@ -56,7 +56,7 @@ export const STORIES = [
     start: "/talent/poppy/home",
     steps: [
       "Book Poppy for a multi-day job first (story 3 works). As Poppy, open the booking → Cancel days → tick one day → choose a reason.",
-      "The other days stay booked. Her calendar frees up for that day.",
+      "The other days stay booked. Poppy’s calendar frees up for that day.",
       "Switch to the venue. The job has reopened for that day: “Poppy cancelled · Mon 5 needs 1 person”, with Send to more people.",
     ],
   },
@@ -77,7 +77,7 @@ export const STORIES = [
     start: "/talent/poppy/bookings",
     steps: [
       "Availability shows two weeks at a time; the arrows go up to eight weeks ahead. Tick one or more days → Free from–to → save, or mark Not free.",
-      "Venues see it as Free then / Not free then on each card. It’s a guide, not a block: a venue can still ask someone marked busy.",
+      "Venues see it as Available / Not available on each card. It’s a guide, not a block: a venue can still ask someone marked busy.",
       "Being booked is the only hard block: you can’t be booked twice for the same hours.",
     ],
   },

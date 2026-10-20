@@ -21,7 +21,7 @@ The clock starts at 1 October 2026, 10:00 London. Everything is stored in this b
 3. **Pick people.** Tap **Add to request** on Theo and Poppy, then **Send booking request to Theo and Poppy**.
 4. **Same form as a job post.** Position, dates, hours, pay, people needed and note are filled in. Send.
 5. **They say yes.** As Theo: Shifts → Booking requests → open it → **I can do this**. Theo is waiting, not booked. Do the same as Poppy. (A request to one person for one place shows **Accept** instead, which books them.)
-6. **The venue books.** As Spruce: Bookings → Needs you → "2 can do it · Review" → **Book Theo**. Poppy is told it's filled.
+6. **The venue books.** As Spruce: Bookings → Needs you → "2 said yes · Book" → **Book Theo**. Poppy is told it's filled.
 7. **After the shift.** Preview controls → Finish this booking. Bookings → Confirm hours → confirm, or change the finish time.
 
 To ask everyone instead, **Post a job** (the black button in the sidebar; the round **+** on phones) → team → the same form.

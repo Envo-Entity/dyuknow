@@ -125,7 +125,7 @@ export function VenueHome() {
       <TeamMosaic
         caption={(team) => {
           const free = team.filter((m) => standing(data, m.id, days) === "free").length;
-          return `${free} free then`;
+          return `${free} available`;
         }}
         onPick={(name) => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
       />
@@ -237,7 +237,7 @@ export function TalentHome() {
         </Section>
       )}
       {waiting.length > 0 && (
-        <Section title="Waiting to hear">
+        <Section title="Waiting to be booked">
           <div className="pv-rows">
             {waiting.map((r) => responseRow(r, "Waiting"))}
           </div>
@@ -262,7 +262,7 @@ export function TalentHome() {
             })}
           </div>
         ) : (
-          <Empty title="No open jobs for your roles right now" />
+          <Empty title="No jobs for you right now" />
         )}
       </Section>
       {history > 0 && (
@@ -279,7 +279,7 @@ export function TalentHome() {
                   withdrawn: "Withdrawn",
                   declined: "Declined",
                   "not-selected": "Filled by someone else",
-                  lapsed: "No longer available",
+                  lapsed: "Booked elsewhere",
                 }[r.status as "withdrawn"] || r.status,
               ),
             )}
@@ -295,7 +295,7 @@ export function VenueDetail({ id }: { id: string }) {
   const v = member(data, id);
   if (!v)
     return (
-      <Empty title="Venue not found" text="Return to the venue directory." />
+      <Empty title="Venue not found" />
     );
   const shifts = data.shifts.filter(
     (s) => s.venue === id && s.mode === "post" && s.status === "open",
@@ -323,7 +323,7 @@ export function VenueDetail({ id }: { id: string }) {
           )}
         </div>
       </div>
-      <h2 className="pv-section-title">Open shifts</h2>
+      <h2 className="pv-section-title">Open jobs</h2>
       {shifts.length ? (
         <div className="pv-card-grid">
           {shifts.map((s) => (
@@ -331,8 +331,8 @@ export function VenueDetail({ id }: { id: string }) {
           ))}
         </div>
       ) : (
-        <Empty title="No open shifts here">
-          <Button onClick={() => go("home")}>See other shifts</Button>
+        <Empty title="No open jobs here">
+          <Button onClick={() => go("home")}>See open jobs</Button>
         </Empty>
       )}
     </>
@@ -369,7 +369,7 @@ export function WorkHub() {
     <>
       <Heading title="Bookings" />
       {!open.length && !coming.length && !toConfirm.length && (
-        <Empty title="Nothing booked or open">
+        <Empty title="No bookings yet">
           <Button onClick={() => go("home")}>Find cover</Button>
         </Empty>
       )}

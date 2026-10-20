@@ -62,7 +62,7 @@ test("job post → yes → one conversation → book produces one shared booking
   d = book(d, s);
   assert.equal(bookedCount(d, s), 1);
   assert.equal(d.shifts[0].status, "filled");
-  assert.throws(() => book(d, s), /filled or closed/);
+  assert.throws(() => book(d, s), /no longer available/);
   assert.equal(bookedCount(d, s), 1);
   // The talent is told; the venue made the booking, so it isn't.
   assert.ok(d.notices.some((n) => n.to === "poppy" && n.title === "You're booked at Spruce"));
@@ -86,7 +86,7 @@ test("a booking request to several people: everyone can say yes, the venue choos
   assert.equal(bookedCount(d, s), 0);
   d = book(d, s, "theo");
   assert.equal(d.responses.find((r) => r.shift === s && r.talent === "poppy").status, "not-selected");
-  assert.throws(() => book(d, s, "poppy"), /filled or closed/);
+  assert.throws(() => book(d, s, "poppy"), /no longer available/);
 });
 test("a request to one person for one place books when they accept", () => {
   let d = post(seed(), { to: ["poppy"] });
@@ -113,10 +113,10 @@ test("a request can go to someone outside the position; a job post can't be answ
   d = respond(d, d.shifts[0].id, "ines");
   assert.equal(d.responses.find((r) => r.talent === "ines").status, "booked");
   d = post(seed());
-  assert.throws(() => respond(d, d.shifts[0].id, "ines"), /selected roles/);
+  assert.throws(() => respond(d, d.shifts[0].id, "ines"), /other positions/);
   // A request can't be answered by someone it wasn't sent to.
   d = post(seed(), { to: ["poppy"] });
-  assert.throws(() => respond(d, d.shifts[0].id, "theo"), /selected roles/);
+  assert.throws(() => respond(d, d.shifts[0].id, "theo"), /other positions/);
 });
 test("declining tells the venue; a request everyone declined closes as Declined", () => {
   let d = post(seed(), { to: ["poppy", "theo"] });
@@ -125,7 +125,7 @@ test("declining tells the venue; a request everyone declined closes as Declined"
   assert.ok(d.notices.some((n) => n.to === "spruce" && /declined/.test(n.title)));
   // Theo is still deciding, so it stays open and only waits on him.
   assert.equal(d.shifts[0].status, "open");
-  assert.equal(venueSummary(d, d.shifts[0]).text, "Waiting to hear from Theo");
+  assert.equal(venueSummary(d, d.shifts[0]).text, "Waiting for Theo");
   d = transition(d, { type: "decline", actor: "theo", shift: s });
   assert.equal(d.shifts[0].status, "closed");
   assert.equal(venueSummary(d, d.shifts[0]).text, "Declined");
@@ -154,14 +154,14 @@ test("a booking elsewhere lapses other waiting answers and blocks a late booking
   d = respond(d, b);
   assert.equal(d.responses.find((r) => r.shift === a && r.talent === "poppy").status, "lapsed");
   assert.ok(conflict(d, "poppy", d.shifts.find((s) => s.id === a).days));
-  assert.throws(() => book(d, a), /no longer available/);
+  assert.throws(() => book(d, a), /can’t be booked any more/);
 });
 test("withdrawal wins before book; closing keeps confirmed places", () => {
   let d = post(seed(), { capacity: 2 });
   const s = d.shifts[0].id;
   d = respond(d, s);
   d = transition(d, { type: "withdraw", actor: "poppy", shift: s });
-  assert.throws(() => book(d, s), /no longer available/);
+  assert.throws(() => book(d, s), /can’t be booked any more/);
   d = respond(d, s);
   d = book(d, s);
   d = transition(d, { type: "close", actor: "spruce", shift: s, reason: "Plans changed" });
@@ -231,19 +231,19 @@ test("expiry blocks stale links and failure cannot produce a false success", () 
   assert.throws(() => book(blocked, s), /offline/);
   assert.equal(bookedCount(blocked, s), 0);
   blocked = transition(d, { type: "settings", failNext: true });
-  assert.throws(() => book(blocked, s), /could not be saved/);
+  assert.throws(() => book(blocked, s), /Couldn’t save/);
   assert.equal(bookedCount(blocked, s), 0);
   d = transition(d, { type: "advance", until: d.shifts[0].days[0].from });
   assert.equal(d.shifts[0].status, "expired");
-  assert.throws(() => book(d, s), /started/);
+  assert.throws(() => book(d, s), /already started/);
 });
 test("timezones, overnight, DST and all-day availability are explicit", () => {
   assert.equal(londonInstant("2026-10-02", "17:00"), "2026-10-02T16:00:00.000Z");
   assert.equal(londonInstant("2026-11-02", "17:00"), "2026-11-02T17:00:00.000Z");
   const days = makeDays(draft({ start: "22:00", end: "02:00" }));
   assert.equal(days[0].to, "2026-10-09T01:00:00.000Z");
-  assert.throws(() => londonInstant("2026-10-25", "01:30"), /occurs twice/);
-  assert.throws(() => londonInstant("2026-03-29", "01:30"), /does not exist/);
+  assert.throws(() => londonInstant("2026-10-25", "01:30"), /happens twice/);
+  assert.throws(() => londonInstant("2026-03-29", "01:30"), /doesn’t exist/);
   const d = transition(seed(), {
     type: "availability",
     actor: "poppy",
@@ -292,7 +292,7 @@ test("joining retains chosen first-week dates and day hours, with an explicit sk
   assert.equal(skipped.availability.filter((a) => a.member === m.id).length, 0);
   assert.throws(
     () => transition(d, { type: "join", member: m, availabilityDates: ["2026-10-08"] }),
-    /next seven days/,
+    /next week/,
   );
 });
 test("reminders deduplicate, and a finished day waits for the venue before it confirms itself", () => {
@@ -301,9 +301,9 @@ test("reminders deduplicate, and a finished day waits for the venue before it co
   d = respond(d, s);
   d = book(d, s);
   d = transition(d, { type: "advance", until: "2026-10-07T17:00:00.000Z" });
-  assert.equal(d.notices.filter((n) => n.to === "poppy" && n.title === "Your next service is coming up").length, 1);
+  assert.equal(d.notices.filter((n) => n.to === "poppy" && n.title === "Your shift at Spruce").length, 1);
   d = transition(d, { type: "advance", until: "2026-10-07T18:00:00.000Z" });
-  assert.equal(d.notices.filter((n) => n.title === "Your next service is coming up").length, 1);
+  assert.equal(d.notices.filter((n) => n.title === "Your shift at Spruce").length, 1);
   const end = d.shifts.find((x) => x.id === s).days.at(-1).to;
   d = transition(d, { type: "advance", until: end });
   assert.deepEqual(d.bookings[0].log, {});
@@ -384,7 +384,7 @@ test("saying yes to days already filled or not in the shift is refused", () => {
   d = book(d, s, "theo");
   assert.throws(
     () => transition(d, { type: "respond", actor: "poppy", shift: s, days: [first] }),
-    /no longer available/,
+    /isn’t available any more/,
   );
 });
 test("a booking request can be accepted for some days; the rest stay open", () => {
@@ -573,7 +573,7 @@ test("a venue can't send a second ask to someone already answering one of its as
   let d = respond(seed(), "spruce-friday");
   assert.throws(
     () => post(d, { date: "2026-10-02", to: ["poppy"] }),
-    /already said yes to your job/,
+    /already said yes to your job post/,
   );
   // Nothing was created.
   assert.equal(d.shifts.length, seed().shifts.length);
@@ -582,7 +582,7 @@ test("a venue can't send a second ask to someone already answering one of its as
   d = post(d, { date: "2026-10-02", to: ["theo"] });
   // Once booked, the venue can't ask again for those hours either.
   d = book(d, "spruce-friday");
-  assert.throws(() => post(d, { date: "2026-10-02", to: ["poppy"], count: 1 }), /already booked with you/);
+  assert.throws(() => post(d, { date: "2026-10-02", to: ["poppy"], count: 1 }), /already booked then/);
 });
 test("booking someone clears their clashing answer with the same venue without calling it elsewhere", () => {
   // Two Spruce job posts at the same time; Poppy says yes to both.

@@ -765,7 +765,7 @@ function Setup({
   }
   return (
     <Modal
-      title={step === 3 ? "Your member preview" : "A little about you"}
+      title={step === 3 ? "Preview" : "A little about you"}
       onClose={onClose}
     >
       <div className="pv-steps">
@@ -786,7 +786,7 @@ function Setup({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </Field>
-          <Field label="Short introduction">
+          <Field label="About you">
             <textarea
               value={form.bio}
               onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -815,7 +815,7 @@ function Setup({
           <Button
             onClick={() => {
               if (!form.name.trim() || !form.bio.trim())
-                return toast("Add your name and a short introduction.");
+                return toast("Add your name and a few words about you.");
               setStep(2);
             }}
           >
@@ -882,7 +882,7 @@ function Setup({
                   checked={availability}
                   onChange={(e) => setAvailability(e.target.checked)}
                 />{" "}
-                Publish some availability for the next seven days
+                Add when you’re free this week
               </label>
               {availability && (
                 <>
@@ -914,9 +914,6 @@ function Setup({
                   </p>
                 </>
               )}
-              <p className="pv-caption">
-                Optional. You’ll still get role alerts if you skip availability.
-              </p>
             </>
           )}
           <Button
@@ -1039,7 +1036,7 @@ function PreviewControls({
     const r = data.responses.find(
       (r) => r.shift === shift.id && r.talent === other.id,
     );
-    const done = `${other.name} said yes and was booked. Everyone else waiting sees the real state.`;
+    const done = `${other.name} said yes and was booked.`;
     if (r?.status !== "can-cover") {
       const next = act({ type: "respond", actor: other.id, shift: shift.id });
       if (!next) return;

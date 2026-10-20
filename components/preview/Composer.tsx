@@ -12,6 +12,7 @@ import {
   serviceLabel,
   similarShift,
   lastAsk,
+  alreadyAsked,
   type Shift,
   type ShiftDraft,
 } from "@/lib/preview/model";
@@ -94,7 +95,7 @@ export function ShiftComposer({
   try {
     days = makeDays(draft);
     if (days[0].from <= data.now)
-      validation = "That start time has passed. Choose a later time.";
+      validation = "That start time has passed.";
   } catch (e) {
     validation = (e as Error).message;
   }
@@ -113,8 +114,8 @@ export function ShiftComposer({
         .map((p) => ({ p, r: openAnswer(data, actor, p.id, days) }))
         .filter((x) => x.r)
     : [];
-  if (!validation && taken.length)
-    validation = `${joinNames(taken.map((x) => firstName(x.p)))} already ${taken.length === 1 ? "has" : "have"} an answer with you for these hours.`;
+  // Each one is explained on its own line below, with what to do about it.
+  if (!validation && taken.length) validation = alreadyAsked(taken[0].p, taken[0].r!.status);
   function send() {
     if (validation) return toast(validation);
     const one = people.length === 1 && draft.capacity === 1;
@@ -122,9 +123,9 @@ export function ShiftComposer({
       { type: "post", actor, draft },
       request
         ? one
-          ? `Sent to ${firstName(people[0])}. They’re booked as soon as they accept.`
-          : `Sent to ${joinNames(people.map(firstName))}. You’ll book once they say yes.`
-        : "Posted.",
+          ? `Sent. ${firstName(people[0])} is booked as soon as they accept.`
+          : `Sent to ${joinNames(people.map(firstName))}. Book whoever says yes.`
+        : "Job posted.",
     );
     if (!result) return;
     // From a chat, the new card in the thread is the confirmation.
@@ -206,15 +207,9 @@ export function ShiftComposer({
           )}
           {taken.map(({ p, r }) => (
             <p key={p.id} className="pv-warning">
-              {firstName(p)}{" "}
-              {r!.status === "booked"
-                ? "is already booked with you"
-                : r!.status === "invited"
-                  ? "already has your booking request"
-                  : "already said yes to your job"}{" "}
-              for these hours.{" "}
+              {alreadyAsked(p, r!.status)}{" "}
               <button className="pv-text-link" onClick={() => go(`shift/${r!.shift}`)}>
-                {r!.status === "can-cover" ? "Book from there" : "Open it"}
+                {r!.status === "can-cover" ? "Book" : "View"}
               </button>
               {" · "}
               <button
@@ -227,13 +222,13 @@ export function ShiftComposer({
           ))}
           {duplicate && (
             <p className="pv-warning">
-              You already have an open {duplicate.roles.join(" or ")} request at
-              this time.{" "}
+              You already have a {duplicate.mode === "post" ? "job post" : "request"} for{" "}
+              {duplicate.roles.join(" or ")} then.{" "}
               <button
                 className="pv-text-link"
                 onClick={() => go(`shift/${duplicate.id}`)}
               >
-                View it
+                View
               </button>
             </p>
           )}
@@ -283,7 +278,7 @@ export function ShiftComposer({
         )}
         {request && draft.rate >= 12.71 && draft.rate < lowest && (
           <p className="pv-warning">
-            Below the minimum of {joinNames(people.filter((p) => (p.minRate || 0) > draft.rate).map(firstName))}.
+            Below the minimum for {joinNames(people.filter((p) => (p.minRate || 0) > draft.rate).map((p) => `${firstName(p)} (£${p.minRate}/h)`))}.
           </p>
         )}
         <div className="pv-form-row">
@@ -311,7 +306,7 @@ export function ShiftComposer({
           )}
         </div>
       </div>
-      {validation && draft.roles.length > 0 && (
+      {validation && draft.roles.length > 0 && !taken.length && (
         <p className="pv-error" role="alert">
           {validation}
         </p>
