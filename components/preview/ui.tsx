@@ -8,6 +8,7 @@ import {
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, CloseIcon } from "@/components/icons";
 import {
   FAMILIES,
+  teamOf,
   datesSummary,
   relativeDay,
   serviceLabel,
@@ -214,7 +215,7 @@ export function ShiftCard({
       className="pv-shift-card"
       onClick={onClick || (() => go(`shift/${shift.id}`))}
     >
-      <Photo src={venue.photo || FAMILIES[shift.family].photo} alt={venue.name} />
+      <Photo src={venue.photo || FAMILIES[teamOf(shift.roles)].photo} alt={venue.name} />
       <div className="pv-shift-card-body">
         <div className="pv-card-top">
           <span>{areaOf(venue)}</span>
@@ -231,7 +232,6 @@ export function ShiftCard({
         {shift.days.length > 1 && (
           <p className="pv-card-days">
             {shift.days.length} days needed
-            {shift.together ? " · one person for all of them" : ""}
           </p>
         )}
         <div className="pv-card-foot">
@@ -294,8 +294,9 @@ export function Row({
   );
 }
 // Keeps the one action that matters within thumb reach on phones.
-export function ActionBar({ children }: { children: ReactNode }) {
-  return <div className="pv-action-bar">{children}</div>;
+// `pinned`: stays on screen at every width (a choice made further up a list).
+export function ActionBar({ children, pinned = false }: { children: ReactNode; pinned?: boolean }) {
+  return <div className={`pv-action-bar ${pinned ? "is-pinned" : ""}`}>{children}</div>;
 }
 export function Section({
   title,

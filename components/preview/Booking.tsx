@@ -6,7 +6,6 @@ import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
 import {
   FAMILIES,
   MAX_DAYS,
-  allSkills,
   areaOf,
   datePlus,
   datesLabel,
@@ -21,6 +20,7 @@ import {
   rankTalent,
   standing,
   standingLabel,
+  teamOf,
   threadBetween,
   workedWith,
   type Member,
@@ -539,8 +539,8 @@ function TalentCard({
           "Minimum pay not set"
         )}
       </p>
-      {allSkills(t).length > 0 && (
-        <p className="pv-talent-card-skills">{allSkills(t).slice(0, 3).join(" · ")}</p>
+      {t.skills.length > 0 && (
+        <p className="pv-talent-card-skills">{t.skills.slice(0, 3).join(" · ")}</p>
       )}
       <div className="pv-talent-card-actions">
         {open ? (
@@ -565,8 +565,8 @@ function TalentCard({
   );
 }
 
-// Book → a team: everyone, the people who fit and are free first. Tick who
-// to ask, then send them one booking request.
+// Book → a team: the people in it, free ones first. Tick who to ask, then
+// send them one booking request.
 export function TeamList({ family, initial }: { family: string; initial: When }) {
   const { data, actor, go } = usePreview();
   const [when, setWhen] = useState(initial);
@@ -579,7 +579,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
       </Empty>
     );
   const days = whenDays(when);
-  const { free, unavailable, others } = rankTalent(data, actor, family, role, days);
+  const { free, unavailable } = rankTalent(data, actor, family, role, days);
   const card = (t: Member) => (
     <TalentCard
       key={t.id}
@@ -618,12 +618,6 @@ export function TeamList({ family, initial }: { family: string; initial: When })
         ))}
       </div>
       <div className="pv-talent-grid">{[...free, ...unavailable].map(card)}</div>
-      {others.length > 0 && (
-        <>
-          <hr className="pv-team-divider" />
-          <div className="pv-talent-grid">{others.map(card)}</div>
-        </>
-      )}
       <button className="pv-team-post" onClick={() => go(`new/${family}`)}>
         <span>
           <strong>Nobody right?</strong>
@@ -632,8 +626,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
         <ArrowRightIcon />
       </button>
       {picked.length > 0 && (
-        <ActionBar>
-          <p className="pv-bar-note">They say yes, then you choose who to book.</p>
+        <ActionBar pinned>
           <Button onClick={() => go(`new/${family}/${picked.join(",")}${role ? `/${role}` : ""}`)}>
             Send booking request to {picked.length > 2 ? `${picked.length} people` : joinNames(names)}
           </Button>
@@ -644,7 +637,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
 }
 
 // The team bento: Book and Post a job both start by choosing a team.
-// The teams this venue usually needs come first.
+// Teams this venue has asked for before come first.
 export function TeamMosaic({
   caption,
   onPick,
@@ -652,15 +645,13 @@ export function TeamMosaic({
   caption: (team: Member[]) => string;
   onPick: (team: string) => void;
 }) {
-  const { data, me } = usePreview();
+  const { data, actor } = usePreview();
+  const asked = (team: string) =>
+    data.shifts.filter((s) => s.venue === actor && teamOf(s.roles) === team).length;
   return (
     <div className="pv-role-mosaic">
       {Object.entries(FAMILIES)
-        .sort(
-          ([a], [b]) =>
-            Number(me?.venue?.teamsNeeded.includes(b)) -
-            Number(me?.venue?.teamsNeeded.includes(a)),
-        )
+        .sort(([a], [b]) => asked(b) - asked(a))
         .map(([name, family], i) => {
           const team = data.members.filter(
             (m) =>

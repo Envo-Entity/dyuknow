@@ -10,37 +10,25 @@ export type ResponseStatus =
   | "not-selected"
   | "lapsed";
 // Preview profile shape; the additive database mapping is in docs/data-model.md.
+// Only what someone reads to decide, to turn up, or to find the place.
 export type VenueDetails = {
   address: string; // street line; the postcode is on the member
   contactName: string;
   contactRole: string;
   types: string[];
   cuisines: string[];
-  covers: string;
-  teamSize: number;
-  website: string;
   instagram: string;
-  knownFor: string[];
-  teamsNeeded: string[];
-  dressCode: string;
-  uniform: boolean;
-  staffMeal: boolean;
-  rateChef: number;
-  rateFoh: number;
-  vacancies: number;
 };
 export type Member = {
   id: string;
   side: "venue" | "talent";
   name: string;
   phone: string;
-  email: string;
   postcode: string;
   photo: string;
   bio: string;
   roles: string[];
   skills: string[];
-  customSkills: string[];
   approved: boolean;
   alert: "all" | "soon" | "off";
   // Talent only: the lowest hourly pay they'll take, shown to venues.
@@ -52,11 +40,8 @@ export type DocStatus = "verified" | "review" | "missing";
 // Settings a signed-in member manages for themselves. Never shown publicly,
 // except which documents Dyuknow has verified.
 export type Account = {
-  texts: { messages: boolean; reminders: boolean; replies: boolean };
-  quiet: { on: boolean; start: string; end: string };
+  texts: { messages: boolean; reminders: boolean };
   docs: Record<string, { status: DocStatus; file?: string; updated?: string }>;
-  payout?: { holder: string; sortCode: string; last4: string };
-  billing?: { company: string; email: string; vat: string };
   // When the member asked Dyuknow to delete their account.
   deletion?: string;
 };
@@ -71,8 +56,7 @@ export function accountOf(m: Member): Account {
     requiredDocs(m).map((d) => [d, m.account?.docs[d] ?? { status: "missing" as const }]),
   );
   return {
-    texts: { messages: true, reminders: true, replies: true },
-    quiet: { on: false, start: "23:00", end: "08:00" },
+    texts: { messages: true, reminders: true },
     ...m.account,
     docs,
   };
@@ -90,13 +74,12 @@ export type Service = {
 };
 // What a venue needs: position, days, hours, pay. One object for both ways
 // of asking. A job post ("post") goes to everyone; a booking request
-// ("request") goes to the people the venue chose. Either way talent says yes
-// and the venue books.
+// ("request") goes to the people the venue chose. Talent says yes and the
+// venue books; a request to one person for one place books on Accept.
 export type Shift = {
   id: string;
   venue: string;
   roles: string[];
-  family: string;
   days: Service[];
   capacity: number;
   rate: number;
@@ -104,11 +87,6 @@ export type Shift = {
   mode: "post" | "request";
   status: "open" | "filled" | "closed" | "expired";
   created: string;
-  address?: string;
-  contact?: string;
-  phone?: string;
-  // Multi-day only: the venue wants the same person on every day.
-  together?: boolean;
 };
 // One person's answer to a shift. "invited" means a booking request is
 // waiting for them; "can-cover" means they said yes and the venue decides.
@@ -118,7 +96,6 @@ export type Response = {
   talent: string;
   source: "invite" | "response";
   status: ResponseStatus;
-  note: string;
   // Dates the talent said yes to. Missing means every date of the shift.
   days?: string[];
 };
@@ -222,7 +199,6 @@ export type ShiftDraft = {
   note: string;
   // Who a booking request goes to. Empty means a job post to everyone.
   to: string[];
-  together?: boolean;
   // Any dates (up to 14) with the same hours. When missing, `date` + `count`
   // describe a consecutive run.
   dates?: string[];
@@ -253,26 +229,26 @@ export function fullAddress(m: Member) {
 export function contactLine(m: Member) {
   return [m.venue?.contactName, m.venue?.contactRole].filter(Boolean).join(" · ");
 }
-export function allSkills(m: Member) {
-  return [...m.skills, ...m.customSkills];
+// The team a set of positions belongs to: never stored, read from the list.
+export function teamOf(roles: string[], fallback = "Kitchen") {
+  return (
+    Object.keys(FAMILIES).find((f) => roles.some((r) => FAMILIES[f].roles.includes(r))) ||
+    fallback
+  );
 }
-// Pay pre-fill: the chef rate for Kitchen and Pastry, the FOH rate otherwise.
-export function defaultRate(m: Member, family: string) {
-  return ["Kitchen", "Pastry"].includes(family)
-    ? m.venue?.rateChef || 0
-    : m.venue?.rateFoh || 0;
+// This venue's most recent ask in a team, or any team: the form starts from it.
+export function lastAsk(data: Data, venue: string, family?: string) {
+  return data.shifts.find(
+    (s) => s.venue === venue && (!family || teamOf(s.roles) === family),
+  );
 }
-// Note pre-fill, built from the venue's dress code, uniform and staff meal.
-export function defaultNote(m: Member) {
-  const v = m.venue;
-  if (!v) return "";
-  return [
-    v.dressCode,
-    v.uniform ? "Uniform provided" : "Uniform not provided",
-    v.staffMeal ? "Staff meal" : "No staff meal",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+// A booking request to one person for one place books when they accept.
+export function bookOnAccept(data: Data, s: Shift) {
+  return (
+    s.mode === "request" &&
+    s.capacity === 1 &&
+    data.responses.filter((r) => r.shift === s.id && r.source === "invite").length === 1
+  );
 }
 export function uid() {
   return crypto.randomUUID();
@@ -444,20 +420,6 @@ export function conflict(
 export function shortDay(date: string) {
   return displayDate(date).replace(/ [A-Za-z]+$/, "");
 }
-// Days this talent could still add to what they've offered on a shift.
-export function offerableDates(data: Data, talent: string, shift: Shift) {
-  const r = data.responses.find(
-    (r) => r.shift === shift.id && r.talent === talent,
-  );
-  const offered =
-    r && ["can-cover", "booked"].includes(r.status) ? offeredDates(shift, r) : [];
-  const mine = data.bookings
-    .filter((b) => b.shift === shift.id && b.talent === talent && !b.cancelled)
-    .flatMap(activeDays);
-  return availableDates(data, talent, shift).filter(
-    (d) => !offered.includes(d) && !mine.includes(d),
-  );
-}
 // Days the venue can still book this person for: offered, still open, and
 // not already in their booking on this shift.
 export function bookableDates(data: Data, shift: Shift, r: Response) {
@@ -551,26 +513,14 @@ export function datesSummary(dates: string[]) {
     sub: `${sameMonth ? first.replace(/ [A-Za-z]+$/, "") : first} – ${last}`,
   };
 }
-// Talent who were sent this shift: everyone in the roles for a job post, the
-// chosen people for a booking request.
-export function audience(data: Data, shift: Shift) {
-  const invited = data.responses
-    .filter((r) => r.shift === shift.id && r.source === "invite")
-    .map((r) => r.talent);
-  if (shift.mode === "request") return invited;
-  return [
-    ...new Set([
-      ...data.members
-        .filter(
-          (m) =>
-            m.side === "talent" &&
-            m.approved &&
-            m.roles.some((r) => shift.roles.includes(r)),
-        )
-        .map((m) => m.id),
-      ...invited,
-    ]),
-  ];
+// A booking request everyone it went to turned down.
+export function declinedByAll(data: Data, s: Shift) {
+  const answers = data.responses.filter((r) => r.shift === s.id && r.source === "invite");
+  return (
+    s.mode === "request" &&
+    answers.length > 0 &&
+    answers.every((r) => ["declined", "withdrawn"].includes(r.status))
+  );
 }
 // One line a venue reads to know where a shift stands. Never contradicts the
 // day-by-day detail: it talks in people per day, not "days covered".
@@ -596,7 +546,8 @@ export function venueSummary(data: Data, s: Shift) {
   if (s.status === "filled") return { text: "Filled", good: true, needs: false };
   if (s.status === "expired")
     return { text: "Started without full cover", good: false, needs: false };
-  if (s.status === "closed") return { text: "Closed", good: false, needs: false };
+  if (s.status === "closed")
+    return { text: declinedByAll(data, s) ? "Declined" : "Closed", good: false, needs: false };
   if (waiting)
     return { text: `${prefix}${waiting} can do it · Review`, good: true, needs: true };
   if (active.length || dropped.length) {
@@ -623,10 +574,14 @@ export function venueSummary(data: Data, s: Shift) {
     }
     return { text: `${prefix}${text}`, good: false, needs: !!dropped.length };
   }
+  // Only the people still deciding: someone who declined isn't waited on.
+  const deciding = data.responses
+    .filter((r) => r.shift === s.id && r.status === "invited")
+    .map((r) => firstName(member(data, r.talent)));
   return {
     text:
-      s.mode === "request"
-        ? `Waiting to hear from ${joinNames(audience(data, s).map((id) => firstName(member(data, id))))}`
+      s.mode === "request" && deciding.length
+        ? `Waiting to hear from ${joinNames(deciding)}`
         : "No one has said yes yet",
     good: false,
     needs: false,
@@ -693,11 +648,8 @@ export function standingLabel(data: Data, talent: string, days: Service[]) {
     "not-set": "Availability not set",
   }[s];
 }
-// Who a venue sees for a team at a time. While the network is small this is
-// everyone vetted, in order:
-// 1. in the role (or team) and free then,
-// 2. in the role (or team) but not free, or no availability set,
-// 3. everyone else, same team first.
+// Who a venue sees for a team at a time: everyone vetted in the position (or
+// the team), free then first, then people who worked here, then by name.
 export function rankTalent(
   data: Data,
   venue: string,
@@ -707,21 +659,16 @@ export function rankTalent(
 ) {
   const fits = (m: Member) =>
     role ? m.roles.includes(role) : m.roles.some((r) => FAMILIES[family]?.roles.includes(r));
-  const inTeam = (m: Member) =>
-    m.roles.some((r) => FAMILIES[family]?.roles.includes(r));
   const free = (m: Member) => standing(data, m.id, days) === "free";
   const order = (a: Member, b: Member) =>
-    Number(inTeam(b)) - Number(inTeam(a)) ||
-    Number(free(b)) - Number(free(a)) ||
     Number(workedWith(data, venue, b.id)) - Number(workedWith(data, venue, a.id)) ||
     a.name.localeCompare(b.name);
   const talent = data.members
-    .filter((m) => m.side === "talent" && m.approved)
+    .filter((m) => m.side === "talent" && m.approved && fits(m))
     .sort(order);
   return {
-    free: talent.filter((m) => fits(m) && free(m)),
-    unavailable: talent.filter((m) => fits(m) && !free(m)),
-    others: talent.filter((m) => !fits(m)),
+    free: talent.filter(free),
+    unavailable: talent.filter((m) => !free(m)),
   };
 }
 // Days for a set of dates with the same hours.
@@ -899,6 +846,85 @@ function trimClashes(data: Data, b: Booking) {
         );
     });
 }
+// Books these days for the person behind `r`, then settles everyone else
+// waiting: filled days tell them, and the person's clashing answers elsewhere
+// drop those days. `accepted`: the talent accepted a request sent only to them.
+function bookDays(data: Data, s: Shift, r: Response, days: string[], accepted: boolean) {
+  const venueName = member(data, s.venue).name;
+  const t = member(data, r.talent);
+  const existing = data.bookings.find(
+    (x) => x.shift === s.id && x.talent === r.talent && !x.cancelled,
+  );
+  r.status = "booked";
+  let b: Booking;
+  if (existing) {
+    existing.days = [...new Set([...existing.days, ...days])].sort();
+    for (const d of days) delete existing.log[d];
+    b = existing;
+  } else {
+    b = {
+      id: uid(),
+      shift: s.id,
+      talent: r.talent,
+      days,
+      cancelled: false,
+      bookedAt: data.now,
+      log: {},
+    };
+    data.bookings.unshift(b);
+  }
+  const terms = `${datesLabel(days)} · ${s.days[0].start}–${s.days[0].end} · £${s.rate}/h.`;
+  event(
+    data,
+    r,
+    accepted
+      ? `${t.name} accepted. Booked: ${terms}`
+      : `${existing ? "Added to the booking" : "Booked"}: ${terms}`,
+  );
+  if (accepted)
+    notify(
+      data,
+      s.venue,
+      `${t.name} accepted`,
+      `${shiftLabel(s)} · ${datesLabel(days)} · ${s.days[0].start}–${s.days[0].end}. They're booked.`,
+      `booking/${b.id}`,
+    );
+  else
+    notify(
+      data,
+      r.talent,
+      existing
+        ? `${venueName} added ${datesLabel(days)} to your booking`
+        : `You're booked at ${venueName}`,
+      `${shiftLabel(s)} · ${datesLabel(activeDays(b))} · ${s.days[0].start}–${s.days[0].end}`,
+      `booking/${b.id}`,
+    );
+  const stillOpen = openDates(data, s);
+  if (!stillOpen.length) {
+    s.status = "filled";
+    closeWaiting(data, s, "This shift has been filled");
+  } else
+    data.responses
+      .filter(
+        (o) =>
+          o.shift === s.id &&
+          o.status === "can-cover" &&
+          !offeredDates(s, o).some((d) => stillOpen.includes(d)),
+      )
+      .forEach((o) => {
+        o.status = "not-selected";
+        event(data, o, "The days you said yes to have been filled.");
+        notify(
+          data,
+          o.talent,
+          "The days you said yes to have been filled",
+          `${venueName} · ${shiftLabel(s)}`,
+          `shift/${s.id}`,
+        );
+      });
+  trimClashes(data, b);
+  return b;
+}
 export function sweep(data: Data) {
   data.shifts.forEach((s) => {
     // A shift closes once no day that still needs someone is in the future.
@@ -961,11 +987,10 @@ export function sweep(data: Data) {
 }
 export function seed(): Data {
   const talent = (
-    m: Pick<Member, "id" | "name" | "phone" | "email" | "postcode" | "photo" | "bio" | "roles" | "skills"> &
+    m: Pick<Member, "id" | "name" | "phone" | "postcode" | "photo" | "bio" | "roles" | "skills"> &
       Partial<Member>,
   ): Member => ({
     side: "talent",
-    customSkills: [],
     approved: true,
     alert: "all",
     ...m,
@@ -976,13 +1001,11 @@ export function seed(): Data {
       side: "venue",
       name: "Spruce",
       phone: "+44 7700 900101",
-      email: "kitchen@spruce.example",
       postcode: "TW9 1UA",
       photo: "/assets/venue-larkspur-dining.webp",
       bio: "A neighbourhood dining room built around seasonal British produce.",
       roles: [],
       skills: [],
-      customSkills: [],
       approved: true,
       alert: "all",
       venue: {
@@ -991,18 +1014,7 @@ export function seed(): Data {
         contactRole: "Duty manager",
         types: ["Restaurant"],
         cuisines: ["British"],
-        covers: "30–60",
-        teamSize: 14,
-        website: "spruce.example",
         instagram: "@spruce.richmond",
-        knownFor: ["Excellent food", "Great team culture"],
-        teamsNeeded: ["Kitchen", "Pastry"],
-        dressCode: "Chef whites",
-        uniform: true,
-        staffMeal: true,
-        rateChef: 18,
-        rateFoh: 16,
-        vacancies: 2,
       },
     },
     {
@@ -1010,13 +1022,11 @@ export function seed(): Data {
       side: "venue",
       name: "The Sea The Sea",
       phone: "+44 7700 900102",
-      email: "hello@theseathesea.example",
       postcode: "SW1X 0AW",
       photo: "/assets/venue-hotel-bar.webp",
       bio: "A seafood counter with an open kitchen and a calm service.",
       roles: [],
       skills: [],
-      customSkills: [],
       approved: true,
       alert: "all",
       venue: {
@@ -1025,18 +1035,7 @@ export function seed(): Data {
         contactRole: "On-site manager",
         types: ["Restaurant"],
         cuisines: ["Seafood"],
-        covers: "30–60",
-        teamSize: 12,
-        website: "theseathesea.example",
         instagram: "@theseathesea",
-        knownFor: ["Fine dining standards", "Fast-paced service"],
-        teamsNeeded: ["Kitchen", "Pastry", "Floor", "Bar"],
-        dressCode: "Chef whites",
-        uniform: false,
-        staffMeal: true,
-        rateChef: 22,
-        rateFoh: 18,
-        vacancies: 3,
       },
     },
     {
@@ -1044,13 +1043,11 @@ export function seed(): Data {
       side: "venue",
       name: "Harper Privé",
       phone: "+44 7700 900103",
-      email: "events@harperprive.example",
       postcode: "W1K 5DB",
       photo: "/assets/venue-members-club.webp",
       bio: "Intimate private dinners and considered events.",
       roles: [],
       skills: [],
-      customSkills: [],
       approved: true,
       alert: "all",
       venue: {
@@ -1059,18 +1056,7 @@ export function seed(): Data {
         contactRole: "Events manager",
         types: ["Private Members Club", "Events"],
         cuisines: ["Modern European"],
-        covers: "0–30",
-        teamSize: 9,
-        website: "harperprive.example",
         instagram: "@harperprive",
-        knownFor: ["Creative food"],
-        teamsNeeded: ["Kitchen", "Pastry"],
-        dressCode: "Blacks",
-        uniform: false,
-        staffMeal: true,
-        rateChef: 24,
-        rateFoh: 20,
-        vacancies: 1,
       },
     },
     talent({
@@ -1078,20 +1064,17 @@ export function seed(): Data {
       minRate: 16,
       name: "Poppy Bertram",
       phone: "+44 7700 900201",
-      email: "poppy@example.com",
       postcode: "TW9 2AA",
       photo: "/assets/talent-chef-4.webp",
       bio: "Five years in seasonal kitchens. Comfortable on a busy section, happiest working with British produce.",
       roles: ["CDP", "Senior CDP"],
       skills: ["Fine Dining", "Open Fire", "Grill"],
-      customSkills: ["Seasonal British"],
     }),
     talent({
       id: "camille",
       minRate: 25,
       name: "Camille Aubert",
       phone: "+44 7700 900202",
-      email: "camille@example.com",
       postcode: "SW3 4RY",
       photo: "/assets/talent-camille-portrait.webp",
       bio: "Nine years leading kitchens. Ex-Core by Clare Smyth. A calm hand at the pass.",
@@ -1103,7 +1086,6 @@ export function seed(): Data {
       minRate: 17,
       name: "Theo Marchetti",
       phone: "+44 7700 900203",
-      email: "theo@example.com",
       postcode: "W1T 2EZ",
       photo: "/assets/talent-chef-2.webp",
       bio: "Six years on sections in contemporary London restaurants. Produce-led, steady on service.",
@@ -1115,7 +1097,6 @@ export function seed(): Data {
       minRate: 20,
       name: "Ethan Russell",
       phone: "+44 7700 900204",
-      email: "ethan@example.com",
       postcode: "E8 3PB",
       photo: "/assets/talent-chef-3.webp",
       bio: "",
@@ -1127,7 +1108,6 @@ export function seed(): Data {
       minRate: 15,
       name: "Noor Haddad",
       phone: "+44 7700 900205",
-      email: "noor@example.com",
       postcode: "W1D 4DE",
       photo: "/assets/talent-bartender-1.webp",
       bio: "Four years behind London hotel and restaurant bars. Cocktail service with care and pace.",
@@ -1139,7 +1119,6 @@ export function seed(): Data {
       minRate: 14,
       name: "Inès Laurent",
       phone: "+44 7700 900206",
-      email: "ines@example.com",
       postcode: "W8 7AG",
       photo: "/assets/talent-maitred-1.webp",
       bio: "Guest service from intimate dinners to a busy dining room. Fluent in English and French.",
@@ -1154,14 +1133,7 @@ export function seed(): Data {
     );
     if (m.id === "theo") docs["Food hygiene certificate"] = { status: "review", file: "food-hygiene-level-2.pdf", updated: "2026-09-30T09:00:00.000Z" } as never;
     if (m.id === "noor") docs["Allergen awareness"] = { status: "missing" } as never;
-    m.account = {
-      texts: { messages: true, reminders: true, replies: true },
-      quiet: { on: false, start: "23:00", end: "08:00" },
-      docs,
-      ...(m.side === "talent"
-        ? { payout: { holder: m.name, sortCode: "12-34-56", last4: String(4821 + members.indexOf(m)) } }
-        : { billing: { company: `${m.name} Ltd`, email: m.email, vat: "" } }),
-    };
+    m.account = { texts: { messages: true, reminders: true }, docs };
   }
   const data: Data = {
     version: 3,
@@ -1201,11 +1173,10 @@ export function seed(): Data {
       id: "spruce-friday",
       venue: "spruce",
       roles: ["CDP", "Senior CDP"],
-      family: "Kitchen",
       days: day("2026-10-02"),
       capacity: 1,
       rate: 18,
-      note: defaultNote(members[0]),
+      note: "Chef whites · Uniform provided · Staff meal",
       mode: "post",
       status: "open",
       created: data.now,
@@ -1214,11 +1185,10 @@ export function seed(): Data {
       id: "sea-saturday",
       venue: "sea",
       roles: ["Head Chef", "Sous Chef"],
-      family: "Kitchen",
       days: day("2026-10-03", "18:00"),
       capacity: 1,
       rate: 28,
-      note: defaultNote(members[1]),
+      note: "Chef whites · Staff meal",
       mode: "request",
       status: "open",
       created: data.now,
@@ -1227,7 +1197,6 @@ export function seed(): Data {
       id: "harper-weekend",
       venue: "harper",
       roles: ["CDP"],
-      family: "Kitchen",
       days: makeDays({
         date: "2026-10-04",
         start: "17:00",
@@ -1236,7 +1205,7 @@ export function seed(): Data {
       } as ShiftDraft),
       capacity: 1,
       rate: 24,
-      note: defaultNote(members[2]),
+      note: "Blacks · Staff meal",
       mode: "post",
       status: "open",
       created: data.now,
@@ -1245,7 +1214,6 @@ export function seed(): Data {
       id: "sea-residency",
       venue: "sea",
       roles: ["Sous Chef", "Junior Sous"],
-      family: "Kitchen",
       days: makeDays({
         date: "2026-10-08",
         start: "16:00",
@@ -1254,17 +1222,15 @@ export function seed(): Data {
       } as ShiftDraft),
       capacity: 1,
       rate: 26,
-      note: "Chef whites · staff meal · running the pass while our head chef is away. Same person all three nights, please.",
+      note: "Chef whites · staff meal · running the pass while our head chef is away.",
       mode: "post",
       status: "open",
       created: data.now,
-      together: true,
     },
     {
       id: "harper-bar",
       venue: "harper",
       roles: ["Bartender", "Mixologist"],
-      family: "Bar",
       days: day("2026-10-02", "22:00", "02:00"),
       capacity: 1,
       rate: 22,
@@ -1277,7 +1243,6 @@ export function seed(): Data {
       id: "spruce-floor",
       venue: "spruce",
       roles: ["Waiter"],
-      family: "Floor",
       days: day("2026-10-07", "18:00"),
       capacity: 1,
       rate: 18,
@@ -1290,11 +1255,10 @@ export function seed(): Data {
       id: "past-poppy",
       venue: "spruce",
       roles: ["CDP"],
-      family: "Kitchen",
       days: day("2026-09-28"),
       capacity: 1,
       rate: 18,
-      note: defaultNote(members[0]),
+      note: "Chef whites · Uniform provided · Staff meal",
       mode: "request",
       status: "filled",
       created: "2026-09-27T09:00:00.000Z",
@@ -1307,7 +1271,6 @@ export function seed(): Data {
       talent: "camille",
       source: "invite",
       status: "invited",
-      note: "",
     },
     {
       id: "past-response",
@@ -1315,7 +1278,6 @@ export function seed(): Data {
       talent: "poppy",
       source: "invite",
       status: "booked",
-      note: "",
     },
   ];
   data.bookings = [
@@ -1366,7 +1328,6 @@ export type Action =
       actor: string;
       shift: string;
       talent?: string;
-      note?: string;
       days?: string[];
     }
   | { type: "close"; actor: string; shift: string; reason: string }
@@ -1401,7 +1362,6 @@ export type Action =
   | { type: "account"; actor: string; patch: Partial<Account> }
   | { type: "upload-doc"; actor: string; doc: string; file: string }
   | { type: "verify-doc"; actor: string; member: string; doc: string }
-  | { type: "help"; actor: string; text: string }
   | { type: "delete-account"; actor: string; cancel?: boolean }
   | { type: "read-notice"; actor: string; id?: string }
   | { type: "read-chat"; actor: string; thread: string }
@@ -1446,7 +1406,7 @@ function request(data: Data, s: Shift, talent: string) {
     r.status = "invited";
     r.source = "invite";
   } else {
-    r = { id: uid(), shift: s.id, talent, source: "invite", status: "invited", note: "" };
+    r = { id: uid(), shift: s.id, talent, source: "invite", status: "invited" };
     data.responses.push(r);
   }
   card(data, s, talent, s.venue, "Booking request");
@@ -1527,11 +1487,8 @@ export function transition(original: Data, action: Action): Data {
       ...a,
       ...action.patch,
       texts: { ...a.texts, ...action.patch.texts },
-      quiet: { ...a.quiet, ...action.patch.quiet },
       docs: a.docs,
     };
-    if (action.patch.payout && !/^\d{2}-\d{2}-\d{2}$/.test(action.patch.payout.sortCode))
-      throw new Error("Enter the sort code as 12-34-56.");
   }
   if (action.type === "upload-doc") {
     const m = member(data, action.actor);
@@ -1549,8 +1506,6 @@ export function transition(original: Data, action: Action): Data {
     m.account = a;
     notify(data, m.id, `${action.doc} verified`, "It now shows on your profile.", "account");
   }
-  if (action.type === "help" && !action.text.trim())
-    throw new Error("Tell us what happened.");
   if (action.type === "delete-account") {
     const m = member(data, action.actor);
     const a = accountOf(m);
@@ -1558,12 +1513,12 @@ export function transition(original: Data, action: Action): Data {
   }
   if (action.type === "profile") {
     const m = member(data, action.actor);
-    const { name, bio, roles, skills, customSkills, alert, phone, email, postcode, minRate, venue } =
+    const { name, bio, roles, skills, alert, phone, postcode, minRate, venue } =
       action.patch;
     Object.assign(
       m,
       Object.fromEntries(
-        Object.entries({ name, bio, roles, skills, customSkills, alert, phone, email, postcode, minRate }).filter(
+        Object.entries({ name, bio, roles, skills, alert, phone, postcode, minRate }).filter(
           ([, v]) => v !== undefined,
         ),
       ),
@@ -1621,7 +1576,6 @@ export function transition(original: Data, action: Action): Data {
       id: uid(),
       venue: venue.id,
       roles: d.roles,
-      family: d.family,
       days,
       capacity: d.capacity,
       rate: d.rate,
@@ -1629,10 +1583,6 @@ export function transition(original: Data, action: Action): Data {
       mode: to.length ? "request" : "post",
       status: "open",
       created: data.now,
-      address: fullAddress(venue),
-      contact: contactLine(venue),
-      phone: venue.phone,
-      together: days.length > 1 && !!d.together,
     };
     data.shifts.unshift(s);
     if (to.length) for (const id of to) request(data, s, id);
@@ -1652,7 +1602,7 @@ export function transition(original: Data, action: Action): Data {
             data,
             m.id,
             `${venue.name} posted a job`,
-            `${shiftLabel(s)} · ${days.length > 1 ? `${datesLabel(days.map((d) => d.date))} · ${days[0].start}–${days[0].end}${s.together ? " · same person for all days" : ""}` : serviceLabel(days[0])} · £${s.rate}/h`,
+            `${shiftLabel(s)} · ${days.length > 1 ? `${datesLabel(days.map((d) => d.date))} · ${days[0].start}–${days[0].end}` : serviceLabel(days[0])} · £${s.rate}/h`,
             `shift/${s.id}`,
           ),
         );
@@ -1668,7 +1618,6 @@ export function transition(original: Data, action: Action): Data {
       { type: "respond" | "book" | "withdraw" | "decline" }
     >;
     const talent = action.type === "book" ? a.talent! : a.actor;
-    const venueName = member(data, s.venue).name;
     let r = data.responses.find((r) => r.shift === s.id && r.talent === talent);
     if (action.type === "withdraw" || action.type === "decline") {
       if (
@@ -1689,6 +1638,14 @@ export function transition(original: Data, action: Action): Data {
         `${shiftLabel(s)} · ${serviceLabel(s.days[0])}`,
         `shift/${s.id}`,
       );
+      // A request everyone turned down has nobody left to answer it: it
+      // closes, so the venue isn't left waiting on it.
+      if (
+        s.status === "open" &&
+        declinedByAll(data, s) &&
+        !data.bookings.some((b) => b.shift === s.id && !b.cancelled)
+      )
+        s.status = "closed";
     } else {
       if (s.status !== "open")
         throw new Error(
@@ -1699,56 +1656,34 @@ export function transition(original: Data, action: Action): Data {
       const t = member(data, talent);
       if (!t?.approved || t.side !== "talent")
         throw new Error("Choose a talent member.");
-      const open = openDates(data, s);
-      if (!open.length)
+      if (!openDates(data, s).length)
         throw new Error(
           "This shift has been filled or closed. You have not been booked.",
         );
       const free = availableDates(data, talent, s);
       if (action.type === "respond") {
+        if (r && ["can-cover", "booked"].includes(r.status))
+          throw new Error("You’ve already said yes to this.");
         const invitedHere = r?.status === "invited";
-        // Already waiting or booked here: this adds more days to the yes.
-        const adding = !!r && ["can-cover", "booked"].includes(r.status);
         if (
           !invitedHere &&
-          !adding &&
           (s.mode !== "post" || !t.roles.some((role) => s.roles.includes(role)))
         )
           throw new Error("This shift is for members in the selected roles.");
-        const pool = adding ? offerableDates(data, talent, s) : free;
-        const days = a.days?.length ? [...new Set(a.days)].sort() : pool;
+        const days = a.days?.length ? [...new Set(a.days)].sort() : free;
         if (!days.length)
-          throw new Error(
-            adding
-              ? "You’ve already said yes to every open day."
-              : "No longer available — booked elsewhere for overlapping hours.",
-          );
+          throw new Error("No longer available — booked elsewhere for overlapping hours.");
         if (!days.every((d) => s.days.some((x) => x.date === d)))
           throw new Error("Choose dates from this shift.");
-        if (!days.every((d) => pool.includes(d)))
+        if (!days.every((d) => free.includes(d)))
           throw new Error(
             "One of those days is no longer available. Review the days and send again.",
           );
-        if (s.together && !adding && days.length < s.days.length)
-          throw new Error(
-            "This shift needs the same person for all days. You can only say yes to all of them.",
-          );
-        if (adding && r) {
-          r.days = [...new Set([...offeredDates(s, r), ...days])].sort();
-          event(data, r, `${t.name} can also do ${datesLabel(days)}.`);
-          notify(
-            data,
-            s.venue,
-            `${t.name} can also do ${datesLabel(days)}`,
-            `${shiftLabel(s)} · Book when you’re ready.`,
-            `shift/${s.id}`,
-          );
-          return data;
-        }
+        // Asked alone, for one place: accepting is the booking.
+        const accept = invitedHere && bookOnAccept(data, s);
         const partial = days.length < s.days.length;
         if (r) {
           r.status = "can-cover";
-          r.note = a.note || "";
           r.days = days;
         } else {
           r = {
@@ -1757,35 +1692,28 @@ export function transition(original: Data, action: Action): Data {
             talent,
             source: "response",
             status: "can-cover",
-            note: a.note || "",
             days,
           };
           data.responses.push(r);
         }
-        // The yes goes back to the venue as a card in the conversation.
-        card(
-          data,
-          s,
-          talent,
-          talent,
-          partial ? `Can do ${datesLabel(days)}` : "Can do it",
-        );
-        if (r.note)
-          data.messages.push({
-            id: uid(),
-            thread: threadFor(data, s.venue, talent).id,
-            from: talent,
-            text: r.note,
-            time: data.now,
-            system: false,
-          });
-        notify(
-          data,
-          s.venue,
-          `${t.name} can do it`,
-          `${shiftLabel(s)} · ${partial ? datesLabel(days) : serviceLabel(s.days[0])}${partial ? ` (${days.length} of ${s.days.length} days)` : ""}`,
-          `shift/${s.id}`,
-        );
+        if (accept) bookDays(data, s, r, days, true);
+        else {
+          // The yes goes back to the venue as a card in the conversation.
+          card(
+            data,
+            s,
+            talent,
+            talent,
+            partial ? `Can do ${datesLabel(days)}` : "Can do it",
+          );
+          notify(
+            data,
+            s.venue,
+            `${t.name} can do it`,
+            `${shiftLabel(s)} · ${partial ? datesLabel(days) : serviceLabel(s.days[0])}${partial ? ` (${days.length} of ${s.days.length} days)` : ""}`,
+            `shift/${s.id}`,
+          );
+        }
       } else {
         const existing = data.bookings.find(
           (x) => x.shift === s.id && x.talent === talent && !x.cancelled,
@@ -1807,70 +1735,11 @@ export function transition(original: Data, action: Action): Data {
           throw new Error(
             "You can only book days this person said yes to that are still open.",
           );
-        if (s.together && !existing && days.length < s.days.length)
-          throw new Error(
-            "This shift needs the same person for all days. Book every day or choose someone else.",
-          );
         if (days.some((d) => !free.includes(d)))
           throw new Error(
             "No longer available — booked elsewhere for overlapping hours.",
           );
-        r.status = "booked";
-        let b: Booking;
-        if (existing) {
-          existing.days = [...new Set([...existing.days, ...days])].sort();
-          for (const d of days) delete existing.log[d];
-          b = existing;
-        } else {
-          b = {
-            id: uid(),
-            shift: s.id,
-            talent,
-            days,
-            cancelled: false,
-            bookedAt: data.now,
-            log: {},
-          };
-          data.bookings.unshift(b);
-        }
-        event(
-          data,
-          r,
-          `${existing ? "Added to the booking" : "Booked"}: ${datesLabel(days)} · ${s.days[0].start}–${s.days[0].end} · £${s.rate}/h.`,
-        );
-        notify(
-          data,
-          talent,
-          existing
-            ? `${venueName} added ${datesLabel(days)} to your booking`
-            : `You're booked at ${venueName}`,
-          `${shiftLabel(s)} · ${datesLabel(activeDays(b))} · ${s.days[0].start}–${s.days[0].end}`,
-          `booking/${b.id}`,
-        );
-        const stillOpen = openDates(data, s);
-        if (!stillOpen.length) {
-          s.status = "filled";
-          closeWaiting(data, s, "This shift has been filled");
-        } else
-          data.responses
-            .filter(
-              (o) =>
-                o.shift === s.id &&
-                o.status === "can-cover" &&
-                !offeredDates(s, o).some((d) => stillOpen.includes(d)),
-            )
-            .forEach((o) => {
-              o.status = "not-selected";
-              event(data, o, "The days you said yes to have been filled.");
-              notify(
-                data,
-                o.talent,
-                "The days you said yes to have been filled",
-                `${venueName} · ${shiftLabel(s)}`,
-                `shift/${s.id}`,
-              );
-            });
-        trimClashes(data, b);
+        bookDays(data, s, r, days, false);
       }
     }
   }
