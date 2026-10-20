@@ -117,8 +117,7 @@ export function Thread({ id }: { id: string }) {
   if (!t || ![t.venue, t.talent].includes(actor))
     return (
       <Empty
-        title="This conversation is private"
-        text="Open an available thread from your inbox."
+        title="Conversation not found"
       >
         <Button onClick={() => go("messages")}>Back to messages</Button>
       </Empty>
@@ -133,7 +132,7 @@ export function Thread({ id }: { id: string }) {
           <span>
             <strong>
               {side === "venue"
-                ? `${firstName(other)} · ${other.minRate ? `from £${other.minRate}/h` : "minimum pay not set"}`
+                ? `${firstName(other)} · ${other.minRate ? `from £${other.minRate}/h` : "no minimum set"}`
                 : `${other.name} · ${areaOf(other)}`}
             </strong>
             <small>{other.roles.length ? other.roles.join(" · ") : other.bio}</small>
@@ -166,11 +165,11 @@ function ShiftMessage({ m, talent, latest }: { m: Message; talent: string; lates
   const hours = hoursOf(s.days[0]);
   const open = s.status === "open";
   const status = !r
-    ? open ? "Open" : s.status === "filled" ? "Filled" : "Closed"
+    ? open ? "Open" : s.status === "filled" ? "Filled" : "Cancelled"
     : r.status === "invited"
       ? side === "talent" ? "Waiting for you" : `Waiting for ${firstName(person)}`
       : r.status === "can-cover"
-        ? side === "venue" ? `${firstName(person)} can do it` : `Waiting for ${venue.name}`
+        ? side === "venue" ? `${firstName(person)} said yes` : `Waiting for ${venue.name}`
         : responseLabel(r);
   const canBook = side === "venue" && r?.status === "can-cover" && open && bookableDates(data, s, r).length > 0;
   return (
@@ -469,7 +468,7 @@ export function AvailabilityEditor({ back }: { back?: string }) {
             }}
             tone={(d) => mark(d)?.kind}
           />
-          <h2 className="pv-section-title">Your confirmed time</h2>
+          <h2 className="pv-section-title">Your bookings</h2>
           {booked.filter((b) => b.to > data.now).length ? (
             booked
               .filter((b) => b.to > data.now)
@@ -487,7 +486,7 @@ export function AvailabilityEditor({ back }: { back?: string }) {
                 </button>
               ))
           ) : (
-            <p>No upcoming commitments.</p>
+            <p>No bookings yet.</p>
           )}
         </div>
         <div className="pv-availability-form">
@@ -556,7 +555,7 @@ export function TalentProfile({ id }: { id: string }) {
   const t = member(data, id);
   if (!t || t.side !== "talent")
     return (
-      <Empty title="Member not found" text="Return to your selected roles." />
+      <Empty title="Profile not found" />
     );
   return (
     <>
@@ -592,7 +591,7 @@ export function TalentProfile({ id }: { id: string }) {
           )}
         </div>
       </div>
-      <h2 className="pv-section-title">Published availability</h2>
+      <h2 className="pv-section-title">Free on</h2>
       <div className="pv-chips">
         {data.availability
           .filter(
@@ -772,7 +771,7 @@ export function Profile() {
                   Edit profile
                 </Button>
                 <Button variant="secondary" onClick={() => go(`${side}/${actor}`)}>
-                  See it as {side === "talent" ? "a venue" : "talent"} does
+                  View as {side === "talent" ? "a venue" : "talent"}
                 </Button>
               </div>
             </>
@@ -789,7 +788,7 @@ export function Profile() {
                   placeholder={
                     side === "talent"
                       ? "e.g. 8 years on grill. Ex-Core by Clare Smyth. Calm on a busy pass."
-                      : "What it’s like to work your room."
+                      : "What it’s like to work here."
                   }
                   onChange={(e) => setForm({ ...form, bio: e.target.value })}
                 />

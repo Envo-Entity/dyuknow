@@ -303,8 +303,8 @@ export function londonInstant(date: string, time: string) {
   if (matches.length !== 1)
     throw new Error(
       matches.length
-        ? "This London time occurs twice when the clocks change. Choose a time outside 01:00–02:00."
-        : "This London time does not exist when the clocks change. Choose a different hour.",
+        ? "That time happens twice when the clocks go back. Choose another."
+        : "That time doesn’t exist when the clocks go forward. Choose another.",
     );
   return new Date(matches[0]).toISOString();
 }
@@ -545,11 +545,11 @@ export function venueSummary(data: Data, s: Shift) {
     : "";
   if (s.status === "filled") return { text: "Filled", good: true, needs: false };
   if (s.status === "expired")
-    return { text: "Started without full cover", good: false, needs: false };
+    return { text: "Started unfilled", good: false, needs: false };
   if (s.status === "closed")
-    return { text: declinedByAll(data, s) ? "Declined" : "Closed", good: false, needs: false };
+    return { text: declinedByAll(data, s) ? "Declined" : "Cancelled", good: false, needs: false };
   if (waiting)
-    return { text: `${prefix}${waiting} can do it · Review`, good: true, needs: true };
+    return { text: `${prefix}${waiting} said yes · Book`, good: true, needs: true };
   if (active.length || dropped.length) {
     const people = (k: number, more: boolean) =>
       `${k}${more ? " more" : ""} ${k === 1 ? "person" : "people"}`;
@@ -581,8 +581,8 @@ export function venueSummary(data: Data, s: Shift) {
   return {
     text:
       s.mode === "request" && deciding.length
-        ? `Waiting to hear from ${joinNames(deciding)}`
-        : "No one has said yes yet",
+        ? `Waiting for ${joinNames(deciding)}`
+        : "No replies yet",
     good: false,
     needs: false,
   };
@@ -633,19 +633,19 @@ export function standingLabel(data: Data, talent: string, days: Service[]) {
   const s = standing(data, talent, days);
   if (s !== "free" && s !== "booked" && days.length > 1) {
     const k = days.filter((d) => standing(data, talent, [d]) === "free").length;
-    if (k) return `Free ${k} of ${days.length} days`;
+    if (k) return `Available ${k} of ${days.length} days`;
   }
   if (s === "other-hours") {
     const a = data.availability.find(
       (a) => a.member === talent && a.date === days[0].date && a.kind === "free",
     );
-    return a ? `Free ${a.start}–${a.end} only` : "Free other hours";
+    return a ? `Available ${a.start}–${a.end} only` : "Available other hours";
   }
   return {
-    free: "Free then",
-    booked: "Booked elsewhere then",
-    "not-free": "Not free then",
-    "not-set": "Availability not set",
+    free: "Available",
+    booked: "Already booked",
+    "not-free": "Not available",
+    "not-set": "No availability set",
   }[s];
 }
 // Who a venue sees for a team at a time: everyone vetted in the position (or
@@ -725,13 +725,13 @@ export function bookingPast(data: Data, b: Booking) {
 export function responseLabel(r: Response) {
   return {
     invited: "Booking request",
-    "can-cover": "Waiting to hear",
+    "can-cover": "Said yes",
     booked: "Booked",
     cancelled: "Cancelled",
     declined: "Declined",
     withdrawn: "Withdrawn",
-    "not-selected": "Position filled",
-    lapsed: "No longer available",
+    "not-selected": "Filled",
+    lapsed: "Booked elsewhere",
   }[r.status];
 }
 export function notify(
@@ -828,20 +828,20 @@ function trimClashes(data: Data, b: Booking) {
         event(
           data,
           o,
-          `${t.name} is now booked ${where} on ${datesLabel(clashing)} and can still do ${datesLabel(remaining)}.`,
+          `${t.name} is now booked ${where} on ${datesLabel(clashing)}. Still free ${datesLabel(remaining)}.`,
         );
         return;
       }
       if (o.status === "invited" && remaining.length) return;
       o.status = "lapsed";
-      event(data, o, `No longer available — booked ${where} at this time.`);
+      event(data, o, `${t.name} is now booked ${where} at this time.`);
       // The venue that made the booking already knows.
       if (other.venue !== venue)
         notify(
           data,
           other.venue,
-          `${t.name} is no longer available`,
-          `${shiftLabel(other)} · booked elsewhere for those hours.`,
+          `${t.name} is booked elsewhere`,
+          `${shiftLabel(other)} · ${datesLabel(clashing)}`,
           `shift/${o.shift}`,
         );
     });
@@ -913,11 +913,11 @@ function bookDays(data: Data, s: Shift, r: Response, days: string[], accepted: b
       )
       .forEach((o) => {
         o.status = "not-selected";
-        event(data, o, "The days you said yes to have been filled.");
+        event(data, o, "Filled by someone else.");
         notify(
           data,
           o.talent,
-          "The days you said yes to have been filled",
+          "Filled by someone else",
           `${venueName} · ${shiftLabel(s)}`,
           `shift/${s.id}`,
         );
@@ -938,8 +938,8 @@ export function sweep(data: Data) {
       notify(
         data,
         s.venue,
-        "Shift expired",
-        "Unfilled places are now closed.",
+        "Shift started unfilled",
+        `${shiftLabel(s)} · ${datesLabel(s.days.map((d) => d.date))}`,
         `shift/${s.id}`,
       );
     }
@@ -978,8 +978,8 @@ export function sweep(data: Data) {
       notify(
         data,
         booking.talent,
-        "Your next service is coming up",
-        `${member(data, shift.venue).name} · ${serviceLabel(first)}. Check your arrival details.`,
+        `Your shift at ${member(data, shift.venue).name}`,
+        `${serviceLabel(first)}. Tap for the address.`,
         `booking/${booking.id}`,
       );
     }
@@ -1388,6 +1388,15 @@ export type Action =
     }
   | { type: "advance"; until: string }
   | { type: "settings"; offline?: boolean; failNext?: boolean };
+// Why a venue can't ask this person again for the same hours.
+export function alreadyAsked(t: Member, status: ResponseStatus) {
+  const name = firstName(t);
+  return status === "booked"
+    ? `${name} is already booked then.`
+    : status === "invited"
+      ? `You’ve already asked ${name} for this time.`
+      : `${name} already said yes to your job post for this time.`;
+}
 // Sends a booking request to one person: their answer waits on this shift.
 function request(data: Data, s: Shift, talent: string) {
   const venue = member(data, s.venue);
@@ -1396,10 +1405,10 @@ function request(data: Data, s: Shift, talent: string) {
   const open = openAnswer(data, s.venue, talent, s.days, s.id);
   if (open)
     throw new Error(
-      `${t.name} ${open.status === "invited" ? "already has your booking request" : open.status === "booked" ? "is already booked with you" : "already said yes to your job"} for those hours. Open it instead of sending another.`,
+      alreadyAsked(t, open.status),
     );
   if (!availableDates(data, talent, s).length)
-    throw new Error(`${t.name} is booked elsewhere then. Choose someone else.`);
+    throw new Error(`${firstName(t)} is booked elsewhere then.`);
   let r = data.responses.find((r) => r.shift === s.id && r.talent === talent);
   if (r && ["can-cover", "invited", "booked"].includes(r.status)) return;
   if (r) {
@@ -1433,10 +1442,10 @@ export function transition(original: Data, action: Action): Data {
   if (!utility.includes(action.type)) {
     if (data.offline)
       throw new Error(
-        "You're offline. Nothing was sent. Reconnect in Preview controls, then try again.",
+        "You’re offline. Nothing was sent.",
       );
     if (data.failNext)
-      throw new Error("The action could not be saved. Nothing was sent; try again.");
+      throw new Error("Couldn’t save. Try again.");
   }
   if (action.type === "settings") {
     if (action.offline !== undefined) data.offline = action.offline;
@@ -1458,8 +1467,8 @@ export function transition(original: Data, action: Action): Data {
     notify(
       data,
       action.actor,
-      "Free this week?",
-      "Update your next 14 days so venues know when to ask you.",
+      "Are you free this week?",
+      "Update your availability so venues can find you.",
       "availability",
     );
   if (action.type === "invite") {
@@ -1528,7 +1537,7 @@ export function transition(original: Data, action: Action): Data {
   if (action.type === "join") {
     if (data.members.some((m) => m.phone === action.member.phone))
       throw new Error(
-        "This phone belongs to a preloaded profile. Choose Claim existing profile.",
+        "This number already has a profile. Sign in instead.",
       );
     // Dyuknow vets people before they get an account, so joining is enough.
     data.members.push({ ...action.member, approved: true });
@@ -1542,7 +1551,7 @@ export function transition(original: Data, action: Action): Data {
           date < londonDate(data.now) ||
           date > datePlus(londonDate(data.now), 6)
         )
-          throw new Error("Choose availability within the next seven days.");
+          throw new Error("Choose days in the next week.");
         data.availability.push({
           member: action.member.id,
           date,
@@ -1563,13 +1572,13 @@ export function transition(original: Data, action: Action): Data {
     )
       throw new Error("Choose the position you need.");
     if (!(d.rate > 0) || !Number.isFinite(d.rate))
-      throw new Error("Add an hourly rate in pounds.");
+      throw new Error("Add the pay per hour.");
     if (!Number.isInteger(d.capacity) || d.capacity < 1 || d.capacity > 5)
       throw new Error("Choose between 1 and 5 people.");
     const days = makeDays(d);
     if (days[0].from <= data.now)
       throw new Error(
-        "The shift must start in the future. Choose a later time.",
+        "That start time has passed.",
       );
     const to = [...new Set(d.to)];
     const s: Shift = {
@@ -1626,7 +1635,7 @@ export function transition(original: Data, action: Action): Data {
         !["invited", "can-cover"].includes(r.status)
       )
         throw new Error(
-          "This answer is no longer waiting. View its current status.",
+          "This has already been answered.",
         );
       r.status = action.type === "withdraw" ? "withdrawn" : "declined";
       const verb = r.status === "withdrawn" ? "withdrew" : "declined";
@@ -1650,16 +1659,14 @@ export function transition(original: Data, action: Action): Data {
       if (s.status !== "open")
         throw new Error(
           s.status === "expired"
-            ? "This shift has started and is closed."
-            : "This shift has been filled or closed. You have not been booked.",
+            ? "This shift has already started."
+            : "This shift is no longer available.",
         );
       const t = member(data, talent);
       if (!t?.approved || t.side !== "talent")
         throw new Error("Choose a talent member.");
       if (!openDates(data, s).length)
-        throw new Error(
-          "This shift has been filled or closed. You have not been booked.",
-        );
+        throw new Error("This shift is no longer available.");
       const free = availableDates(data, talent, s);
       if (action.type === "respond") {
         if (r && ["can-cover", "booked"].includes(r.status))
@@ -1669,15 +1676,15 @@ export function transition(original: Data, action: Action): Data {
           !invitedHere &&
           (s.mode !== "post" || !t.roles.some((role) => s.roles.includes(role)))
         )
-          throw new Error("This shift is for members in the selected roles.");
+          throw new Error("This job is for other positions.");
         const days = a.days?.length ? [...new Set(a.days)].sort() : free;
         if (!days.length)
-          throw new Error("No longer available — booked elsewhere for overlapping hours.");
+          throw new Error("You’re booked elsewhere at that time.");
         if (!days.every((d) => s.days.some((x) => x.date === d)))
           throw new Error("Choose dates from this shift.");
         if (!days.every((d) => free.includes(d)))
           throw new Error(
-            "One of those days is no longer available. Review the days and send again.",
+            "One of those days isn’t available any more. Check the days and try again.",
           );
         // Asked alone, for one place: accepting is the booking.
         const accept = invitedHere && bookOnAccept(data, s);
@@ -1723,22 +1730,20 @@ export function transition(original: Data, action: Action): Data {
           s.venue !== a.actor ||
           !(r.status === "can-cover" || (r.status === "booked" && existing))
         )
-          throw new Error("This person is no longer available to book.");
+          throw new Error(`${firstName(t)} can’t be booked any more.`);
         // The venue books from the days this person said yes to.
         const bookable = bookableDates(data, s, r);
         const days = a.days?.length ? [...new Set(a.days)].sort() : bookable;
         if (!days.length)
           throw new Error(
-            "The days they said yes to are already covered. You have not booked them.",
+            "The days they said yes to are already filled.",
           );
         if (!days.every((d) => bookable.includes(d)))
           throw new Error(
-            "You can only book days this person said yes to that are still open.",
+            "Book only days they said yes to that are still open.",
           );
         if (days.some((d) => !free.includes(d)))
-          throw new Error(
-            "No longer available — booked elsewhere for overlapping hours.",
-          );
+          throw new Error(`${firstName(t)} is booked elsewhere at that time.`);
         bookDays(data, s, r, days, false);
       }
     }
@@ -1746,9 +1751,9 @@ export function transition(original: Data, action: Action): Data {
   if (action.type === "close") {
     const s = data.shifts.find((s) => s.id === action.shift)!;
     if (s.venue !== action.actor || s.status !== "open")
-      throw new Error("This shift is already closed or filled.");
+      throw new Error("This has already ended.");
     s.status = "closed";
-    closeWaiting(data, s, `Closed by the venue: ${action.reason}`);
+    closeWaiting(data, s, `Cancelled by ${member(data, s.venue).name}: ${action.reason}`);
   }
   if (action.type === "cancel") {
     const b = data.bookings.find((b) => b.id === action.booking)!;
@@ -1761,7 +1766,7 @@ export function transition(original: Data, action: Action): Data {
     const days = action.days?.length ? [...new Set(action.days)].sort() : future;
     if (!days.length || !days.every((d) => future.includes(d)))
       throw new Error("Only days that haven’t started can be cancelled.");
-    if (!action.reason.trim()) throw new Error("Choose a cancellation reason.");
+    if (!action.reason.trim()) throw new Error("Choose a reason.");
     for (const d of days)
       b.log[d] = { status: "cancelled", by: action.actor, at: data.now, reason: action.reason };
     const r = data.responses.find(
@@ -1823,7 +1828,7 @@ export function transition(original: Data, action: Action): Data {
       b.talent,
       log.status === "worked"
         ? `${member(data, s.venue).name} confirmed ${log.hours} hours`
-        : `${member(data, s.venue).name} marked you as not there`,
+        : `${member(data, s.venue).name} marked you as a no-show`,
       `${displayDate(d.date)}${log.status === "worked" ? ` · ${log.start}–${log.end} · £${Math.round(log.hours! * s.rate * 100) / 100}` : ""}`,
       `booking/${b.id}`,
     );

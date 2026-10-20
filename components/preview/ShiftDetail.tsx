@@ -270,7 +270,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
       declined: "Declined",
       withdrawn: "Withdrew",
       lapsed: "Booked elsewhere",
-      "not-selected": "Told it’s filled",
+      "not-selected": "Filled by someone else",
     })[r.status as "declined"];
   return (
     <>
@@ -302,7 +302,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                   Send to more people
                 </button>
                 <button role="menuitem" onClick={() => { setMenu(false); setModal("close"); }}>
-                  Close
+                  {s.mode === "request" ? "Cancel request" : "Remove job post"}
                 </button>
               </div>
             )}
@@ -373,7 +373,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                       )}
                     </div>
                   ) : (
-                    <small className="pv-muted">Nobody has said yes to this day yet.</small>
+                    <small className="pv-muted">No one yet.</small>
                   ))}
               </div>
             );
@@ -459,7 +459,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
             // Someone is (or was) booked: say what's still needed, not "no replies".
             <h3>Find someone for {datesLabel(openDates(data, s))}</h3>
           ) : (
-            <p>No one has said yes yet.</p>
+            <p>No replies yet.</p>
           )}
           <div className="pv-actions">
             <Button variant="secondary" onClick={() => setModal("invite")}>
@@ -472,15 +472,15 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         <Section
           title={
             canCover.length || bookings.length
-              ? "Everyone else"
+              ? "Others"
               : s.mode === "request"
                 ? "Sent to"
-                : "Didn’t go ahead"
+                : "Others"
           }
         >
           <div className="pv-talent-grid is-medium">
             {[
-              ...invited.map((r) => [r.talent, "Waiting for an answer"] as const),
+              ...invited.map((r) => [r.talent, "No reply yet"] as const),
               ...ended.map((r) => [r.talent, endedLabel(r)] as const),
             ].map(([id, status]) => (
               <ProfileCard key={id} person={member(data, id)} size="medium" status={status}>
@@ -511,7 +511,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
         />
       )}
       {modal === "close" && (
-        <Modal title={`Close this ${s.mode === "request" ? "request" : "job post"}?`} onClose={() => setModal(null)}>
+        <Modal title={s.mode === "request" ? "Cancel this request?" : "Remove this job post?"} onClose={() => setModal(null)}>
           {bookings.some((b) => !b.cancelled) && (
             <p>People already booked stay booked.</p>
           )}
@@ -527,19 +527,18 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
               if (
                 act(
                   { type: "close", actor, shift: s.id, reason },
-                  "Closed.",
+                  s.mode === "request" ? "Request cancelled." : "Job post removed.",
                 )
               )
                 setModal(null);
             }}
           >
-            Close
+            {s.mode === "request" ? "Cancel request" : "Remove job post"}
           </Button>
         </Modal>
       )}
       {modal === "invite" && (
         <Modal title="Send to more people" onClose={() => setModal(null)}>
-          <p>They get the same booking request. You choose who to book.</p>
           <div className="pv-pick-list">
             {data.members
               .filter((t) => t.side === "talent" && t.approved)
@@ -563,7 +562,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                       <small>
                         {existing
                           ? existing.status === "booked"
-                            ? "Booked on this shift"
+                            ? "Booked"
                             : existing.status === "invited"
                               ? "Already sent"
                               : "Already said yes"
@@ -727,7 +726,7 @@ function TalentShift({ s }: { s: Shift }) {
       <>
         <p className="pv-bar-note">
           {r?.status === "declined"
-            ? "You declined this booking request."
+            ? "You declined."
             : r?.status === "withdrawn"
               ? "You withdrew."
               : r?.status === "lapsed"
@@ -735,8 +734,8 @@ function TalentShift({ s }: { s: Shift }) {
                 : s.status === "expired"
                   ? "This shift has started."
                   : s.status === "closed"
-                    ? `${venue.name} closed this ${s.mode === "request" ? "request" : "job post"}.`
-                    : "This has been filled."}
+                    ? `${venue.name} cancelled this ${s.mode === "request" ? "request" : "job post"}.`
+                    : "Filled by someone else."}
         </p>
         <Button variant="secondary" onClick={() => go("home")}>
           See open jobs
@@ -744,11 +743,11 @@ function TalentShift({ s }: { s: Shift }) {
       </>
     );
   else if (s.mode === "request" && !invited)
-    bar = <p className="pv-bar-note">This booking request went to other people.</p>;
+    bar = <p className="pv-bar-note">This request was sent to someone else.</p>;
   else if (!eligible)
     bar = (
       <p className="pv-bar-note">
-        This job is for {shiftLabel(s)}, which isn’t on your profile.
+        This job is for {shiftLabel(s)} only.
       </p>
     );
   else if (!free.length)
@@ -950,7 +949,6 @@ export function BookingDetail({ id }: { id: string }) {
     return (
       <Empty
         title="Booking not found"
-        text="Open a booking from your schedule."
       />
     );
   const s = data.shifts.find((s) => s.id === b.shift)!;
@@ -958,7 +956,7 @@ export function BookingDetail({ id }: { id: string }) {
   const t = member(data, b.talent);
   if (![s.venue, b.talent].includes(actor))
     return (
-      <Empty title="This booking is private" text="Open one of your own bookings." />
+      <Empty title="Booking not found" />
     );
   const services = bookingServices(data, b);
   const first = services[0];
@@ -1026,7 +1024,7 @@ export function BookingDetail({ id }: { id: string }) {
                         ? `${member(data, r.log!.by).name}: ${r.log!.reason}`
                         : r.status === "to-confirm"
                           ? venueView
-                            ? "Confirms itself 48 hours after the shift"
+                            ? "Confirms automatically after 48 hours"
                             : `${v.name} has 48 hours to confirm`
                           : `${r.hours} hours · about £${r.pay}`}
                   </small>
@@ -1047,14 +1045,14 @@ export function BookingDetail({ id }: { id: string }) {
             ))}
           </div>
           <p className="pv-muted">
-            £{s.rate}/h · {shiftLabel(s)} · paid directly by {v.name}
+            £{s.rate}/h · {shiftLabel(s)} · paid by {v.name}
             {worked.length
               ? ` · ${worked.reduce((n, r) => n + r.hours, 0)} hours worked so far`
               : ""}
           </p>
         </Section>
         {!b.cancelled && !past && (
-          <Section title={venueView ? `What ${firstName(t)} has` : "Getting there"}>
+          <Section title={venueView ? `Shared with ${firstName(t)}` : "Getting there"}>
             <dl className="pv-arrival">
               <div>
                 <dt>Address</dt>
@@ -1146,7 +1144,7 @@ export function BookingDetail({ id }: { id: string }) {
           ) : (
             <Services shift={s} dates={future.map((d) => d.date)} />
           )}
-          <p>Both calendars free up and {venueView ? "the day reopens for others" : `${v.name} can find someone else`}.</p>
+          <p>{venueView ? `${firstName(t)} is told and the day reopens.` : `${v.name} is told and can find someone else.`}</p>
           <Field label="Reason">
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
               <option value="">Choose a reason</option>
@@ -1213,7 +1211,7 @@ export function BookingDetail({ id }: { id: string }) {
               if (
                 act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "no-show" },
-                  `Recorded that ${firstName(t)} didn’t show.`,
+                  "Marked as a no-show.",
                 )
               )
                 setConfirm(null);

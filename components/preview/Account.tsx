@@ -103,8 +103,7 @@ function Verification({ me }: { me: Member }) {
   return (
     <Card id="verification" title={me.side === "venue" ? "Business verification" : "Verification"}>
       <p className="pv-muted">
-        {done} of {Object.keys(docs).length} verified. Verified documents show as ticks on your
-        profile; the files themselves stay private.
+        {done} of {Object.keys(docs).length} checked. Your profile shows a tick, never the file.
       </p>
       <div className="pv-doc-list">
         {Object.entries(docs).map(([name, d]) => (
@@ -158,7 +157,7 @@ function Texts({ me }: { me: Member }) {
   return (
     <Card id="texts" title="Texts">
       <p className="pv-muted">
-        Sent to <strong>{me.phone}</strong>. Change it under Account.
+        Texts go to <strong>{me.phone}</strong>.
       </p>
       <div className="pv-toggle-list">
         <Toggle
@@ -238,7 +237,7 @@ function Details({ me }: { me: Member }) {
     <Card id="details" title="Account">
       <div className="pv-pay-row">
         <span>
-          <small>Phone · how you sign in</small>
+          <small>Phone</small>
           <strong>{me.phone}</strong>
         </span>
         <Button variant="secondary" onClick={() => setPhone({ number: "", code: "", step: 1 })}>

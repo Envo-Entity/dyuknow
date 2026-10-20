@@ -533,10 +533,10 @@ function TalentCard({
       <p className="pv-talent-card-pay">
         {t.minRate ? (
           <>
-            <strong>£{t.minRate}</strong> / hour minimum
+            From <strong>£{t.minRate}</strong> / hour
           </>
         ) : (
-          "Minimum pay not set"
+          "No minimum pay set"
         )}
       </p>
       {t.skills.length > 0 && (
@@ -546,9 +546,9 @@ function TalentCard({
         {open ? (
           <Button onClick={() => go(`shift/${open.shift}`)}>
             {open.status === "booked"
-              ? "Booked with you"
+              ? "Booked"
               : open.status === "invited"
-                ? "Request sent · View"
+                ? "Request sent"
                 : "Said yes · Book"}
           </Button>
         ) : (
@@ -594,7 +594,7 @@ export function TeamList({ family, initial }: { family: string; initial: When })
     <>
       <Heading
         title={family}
-        description={`${free.length} free then`}
+        description={`${free.length} available`}
         back="home"
       />
       <DateTimeBar
@@ -620,8 +620,8 @@ export function TeamList({ family, initial }: { family: string; initial: When })
       <div className="pv-talent-grid">{[...free, ...unavailable].map(card)}</div>
       <button className="pv-team-post" onClick={() => go(`new/${family}`)}>
         <span>
-          <strong>Nobody right?</strong>
-          <small>Post a job to everyone in {role || family}</small>
+          <strong>Can’t find anyone?</strong>
+          <small>Post a job for {role ? `every ${role}` : `all ${family} staff`}</small>
         </span>
         <ArrowRightIcon />
       </button>
