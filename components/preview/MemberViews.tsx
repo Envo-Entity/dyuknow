@@ -7,16 +7,10 @@ import {
   SKILL_GROUPS,
   VENUE_TYPES,
   CUISINES,
-  COVERS_BANDS,
-  DRESS_CODES,
-  VENUE_KNOWN_FOR,
 } from "@/lib/catalogue";
-import { addCustomSkill } from "@/lib/onboardingModel";
 import {
   clockLabel,
-  allSkills,
   contactLine,
-  defaultNote,
   fullAddress,
   hoursOf,
   workedWith,
@@ -100,7 +94,6 @@ export function Messages() {
                   </button>
                 </div>
                 {row.status ? <Badge good={row.good} attention={row.attention}>{row.status}</Badge> : <span />}
-                <button className="pv-text-link pv-thread-action" onClick={() => go(`chat/${row.id}`)}>Open chat</button>
               </div>
             );
           })}
@@ -146,7 +139,7 @@ export function Thread({ id }: { id: string }) {
             <small>{other.roles.length ? other.roles.join(" · ") : other.bio}</small>
           </span>
           {side === "venue" && (
-            <Button onClick={() => go(`new/${familyOf(other)}/${other.id}`)}>
+            <Button onClick={() => go(`new/${familyOf(other)}/${other.id}/-/chat`)}>
               Send booking request
             </Button>
           )}
@@ -157,7 +150,9 @@ export function Thread({ id }: { id: string }) {
 }
 // A booking request, job post or yes, shown as a card in the conversation.
 // The talent answers on the shift; the venue books from the card.
-function ShiftMessage({ m, talent }: { m: Message; talent: string }) {
+// Every card for a shift reads its current status; only the newest one for
+// that shift carries the action, so a thread never offers the same Book twice.
+function ShiftMessage({ m, talent, latest }: { m: Message; talent: string; latest: boolean }) {
   const { data, actor, side, go } = usePreview();
   const [booking, setBooking] = useState(false);
   const s = data.shifts.find((x) => x.id === m.shift) as Shift | undefined;
@@ -218,14 +213,16 @@ function ShiftMessage({ m, talent }: { m: Message; talent: string }) {
           </div>
         )}
       </dl>
-      {canBook ? (
+      {latest && canBook ? (
         <Button onClick={() => setBooking(true)}>Book {firstName(person)}</Button>
       ) : b ? (
         <button className="pv-text-link" onClick={() => go(`booking/${b.id}`)}>
           View booking
         </button>
-      ) : side === "talent" && r?.status === "invited" && open ? (
+      ) : latest && side === "talent" && r?.status === "invited" && open ? (
         <Button onClick={() => go(`shift/${s.id}`)}>Answer</Button>
+      ) : latest && side === "venue" && s.mode === "request" && r?.status === "declined" ? (
+        <Button onClick={() => go(`again/${s.id}/${talent}/chat`)}>Send new request</Button>
       ) : (
         <button className="pv-text-link" onClick={() => go(`shift/${s.id}`)}>
           {s.mode === "request" ? "View request" : "View job post"}
@@ -296,7 +293,15 @@ function Conversation({
           <div className="pv-chat-messages" ref={messageList} aria-live="polite" role="log" aria-label="Conversation messages">
             {messages.length ? (
               messages.map((m) => {
-                if (m.shift) return <ShiftMessage key={m.id} m={m} talent={talent} />;
+                if (m.shift)
+                  return (
+                    <ShiftMessage
+                      key={m.id}
+                      m={m}
+                      talent={talent}
+                      latest={messages.findLast((x) => x.shift === m.shift)?.id === m.id}
+                    />
+                  );
                 return m.system ? (
                   <div className="pv-system-message" key={m.id}>
                     {m.text}
@@ -566,9 +571,9 @@ export function TalentProfile({ id }: { id: string }) {
           {workedWith(data, actor, t.id) && <Badge good>Worked with you</Badge>}
           <Verified m={t} />
           {t.bio && <p>{t.bio}</p>}
-          {allSkills(t).length > 0 && (
+          {t.skills.length > 0 && (
             <div className="pv-chips">
-              {allSkills(t).map((s) => (
+              {t.skills.map((s) => (
                 <span key={s}>{s}</span>
               ))}
             </div>
@@ -648,20 +653,8 @@ function VenueFacts({ v }: { v: Member }) {
   return (
     <div className="pv-venue-facts">
       {kind && <p className="pv-role-line">{kind}</p>}
-      {d.knownFor.length > 0 && (
-        <div className="pv-chips">
-          {d.knownFor.map((k) => (
-            <span key={k}>{k}</span>
-          ))}
-        </div>
-      )}
-      {(d.website || d.instagram) && (
+      {d.instagram && (
         <p className="pv-links">
-          {d.website && (
-            <a href={`https://${d.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noreferrer">
-              {d.website.replace(/^https?:\/\//, "")}
-            </a>
-          )}
           {d.instagram && (
             <a
               href={`https://instagram.com/${d.instagram.replace(/^@/, "")}`}
@@ -680,7 +673,6 @@ export { VenueFacts };
 export function Profile() {
   const { actor, me, side, act, toast, go } = usePreview();
   const [form, setForm] = useState<Member>(() => structuredClone(me!));
-  const [custom, setCustom] = useState("");
   const [edit, setEdit] = useState(false);
   const v = form.venue;
   function setVenue(patch: Partial<NonNullable<Member["venue"]>>) {
@@ -697,11 +689,9 @@ export function Profile() {
             name: form.name,
             bio: form.bio,
             phone: form.phone,
-            email: form.email,
             postcode: form.postcode,
             roles: form.roles,
             skills: form.skills,
-            customSkills: form.customSkills,
             alert: form.alert,
             minRate: form.minRate,
           }
@@ -709,13 +699,11 @@ export function Profile() {
             name: form.name,
             bio: form.bio,
             phone: form.phone,
-            email: form.email,
             postcode: form.postcode,
             venue: form.venue,
           };
     if (act({ type: "profile", actor, patch }, "Profile saved.")) setEdit(false);
   }
-  const d = me!.venue;
   return (
     <>
       <Heading
@@ -737,9 +725,9 @@ export function Profile() {
               <Verified m={me!} />
               {me!.bio ? <p>{me!.bio}</p> : <p className="pv-muted">No bio yet.</p>}
               {side === "talent" ? (
-                allSkills(me!).length > 0 && (
+                me!.skills.length > 0 && (
                   <div className="pv-chips">
-                    {allSkills(me!).map((s) => (
+                    {me!.skills.map((s) => (
                       <span key={s}>{s}</span>
                     ))}
                   </div>
@@ -760,7 +748,7 @@ export function Profile() {
                     </div>
                   </>
                 ) : (
-                  d && (
+                  me!.venue && (
                     <>
                       <div>
                         <dt>Address</dt>
@@ -769,22 +757,6 @@ export function Profile() {
                       <div>
                         <dt>On-site contact</dt>
                         <dd>{contactLine(me!)}</dd>
-                      </div>
-                      <div>
-                        <dt>Teams you usually need</dt>
-                        <dd>{d.teamsNeeded.join(" · ") || "Not set"}</dd>
-                      </div>
-                      <div>
-                        <dt>New shifts start with</dt>
-                        <dd>
-                          Kitchen and pastry £{d.rateChef}/h · Front of house £{d.rateFoh}/h
-                          <br />
-                          {defaultNote(me!)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Vacancies in a typical week</dt>
-                        <dd>{d.vacancies}</dd>
                       </div>
                     </>
                   )
@@ -854,31 +826,6 @@ export function Profile() {
                       />
                     </div>
                   ))}
-                  {form.customSkills.length > 0 && (
-                    <Chips
-                      options={form.customSkills}
-                      selected={form.customSkills}
-                      onChange={(customSkills) => setForm({ ...form, customSkills })}
-                    />
-                  )}
-                  <div className="pv-inline">
-                    <Field label="Add your own skill">
-                      <input maxLength={80} value={custom} onChange={(e) => setCustom(e.target.value)} />
-                    </Field>
-                    <Button
-                      variant="secondary"
-                      disabled={!custom.trim()}
-                      onClick={() => {
-                        setForm({
-                          ...form,
-                          customSkills: addCustomSkill(form.customSkills, custom, form.skills),
-                        });
-                        setCustom("");
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
                   <Field label="Minimum pay · £ per hour">
                     <input
                       type="number"
@@ -906,53 +853,9 @@ export function Profile() {
                     <Chips options={VENUE_TYPES} selected={v.types} onChange={(types) => setVenue({ types })} />
                     <h3>Cuisine</h3>
                     <Chips options={CUISINES} selected={v.cuisines} onChange={(cuisines) => setVenue({ cuisines })} />
-                    <div className="pv-form-grid">
-                      <Field label="Covers">
-                        <select value={v.covers} onChange={(e) => setVenue({ covers: e.target.value })}>
-                          {COVERS_BANDS.map((c) => (
-                            <option key={c}>{c}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Team size">
-                        <input type="number" min={0} value={v.teamSize} onChange={(e) => setVenue({ teamSize: Number(e.target.value) })} />
-                      </Field>
-                      <Field label="Website">
-                        <input value={v.website} onChange={(e) => setVenue({ website: e.target.value })} />
-                      </Field>
-                      <Field label="Instagram">
-                        <input value={v.instagram} onChange={(e) => setVenue({ instagram: e.target.value })} />
-                      </Field>
-                    </div>
-                    <h3>Known for · up to 3</h3>
-                    <Chips options={VENUE_KNOWN_FOR} selected={v.knownFor} max={3} onChange={(knownFor) => setVenue({ knownFor })} />
-                    <h3>Teams you usually need</h3>
-                    <Chips options={TEAM_NAMES} selected={v.teamsNeeded} onChange={(teamsNeeded) => setVenue({ teamsNeeded })} />
-                    <h3>New shifts start with</h3>
-                    <div className="pv-form-grid">
-                      <Field label="Kitchen and pastry · £ per hour">
-                        <input type="number" min={0} value={v.rateChef} onChange={(e) => setVenue({ rateChef: Number(e.target.value) })} />
-                      </Field>
-                      <Field label="Front of house · £ per hour">
-                        <input type="number" min={0} value={v.rateFoh} onChange={(e) => setVenue({ rateFoh: Number(e.target.value) })} />
-                      </Field>
-                      <Field label="Dress code">
-                        <select value={v.dressCode} onChange={(e) => setVenue({ dressCode: e.target.value })}>
-                          {DRESS_CODES.map((c) => (
-                            <option key={c}>{c}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Vacancies in a typical week">
-                        <input type="number" min={0} value={v.vacancies} onChange={(e) => setVenue({ vacancies: Number(e.target.value) })} />
-                      </Field>
-                    </div>
-                    <label className="pv-check">
-                      <input type="checkbox" checked={v.uniform} onChange={(e) => setVenue({ uniform: e.target.checked })} /> Uniform provided
-                    </label>
-                    <label className="pv-check">
-                      <input type="checkbox" checked={v.staffMeal} onChange={(e) => setVenue({ staffMeal: e.target.checked })} /> Staff meal
-                    </label>
+                    <Field label="Instagram">
+                      <input value={v.instagram} placeholder="@yourvenue" onChange={(e) => setVenue({ instagram: e.target.value })} />
+                    </Field>
                   </>
                 )
               )}

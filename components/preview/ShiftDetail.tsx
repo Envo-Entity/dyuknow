@@ -21,10 +21,11 @@ import {
   serviceLabel,
   shiftLabel,
   shortDay,
-  allSkills,
   venueSummary,
-  offerableDates,
   workedWith,
+  bookOnAccept,
+  declinedByAll,
+  teamOf,
   type Booking,
   type Data,
   type Response,
@@ -85,7 +86,7 @@ export function BookConfirm({
     (r) => r.shift === shift.id && r.talent === talent,
   )!;
   const bookable = bookableDates(data, shift, r);
-  const choose = shift.days.length > 1 && !shift.together && bookable.length > 1;
+  const choose = shift.days.length > 1 && bookable.length > 1;
   const [picked, setPicked] = useState<string[]>(
     preselect?.filter((d) => bookable.includes(d)) ?? bookable,
   );
@@ -206,12 +207,11 @@ function ResponseCard({
               {gone.length ? ` (${gone.map(weekday).join(", ")} filled)` : ""}
             </Badge>
           )}
-          {allSkills(t).slice(0, 3).map((skill) => (
+          {t.skills.slice(0, 3).map((skill) => (
             <Badge key={skill}>{skill}</Badge>
           ))}
         </div>
         {t.bio && <p className="pv-bio-clamp">{t.bio}</p>}
-        {r.note && <p className="pv-response-note">“{r.note}”</p>}
         <div className="pv-actions">
           <Button onClick={onBook}>
             Book {firstName(t)}
@@ -321,11 +321,6 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           {status.text}
         </p>
       )}
-      {s.together && (
-        <p className="pv-muted pv-small">
-          Same person for all {s.days.length} days.
-        </p>
-      )}
       {s.days.length > 1 && (
         <div className="pv-tracker">
           {s.days.map((d) => {
@@ -361,7 +356,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                           })
                           .join(", ")}
                       </small>
-                      {!readOnly && !s.together && (
+                      {!readOnly && (
                         <span className="pv-tracker-actions">
                           {can.map((r) => (
                             <Button
@@ -444,6 +439,14 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           ))}
         </Section>
       )}
+      {!readOnly && s.mode === "request" && s.status === "closed" && declinedByAll(data, s) && (
+        <div className="pv-fallback">
+          <p>{invited.length + ended.length > 1 ? "Everyone declined." : `${firstName(member(data, ended[0].talent))} declined.`}</p>
+          <div className="pv-actions">
+            <Button onClick={() => go(`again/${s.id}`)}>Send new request</Button>
+          </div>
+        </div>
+      )}
       {open &&
         !readOnly &&
         !responses.some(
@@ -482,9 +485,14 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
             ].map(([id, status]) => (
               <ProfileCard key={id} person={member(data, id)} size="medium" status={status}>
                 {!readOnly && (
-                  <Button variant="secondary" onClick={() => message(id)}>
-                    Message
-                  </Button>
+                  <>
+                    {status === "Declined" && s.mode === "request" && !declinedByAll(data, s) && (
+                      <Button onClick={() => go(`again/${s.id}/${id}`)}>New request</Button>
+                    )}
+                    <Button variant="secondary" onClick={() => message(id)}>
+                      Message
+                    </Button>
+                  </>
                 )}
               </ProfileCard>
             ))}
@@ -604,15 +612,14 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
 function TalentShift({ s }: { s: Shift }) {
   const { data, actor, me, act, go, back } = usePreview();
   const message = useMessage();
-  const [sheet, setSheet] = useState<"respond" | "more" | null>(null);
-  const [note, setNote] = useState("");
+  const [sheet, setSheet] = useState(false);
   const venue = member(data, s.venue);
   const r = data.responses.find((r) => r.shift === s.id && r.talent === actor);
   const free = availableDates(data, actor, s);
   const open = openDates(data, s);
   const busy = busyDates(data, actor, s);
   // Start from the days they can do, minus days they marked Not free.
-  const suggested = s.together ? free : free.filter((d) => !busy.includes(d));
+  const suggested = free.filter((d) => !busy.includes(d));
   const [picked, setPicked] = useState<string[]>(suggested);
   const b = data.bookings.find(
     (b) => b.shift === s.id && b.talent === actor && !b.cancelled,
@@ -621,6 +628,8 @@ function TalentShift({ s }: { s: Shift }) {
     (b) => b.shift === s.id && b.talent === actor && b.cancelled,
   );
   const invited = r?.status === "invited";
+  // Asked alone for one place: accepting books them.
+  const accept = invited && bookOnAccept(data, s);
   const myRole =
     s.roles.find((role) => me?.roles.includes(role)) || shiftLabel(s);
   const eligible = invited || me?.roles.some((role) => s.roles.includes(role));
@@ -639,39 +648,36 @@ function TalentShift({ s }: { s: Shift }) {
       ? member(data, data.shifts.find((x) => x.id === other.shift)!.venue).name
       : "";
   };
-  function sendResponse() {
+  function sendResponse(days: string[]) {
     const result = act(
-      { type: "respond", actor, shift: s.id, note, days: picked },
-      `Sent to ${venue.name}. You’re booked once they confirm.`,
+      { type: "respond", actor, shift: s.id, days },
+      accept ? `You’re booked at ${venue.name}.` : `Sent to ${venue.name}.`,
+      accept ? undefined : { undo: true },
     );
-    if (result) setSheet(null);
+    if (!result) return;
+    setSheet(false);
+    if (accept) {
+      const booking = result.bookings.find(
+        (x) => x.shift === s.id && x.talent === actor && !x.cancelled,
+      );
+      if (booking) go(`booking/${booking.id}`);
+    }
   }
   const waitingDates = r ? offeredDates(s, r) : [];
   const mine = b ? activeDays(b) : [];
-  // Open days this person hasn't said yes to yet, even if booked for others.
-  const offerable = s.status === "open" ? offerableDates(data, actor, s) : [];
-  const offerMore = offerable.length > 0 && (
-    <Button
-      variant={b ? "primary" : "quiet"}
-      onClick={() => {
-        const unmarked = offerable.filter((d) => !busy.includes(d));
-        setPicked(unmarked.length ? unmarked : offerable);
-        setSheet("more");
-      }}
-    >
-      {offerable.length === 1 ? `I can also do ${shortDay(offerable[0])}` : "I can do more days"}
-    </Button>
-  );
+  const yesLabel = accept ? "Accept" : "I can do this";
   const sayYes = (
     <Button
       onClick={() => {
+        // One day, nothing to choose: answer straight away.
+        if (!multi) return sendResponse(free);
         setPicked(suggested);
-        setSheet("respond");
+        setSheet(true);
       }}
     >
       {multi && free.length < s.days.length
-        ? `I can do ${free.length} of ${s.days.length} days`
-        : "I can do this"}
+        ? `${accept ? "Accept" : "I can do"} ${free.length} of ${s.days.length} days`
+        : yesLabel}
     </Button>
   );
   let bar;
@@ -682,17 +688,9 @@ function TalentShift({ s }: { s: Shift }) {
           <Badge good>You’re booked</Badge> {datesLabel(mine)}
           {r && bookableDates(data, s, r).length > 0
             ? `. ${venue.name} may also book you for ${datesLabel(bookableDates(data, s, r))}.`
-            : offerable.length
-              ? `. ${datesLabel(offerable)} still ${offerable.length === 1 ? "needs" : "need"} someone.`
-              : ""}
+            : ""}
         </p>
-        {offerMore}
-        <Button
-          variant={offerable.length ? "secondary" : "primary"}
-          onClick={() => go(`booking/${b.id}`)}
-        >
-          View your booking
-        </Button>
+        <Button onClick={() => go(`booking/${b.id}`)}>View your booking</Button>
       </>
     );
   else if (cancelled)
@@ -705,8 +703,7 @@ function TalentShift({ s }: { s: Shift }) {
     bar = (
       <>
         <p className="pv-bar-note">
-          Waiting for {venue.name} to confirm
-          {multi ? ` · ${datesLabel(waitingDates)}` : ""}. You’re not booked yet.
+          Waiting for {venue.name} to book you{multi ? ` · ${datesLabel(waitingDates)}` : ""}.
         </p>
         <div className="pv-bar-row">
           <Button onClick={() => message(venue.id)}>Message</Button>
@@ -723,22 +720,23 @@ function TalentShift({ s }: { s: Shift }) {
             Withdraw
           </Button>
         </div>
-        {offerMore}
       </>
     );
-  else if (s.status !== "open" || ["declined", "lapsed", "not-selected"].includes(r?.status || ""))
+  else if (s.status !== "open" || ["declined", "lapsed", "not-selected", "withdrawn"].includes(r?.status || ""))
     bar = (
       <>
         <p className="pv-bar-note">
           {r?.status === "declined"
             ? "You declined this booking request."
-            : r?.status === "lapsed"
-              ? "You’re booked elsewhere at this time."
-              : s.status === "expired"
-                ? "This shift has started."
-                : s.status === "closed"
-                  ? `${venue.name} closed this ${s.mode === "request" ? "request" : "job post"}.`
-                  : "This has been filled."}
+            : r?.status === "withdrawn"
+              ? "You withdrew."
+              : r?.status === "lapsed"
+                ? "You’re booked elsewhere at this time."
+                : s.status === "expired"
+                  ? "This shift has started."
+                  : s.status === "closed"
+                    ? `${venue.name} closed this ${s.mode === "request" ? "request" : "job post"}.`
+                    : "This has been filled."}
         </p>
         <Button variant="secondary" onClick={() => go("home")}>
           See open jobs
@@ -753,18 +751,6 @@ function TalentShift({ s }: { s: Shift }) {
         This job is for {shiftLabel(s)}, which isn’t on your profile.
       </p>
     );
-  else if (s.together && free.length < s.days.length)
-    bar = (
-      <p className="pv-bar-note">
-        {venue.name} needs the same person for all {s.days.length} days.{" "}
-        {free.length
-          ? `You’re at ${s.days.map((d) => clashWith(d.date)).find(Boolean) || "another venue"} on ${s.days
-              .filter((d) => !free.includes(d.date))
-              .map((d) => weekday(d.date))
-              .join(", ")}.`
-          : ""}
-      </p>
-    );
   else if (!free.length)
     bar = (
       <p className="pv-bar-note">
@@ -774,9 +760,6 @@ function TalentShift({ s }: { s: Shift }) {
   else if (invited)
     bar = (
       <>
-        <p className="pv-bar-note">
-          {venue.name} sent you a booking request. Say yes and they confirm.
-        </p>
         <div className="pv-bar-row">
           {sayYes}
           <Button
@@ -827,12 +810,7 @@ function TalentShift({ s }: { s: Shift }) {
             <div>
               <small>When</small>
               <strong>{when(data, s)}</strong>
-              {multi && (
-                <span>
-                  {s.days.length} days ·{" "}
-                  {s.together ? "same person for all days" : "same hours"}
-                </span>
-              )}
+              {multi && <span>{s.days.length} days · same hours</span>}
             </div>
             <div>
               <small>Pay</small>
@@ -879,82 +857,46 @@ function TalentShift({ s }: { s: Shift }) {
           {b && (
             <>
               <h3>Address</h3>
-              <p className="pv-muted">{s.address || fullAddress(venue)}</p>
+              <p className="pv-muted">{fullAddress(venue)}</p>
             </>
           )}
           {bar && <ActionBar>{bar}</ActionBar>}
         </div>
       </div>
       {sheet && (
-        <Modal
-          title={sheet === "more" ? "Which other days can you do?" : multi ? "Which days can you do?" : `Tell ${venue.name} you can do it`}
-          onClose={() => setSheet(null)}
-        >
-          {multi && (
-            <div className="pv-day-picks">
-              {s.days.map((d) => {
-                const more = sheet === "more";
-                const can = (more ? offerable : free).includes(d.date);
-                const clash = clashWith(d.date);
-                const marked = busy.includes(d.date);
-                const mineBooked = mine.includes(d.date);
-                const offeredAlready = more && waitingDates.includes(d.date);
-                return (
-                  <label key={d.date} className={can ? "" : "is-blocked"}>
-                    <input
-                      type="checkbox"
-                      disabled={!can || !!s.together}
-                      checked={picked.includes(d.date)}
-                      onChange={(e) =>
-                        setPicked(
-                          e.target.checked
-                            ? [...picked, d.date]
-                            : picked.filter((x) => x !== d.date),
-                        )
-                      }
-                    />
-                    <span>{serviceLabel(d)}</span>
-                    {!can ? (
-                      <small>
-                        {mineBooked
-                          ? "You’re booked"
-                          : offeredAlready
-                            ? "Already said yes"
-                            : clash
-                              ? `You’re at ${clash}`
-                              : "Filled"}
-                      </small>
-                    ) : marked ? (
-                      <small>You marked this day not free</small>
-                    ) : null}
-                  </label>
-                );
-              })}
-            </div>
-          )}
-          {!multi && <Services shift={s} />}
-          {s.together && sheet !== "more" && (
-            <p>Same person for all {s.days.length} days.</p>
-          )}
-          <p>You’re not booked until {venue.name} confirms.</p>
-          {sheet !== "more" && (
-            <Field label={`Note to ${venue.name} · optional`}>
-              <textarea
-                rows={2}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Happy to help. I know a busy grill section."
-              />
-            </Field>
-          )}
-          <Button disabled={!picked.length} onClick={sendResponse}>
-            {!multi
-              ? `Send to ${venue.name}`
-              : !picked.length
-                ? "Tick the days you can do"
-                : picked.length === s.days.length
-                  ? `Yes to all ${s.days.length} days`
-                  : `Yes to ${datesLabel(picked)}`}
+        <Modal title="Which days can you do?" onClose={() => setSheet(false)}>
+          <div className="pv-day-picks">
+            {s.days.map((d) => {
+              const can = free.includes(d.date);
+              const clash = clashWith(d.date);
+              return (
+                <label key={d.date} className={can ? "" : "is-blocked"}>
+                  <input
+                    type="checkbox"
+                    disabled={!can}
+                    checked={picked.includes(d.date)}
+                    onChange={(e) =>
+                      setPicked(
+                        e.target.checked
+                          ? [...picked, d.date]
+                          : picked.filter((x) => x !== d.date),
+                      )
+                    }
+                  />
+                  <span>{serviceLabel(d)}</span>
+                  {!can ? (
+                    <small>{clash ? `You’re at ${clash}` : "Filled"}</small>
+                  ) : busy.includes(d.date) ? (
+                    <small>You marked this day not free</small>
+                  ) : null}
+                </label>
+              );
+            })}
+          </div>
+          <Button disabled={!picked.length} onClick={() => sendResponse(picked)}>
+            {!picked.length
+              ? "Tick the days you can do"
+              : `${accept ? "Accept" : "Yes to"} ${picked.length === s.days.length ? `all ${s.days.length} days` : datesLabel(picked)}`}
           </Button>
         </Modal>
       )}
@@ -1024,8 +966,8 @@ export function BookingDetail({ id }: { id: string }) {
   const started = first.from <= data.now;
   const future = b.cancelled ? [] : services.filter((d) => d.from > data.now);
   const records = dayRecords(data, b);
-  const address = s.address || fullAddress(v);
-  const contact = `${s.contact || contactLine(v)} · ${s.phone || v.phone}`;
+  const address = fullAddress(v);
+  const contact = `${contactLine(v)} · ${v.phone}`;
   const venueView = side === "venue";
   const rel = relativeDay(first.date, data.now);
   const whenWords = ["Today", "Tomorrow"].includes(rel)
@@ -1145,7 +1087,7 @@ export function BookingDetail({ id }: { id: string }) {
           <Button onClick={() => message(person.id)}>
             Message {firstName(person)}
           </Button>
-          <a className="pv-button pv-secondary" href={`tel:${(venueView ? t.phone : s.phone || v.phone).replace(/\s/g, "")}`}>
+          <a className="pv-button pv-secondary" href={`tel:${(venueView ? t.phone : v.phone).replace(/\s/g, "")}`}>
             Call
           </a>
           {!b.cancelled && !past && (
@@ -1161,7 +1103,7 @@ export function BookingDetail({ id }: { id: string }) {
           </div>
         )}
         {venueView && (past || b.cancelled) && (
-          <Button variant="secondary" onClick={() => go(`new/${s.family}/${t.id}`)}>
+          <Button variant="secondary" onClick={() => go(`new/${teamOf(s.roles)}/${t.id}`)}>
             Book {firstName(t)} again
           </Button>
         )}

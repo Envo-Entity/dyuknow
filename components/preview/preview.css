@@ -2687,6 +2687,14 @@ dl.pv-arrival > div {
   .pv-action-bar > .pv-text-link {
     text-align: left;
   }
+  /* A choice made further up a long list keeps its button in view. */
+  .pv-action-bar.is-pinned {
+    position: sticky;
+    bottom: 24px;
+    padding: 16px;
+    background: #fff;
+    box-shadow: 0 10px 36px #1420101f;
+  }
 }
 .pv-card-days {
   font-size: 12px;
@@ -3272,7 +3280,7 @@ dl.pv-arrival > div {
   color: #2f3a2c;
   font-size: 11px;
 }
-.pv-offer-head .pv-badge {
+.pv-offer-head .pv-badge:not(.is-attention) {
   background: #fff;
 }
 .pv-offer h3 {
@@ -4652,7 +4660,7 @@ dl.pv-arrival > div {
   font-size: 12px;
   min-height: 118px;
 }
-.pv-date-grid button.free {
+.pv-date-grid button.free:not(.selected) {
   background: var(--pv-sage-soft);
 }
 .pv-date-grid button strong {

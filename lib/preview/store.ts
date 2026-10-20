@@ -1,7 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { seed, transition, type Action, type Data } from "./model";
-export const PREVIEW_KEY = "dyuknow_mvp_preview_v8";
+export const PREVIEW_KEY = "dyuknow_mvp_preview_v9";
 const initial = seed();
 let current = initial;
 let loaded = false;

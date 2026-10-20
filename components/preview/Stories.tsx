@@ -25,8 +25,8 @@ export const STORIES = [
     steps: [
       "As Spruce, tap Post a job (the black button in the sidebar; on phones, the round + in the tab bar). Choose Kitchen.",
       "It’s the same form, with To: everyone in the position. Pick CDP and Sat 3, then Post job.",
-      "Switch to Poppy. It’s on Shifts under Open jobs. Open it → I can do this → add a note → Send.",
-      "Switch to Spruce. Poppy’s yes arrived as a card in your conversation with her, with Book Poppy on it. Book her there or from the job post.",
+      "Switch to Poppy. It’s on Shifts under Open jobs. Open it → I can do this.",
+      "Switch to Spruce. Poppy’s yes arrived as a card in your conversation with Poppy, with Book Poppy on it. Book there or from the job post.",
     ],
   },
   {
@@ -41,23 +41,13 @@ export const STORIES = [
     ],
   },
   {
-    title: "Same person for all days",
-    who: "The Sea The Sea → Ethan",
-    start: "/talent/ethan/shift/sea-residency",
-    steps: [
-      "With more than one day, the form shows “Same person for all days”. The Sea The Sea’s 3-night Sous Chef job has it on.",
-      "As Ethan, open it → I can do this. All three days are fixed; the button reads Yes to all 3 days.",
-      "Anyone booked elsewhere on one of those nights doesn’t see it in Open jobs, and opening it explains which night clashes.",
-    ],
-  },
-  {
     title: "Answer a booking request",
     who: "The Sea The Sea → Camille",
     start: "/talent/camille/home",
     steps: [
       "Camille’s Shifts shows The Sea The Sea under Booking requests. Open it. Message the venue if anything doesn’t work.",
-      "I can do this → Send. The Sea The Sea still confirms; Camille sees “Waiting for The Sea The Sea to confirm”.",
-      "Or Decline. To change pay or times, say so in chat; the venue sends a new request.",
+      "It went only to Camille, for one place, so the button reads Accept. Accept, and Camille is booked straight away.",
+      "Or Decline, and say why in chat. The Sea The Sea sees Declined, with Send new request to try again with different pay or times.",
     ],
   },
   {
@@ -86,7 +76,7 @@ export const STORIES = [
     who: "Talent and venue",
     start: "/talent/poppy/bookings",
     steps: [
-      "Availability shows two weeks at a time; the arrows go up to eight weeks ahead. Choose a day → Free from–to → save, or mark Not free. Copy to other dates.",
+      "Availability shows two weeks at a time; the arrows go up to eight weeks ahead. Tick one or more days → Free from–to → save, or mark Not free.",
       "Venues see it as Free then / Not free then on each card. It’s a guide, not a block: a venue can still ask someone marked busy.",
       "Being booked is the only hard block: you can’t be booked twice for the same hours.",
     ],

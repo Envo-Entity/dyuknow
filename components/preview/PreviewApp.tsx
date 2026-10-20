@@ -27,8 +27,8 @@ import {
   clockLabel,
   uid,
   unreadChat,
-  allSkills,
-  defaultRate,
+  lastAsk,
+  teamOf,
   fullAddress,
   type Action,
   type Data,
@@ -39,7 +39,6 @@ import {
 } from "@/lib/preview/model";
 import { PreviewContext, usePreview } from "./context";
 import { SHIFT_ALERTS } from "@/lib/catalogue";
-import { addCustomSkill } from "@/lib/onboardingModel";
 import {
   Badge,
   Button,
@@ -201,17 +200,35 @@ export function PreviewApp() {
       />
     );
   else if (page === "post" && side === "venue") content = <JobPostStart />;
-  // new/<team>[/<people>[/<position>]]: one form for a job post (no people)
-  // or a booking request (the people it goes to).
+  // new/<team>[/<people>[/<position or ->[/chat]]]: one form for a job post
+  // (no people) or a booking request (the people it goes to).
   else if (page === "new" && side === "venue" && FAMILIES[id])
     content = (
       <ShiftComposer
         key={parts.slice(3).join("/")}
         family={id}
         to={parts[4] ? parts[4].split(",") : []}
-        role={parts[5] ? decodeURIComponent(parts[5]) : undefined}
+        role={parts[5] && parts[5] !== "-" ? decodeURIComponent(parts[5]) : undefined}
+        fromChat={parts[6] === "chat"}
       />
     );
+  // again/<shift>[/<people>[/chat]]: a new request starting from an earlier one.
+  else if (page === "again" && side === "venue" && data.shifts.some((s) => s.id === id && s.venue === actor)) {
+    const from = data.shifts.find((s) => s.id === id)!;
+    content = (
+      <ShiftComposer
+        key={parts.slice(3).join("/")}
+        family={teamOf(from.roles)}
+        from={from}
+        to={
+          parts[4]
+            ? parts[4].split(",")
+            : data.responses.filter((r) => r.shift === id && r.source === "invite").map((r) => r.talent)
+        }
+        fromChat={parts[5] === "chat"}
+      />
+    );
+  }
   else if (page === "shift")
     content = <ShiftDetail key={`${actor}-${id}`} id={id} />;
   else if (page === "booking")
@@ -251,7 +268,7 @@ export function PreviewApp() {
       <div
         className={`pv-app ${page === "chat" ? "pv-chat-screen" : ""} ${
           // Task screens get the whole phone; Back returns to the tabs.
-          ["new", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
+          ["new", "again", "shift", "booking", "chat", "talent", "venue", "availability"].includes(page)
             ? "pv-focus"
             : ""
         }`}
@@ -670,7 +687,6 @@ function Setup({
 }) {
   const { data, act, toast } = usePreview();
   const [step, rawSetStep] = useState(data.setupDrafts?.[side]?.step || 1);
-  const [customSkill, setCustomSkill] = useState("");
   const [availabilityDates, rawSetDates] = useState<string[]>(
     data.setupDrafts?.[side]?.availabilityDates || [
       datePlus(londonDate(data.now), 1),
@@ -689,7 +705,6 @@ function Setup({
         side,
         name: side === "talent" ? "Alex Morgan" : "The Orchard",
         phone: side === "talent" ? "+44 7700 900299" : "+44 7700 900199",
-        email: side === "talent" ? "alex@example.com" : "hello@theorchard.example",
         postcode: side === "talent" ? "SW11 1AA" : "TW9 1AB",
         photo: "",
         bio:
@@ -698,7 +713,6 @@ function Setup({
             : "A neighbourhood restaurant in Richmond.",
         roles: side === "talent" ? ["CDP"] : [],
         skills: side === "talent" ? ["Grill"] : [],
-        customSkills: [],
         approved: false,
         alert: "all",
         // Only what this short setup asks; everything else starts empty.
@@ -710,18 +724,7 @@ function Setup({
                 contactRole: "Manager",
                 types: [],
                 cuisines: [],
-                covers: "",
-                teamSize: 0,
-                website: "",
                 instagram: "",
-                knownFor: [],
-                teamsNeeded: ["Kitchen"],
-                dressCode: "Chef whites",
-                uniform: true,
-                staffMeal: true,
-                rateChef: 18,
-                rateFoh: 16,
-                vacancies: 0,
               }
             : undefined,
       },
@@ -807,35 +810,6 @@ function Setup({
                 selected={form.skills}
                 onChange={(skills) => setForm({ ...form, skills })}
               />
-              {form.customSkills.length > 0 && (
-                <Chips
-                  options={form.customSkills}
-                  selected={form.customSkills}
-                  onChange={(customSkills) => setForm({ ...form, customSkills })}
-                />
-              )}
-              <div className="pv-inline">
-                <Field label="Add your own skill">
-                  <input
-                    maxLength={80}
-                    value={customSkill}
-                    onChange={(e) => setCustomSkill(e.target.value)}
-                  />
-                </Field>
-                <Button
-                  variant="secondary"
-                  disabled={!customSkill.trim()}
-                  onClick={() => {
-                    setForm({
-                      ...form,
-                      customSkills: addCustomSkill(form.customSkills, customSkill, form.skills),
-                    });
-                    setCustomSkill("");
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
             </>
           )}
           <Button
@@ -856,13 +830,6 @@ function Setup({
               type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </Field>
-          <Field label="Email">
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Field>
           {side === "venue" && form.venue && (
@@ -900,33 +867,7 @@ function Setup({
                     }
                   />
                 </Field>
-                <Field label="Kitchen and pastry · £ per hour">
-                  <input
-                    type="number"
-                    value={form.venue.rateChef}
-                    onChange={(e) =>
-                      setForm({ ...form, venue: { ...form.venue!, rateChef: Number(e.target.value) } })
-                    }
-                  />
-                </Field>
-                <Field label="Front of house · £ per hour">
-                  <input
-                    type="number"
-                    value={form.venue.rateFoh}
-                    onChange={(e) =>
-                      setForm({ ...form, venue: { ...form.venue!, rateFoh: Number(e.target.value) } })
-                    }
-                  />
-                </Field>
               </div>
-              <h3>Teams you usually need</h3>
-              <Chips
-                options={TEAM_NAMES}
-                selected={form.venue.teamsNeeded}
-                onChange={(teamsNeeded) =>
-                  setForm({ ...form, venue: { ...form.venue!, teamsNeeded } })
-                }
-              />
             </>
           ) : (
             <>
@@ -1004,7 +945,7 @@ function Setup({
             {areaOf(form)}
           </p>
           <p>{form.bio}</p>
-          <p>{side === "venue" ? fullAddress(form) : allSkills(form).join(" · ")}</p>
+          <p>{side === "venue" ? fullAddress(form) : form.skills.join(" · ")}</p>
           <Button
             onClick={() => {
               const result = act(
@@ -1098,12 +1039,15 @@ function PreviewControls({
     const r = data.responses.find(
       (r) => r.shift === shift.id && r.talent === other.id,
     );
-    if (r?.status !== "can-cover" && !act({ type: "respond", actor: other.id, shift: shift.id }))
-      return;
-    act(
-      { type: "book", actor: shift.venue, shift: shift.id, talent: other.id },
-      `${other.name} said yes and was booked. Everyone else waiting sees the real state.`,
-    );
+    const done = `${other.name} said yes and was booked. Everyone else waiting sees the real state.`;
+    if (r?.status !== "can-cover") {
+      const next = act({ type: "respond", actor: other.id, shift: shift.id });
+      if (!next) return;
+      // A request sent only to them books on accept.
+      if (next.responses.find((x) => x.shift === shift.id && x.talent === other.id)?.status === "booked")
+        return act({ type: "settings" }, done);
+    }
+    act({ type: "book", actor: shift.venue, shift: shift.id, talent: other.id }, done);
   }
   // Another venue books this talent for the same hours.
   function overlapping() {
@@ -1123,18 +1067,17 @@ function PreviewControls({
       start: shift.days[0].start,
       end: shift.days[0].end,
       capacity: 1,
-      rate: defaultRate(venue, family),
+      rate: lastAsk(data, venue.id, family)?.rate || 20,
       note: "Overlapping sample service for the conflict story.",
       to: [actor],
     };
     const next = act({ type: "post", actor: venue.id, draft: d });
     if (!next) return;
-    const id = next.shifts[0].id;
-    if (act({ type: "respond", actor, shift: id }))
-      act(
-        { type: "book", actor: venue.id, shift: id, talent: actor },
-        `${venue.name} booked you for the same hours. Clashing answers have lapsed.`,
-      );
+    // Sent only to this person, so accepting books them.
+    act(
+      { type: "respond", actor, shift: next.shifts[0].id },
+      `${venue.name} booked you for the same hours. Clashing answers have lapsed.`,
+    );
   }
   return (
     <Modal title="Try the moments between screens" onClose={onClose}>

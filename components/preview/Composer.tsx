@@ -11,8 +11,7 @@ import {
   openAnswer,
   serviceLabel,
   similarShift,
-  defaultRate,
-  defaultNote,
+  lastAsk,
   type Shift,
   type ShiftDraft,
 } from "@/lib/preview/model";
@@ -23,25 +22,43 @@ import { DateTimeBar, savedWhen } from "./Booking";
 
 // The one form for asking for cover. With people in `to` it sends them a
 // booking request; with nobody it posts a job to everyone in the position.
-// Either way they say yes and the venue books.
+// `from`: an earlier ask to start again from, e.g. after a decline.
 export function ShiftComposer({
   family,
   to: initialTo = [],
   role,
+  from,
+  fromChat = false,
 }: {
   family: string;
   to?: string[];
   role?: string;
+  from?: Shift;
+  fromChat?: boolean;
 }) {
-  const { data, actor, me, act, go, toast } = usePreview();
+  const { data, actor, act, go, toast, back } = usePreview();
   const [editingNote, setEditingNote] = useState(false);
   const tomorrow = datePlus(londonDate(data.now), 1);
   const [draft, setDraft] = useState<ShiftDraft>(() => {
     const to = initialTo.filter((id) => data.members.some((m) => m.id === id && m.side === "talent"));
-    // Start from what this venue asked for last time in this team.
-    const last = data.shifts.find(
-      (s) => s.venue === actor && s.family === family,
-    ) as Shift | undefined;
+    // Start from what this venue asked for last time in this team: pay and
+    // note carry over, so nothing needs setting up in advance.
+    const last = lastAsk(data, actor, family);
+    const anyLast = last || lastAsk(data, actor);
+    if (from)
+      return {
+        roles: from.roles,
+        family,
+        date: from.days[0].date,
+        count: 1,
+        dates: from.days.map((d) => d.date),
+        start: from.days[0].start,
+        end: from.days[0].end,
+        capacity: from.capacity,
+        rate: from.rate,
+        note: from.note,
+        to,
+      };
     // The positions the chosen people work in this team.
     const theirs = [
       ...new Set(
@@ -65,9 +82,8 @@ export function ShiftComposer({
       start: when.start,
       end: when.end,
       capacity: 1,
-      // Pre-filled from the venue profile; each request can change them.
-      rate: defaultRate(me!, family),
-      note: defaultNote(me!),
+      rate: last?.rate || 0,
+      note: anyLast?.note || "",
       to,
     };
   });
@@ -101,13 +117,19 @@ export function ShiftComposer({
     validation = `${joinNames(taken.map((x) => firstName(x.p)))} already ${taken.length === 1 ? "has" : "have"} an answer with you for these hours.`;
   function send() {
     if (validation) return toast(validation);
+    const one = people.length === 1 && draft.capacity === 1;
     const result = act(
       { type: "post", actor, draft },
       request
-        ? `Sent to ${joinNames(people.map(firstName))}. You’ll book once they say yes.`
+        ? one
+          ? `Sent to ${firstName(people[0])}. They’re booked as soon as they accept.`
+          : `Sent to ${joinNames(people.map(firstName))}. You’ll book once they say yes.`
         : "Posted.",
     );
-    if (result) go(`shift/${result.shifts[0].id}`);
+    if (!result) return;
+    // From a chat, the new card in the thread is the confirmation.
+    if (fromChat) back(`shift/${result.shifts[0].id}`);
+    else go(`shift/${result.shifts[0].id}`);
   }
   return (
     <>
@@ -171,12 +193,7 @@ export function ShiftComposer({
           <DateTimeBar
             value={{ dates, start: draft.start, end: draft.end }}
             onChange={(w) =>
-              update({
-                dates: w.dates,
-                start: w.start,
-                end: w.end,
-                together: w.dates.length > 1 && draft.together,
-              })
+              update({ dates: w.dates, start: w.start, end: w.end })
             }
           />
           {!!days.length && (
@@ -220,19 +237,6 @@ export function ShiftComposer({
               </button>
             </p>
           )}
-          {days.length > 1 && (
-            <label className="pv-toggle-row">
-              <input
-                type="checkbox"
-                checked={!!draft.together}
-                onChange={(e) => update({ together: e.target.checked })}
-              />
-              <span>
-                Same person for all days
-                <small>Only people who can do every day can say yes.</small>
-              </span>
-            </label>
-          )}
         </div>
         <div className="pv-form-row pv-form-split">
           <label>
@@ -244,7 +248,8 @@ export function ShiftComposer({
                 min="0.5"
                 step="0.5"
                 aria-label="Pay per hour in pounds"
-                value={draft.rate}
+                placeholder="0"
+                value={draft.rate || ""}
                 onChange={(e) => update({ rate: Number(e.target.value) })}
               />
               <small>/ hour</small>
@@ -312,7 +317,6 @@ export function ShiftComposer({
         </p>
       )}
       <ActionBar>
-        <p className="pv-bar-note">They say yes, then you choose who to book.</p>
         <Button disabled={!!validation} onClick={send}>
           {request
             ? `Send booking request to ${people.length > 2 ? `${people.length} people` : joinNames(people.map(firstName))}`
