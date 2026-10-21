@@ -358,6 +358,26 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
   }
   const shiftIds = new Set(dataShifts.map((s) => s.id));
 
+  // Talent can't see who else a request went to, so the database says
+  // whether Accept books them (one person, one place).
+  if (me.side === "talent") {
+    const requestIds = dataShifts.filter((s) => s.mode === "request").map((s) => s.id);
+    if (requestIds.length) {
+      const { data: flags, error } = await supabase.rpc("get_accept_flags", {
+        p_shift_ids: requestIds,
+      });
+      if (!error) {
+        const byId = new Map(
+          ((flags as { shift_id: string; book_on_accept: boolean }[] | null) ?? []).map(
+            (f) => [f.shift_id, f.book_on_accept],
+          ),
+        );
+        for (const s of dataShifts)
+          if (s.mode === "request") s.acceptBooks = byId.get(s.id) ?? false;
+      }
+    }
+  }
+
   // ---- Answers. ----
   const answerDates = new Map<string, string[]>();
   for (const a of answerDays) {

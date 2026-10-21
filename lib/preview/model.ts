@@ -87,6 +87,9 @@ export type Shift = {
   mode: "post" | "request";
   status: "open" | "filled" | "closed" | "expired";
   created: string;
+  // Live app only: whether Accept books, decided by the database because
+  // talent can't see who else a request went to.
+  acceptBooks?: boolean;
 };
 // One person's answer to a shift. "invited" means a booking request is
 // waiting for them; "can-cover" means they said yes and the venue decides.
@@ -246,6 +249,7 @@ export function lastAsk(data: Data, venue: string, family?: string) {
 }
 // A booking request to one person for one place books when they accept.
 export function bookOnAccept(data: Data, s: Shift) {
+  if (s.acceptBooks !== undefined) return s.acceptBooks;
   return (
     s.mode === "request" &&
     s.capacity === 1 &&
