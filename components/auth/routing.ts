@@ -30,11 +30,12 @@ export async function destinationAfterSignIn(supabase: SupabaseClient, next: str
   if (!user) return "/login";
 
   const { data: member } = await supabase.from("members").select("id").eq("user_id", user.id).maybeSingle();
-  if (member) return next ?? "/app";
-
   const { data: admin } = await supabase.rpc("am_i_admin");
-  if (admin && typeof admin === "object" && (admin as { is_admin?: boolean }).is_admin) {
-    return next?.startsWith("/admin") ? next : "/admin";
-  }
+  const isAdmin = Boolean(admin && typeof admin === "object" && (admin as { is_admin?: boolean }).is_admin);
+  // Only admins are sent on to an /admin address; everyone else goes to the app.
+  const wantsAdmin = next?.startsWith("/admin") ?? false;
+
+  if (isAdmin && (wantsAdmin || !member)) return wantsAdmin ? next! : "/admin";
+  if (member) return next && !wantsAdmin ? next : "/app";
   return "/join";
 }
