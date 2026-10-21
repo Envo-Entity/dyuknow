@@ -121,7 +121,7 @@ export function AdminHome() {
     return (
       <div className="animate-view-in flex min-h-screen flex-col items-center justify-center gap-5 bg-paper px-6 text-center">
         <div className="font-serif text-[30px] leading-tight tracking-[-0.01em] text-ink lg:text-[40px]">
-          {phase === "not-admin" ? "Only Dyuknow can see this page." : phaseError}
+          {phase === "not-admin" ? "This page is only for the Dyuknow team." : phaseError}
         </div>
         <Link href="/app" className="rounded-full bg-ink px-6 py-3 text-[14px] font-semibold text-white transition-transform hover:-translate-y-0.5">
           Go to the app
