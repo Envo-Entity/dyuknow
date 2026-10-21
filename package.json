@@ -10,7 +10,8 @@
     "test:preview": "node --test tests/mvp-preview.test.mjs",
     "test:onboarding": "node --test tests/onboarding.test.mjs",
     "seed": "node scripts/seed.mjs",
-    "wipe": "node scripts/wipe.mjs"
+    "wipe": "node scripts/wipe.mjs",
+    "test:concurrency": "node scripts/concurrency-test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
