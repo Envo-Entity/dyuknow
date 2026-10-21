@@ -21,6 +21,7 @@ export type TalentRow = {
   bio: string | null;
   minimum_same_day_rate_gbp: number | string | null;
   shift_alerts: "all" | "soon" | "off";
+  area_name: string | null;
 };
 export type VenueRow = {
   member_id: string;
@@ -38,6 +39,7 @@ export type VenueRow = {
   venue_types: string[];
   cuisines: string[];
   bio: string | null;
+  area_name: string | null;
 };
 export type TalentCardRow = {
   member_id: string;
@@ -51,12 +53,14 @@ export type TalentCardRow = {
   minimum_pay_pence: number | null;
   verified_documents: string[] | null;
   active: boolean;
+  area_name: string | null;
 };
 export type VenueCardRow = {
   member_id: string;
   display_name: string | null;
   photo_path: string | null;
   area: string | null;
+  area_name: string | null;
   bio: string | null;
   venue_types: string[] | null;
   cuisines: string[] | null;

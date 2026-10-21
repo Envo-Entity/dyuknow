@@ -711,9 +711,8 @@ export function Profile() {
       <Heading
         title={edit ? "Edit profile" : me!.name}
         description={
-          side === "talent"
-            ? `${me!.roles.join(" · ")} · ${areaOf(me!)}`
-            : areaOf(me!)
+          // Your own address is shown in full below; no area line here.
+          side === "talent" ? me!.roles.join(" · ") : undefined
         }
       />
       <div className="pv-profile-layout">

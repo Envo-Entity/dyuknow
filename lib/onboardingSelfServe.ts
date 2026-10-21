@@ -5,6 +5,7 @@
 // lib/onboardingSubmit.ts and the onboarding archive, untouched.
 
 import { createClient } from "@/utils/supabase/client";
+import { saveMyAreaName } from "@/lib/live/area";
 import { dataUrlToBlob } from "@/lib/image";
 import { CHEF_KNOWN_FOR, FOH_KNOWN_FOR, TEAM_AGREEMENTS, VENUE_AGREEMENTS } from "@/lib/data";
 import { TEAMS } from "@/lib/catalogue";
@@ -227,6 +228,9 @@ async function createProfile(
     });
     if (error) throw rpcRefusal(error);
     if (photo) await uploadPhoto(supabase, userId, photo);
+    // The place name others see instead of a postcode.
+    const postcode = String(answers.home_postcode ?? answers.postcode ?? "");
+    if (postcode) await saveMyAreaName(supabase, postcode);
     clearJoinDraft(userId);
     return { ok: true };
   } catch (err) {
