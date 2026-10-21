@@ -71,7 +71,7 @@ For old venue drafts without `teamsNeeded`, the application infers Chefs → Kit
 
 ## Database change and approval
 
-The additive SQL is recorded in [the migration](../supabase/migrations/20261002000100_additive_onboarding.sql) and was applied to the existing Supabase project on 2 October 2026.
+The additive SQL is recorded in [the migration](../supabase/migrations/20261002092716_additive_onboarding.sql) and was applied to the existing Supabase project on 2 October 2026.
 
 - Talent additions: `custom_skills`, `shift_alerts`, `dated_availability`, `approved`.
 - Venue additions: `street_address`, `postcode`, `teams_needed`, `approved`.

@@ -16,7 +16,7 @@ export function legacyDemoDestination(pathname: string): string | null {
   if (!match) return null;
   const side = match[1] as DemoSide;
   const [screen, id] = (match[2] || "").split("/");
-  if (screen === "onboarding") return demoSetupRoute(side);
+  if (screen === "onboarding") return `/join/${side}`;
   if (screen === "me") return demoRoute(side, "profile");
   if (screen === "messages" || screen === "chat") return demoRoute(side, "messages");
   if (screen === "bookings") return demoRoute(side, "bookings");

@@ -1,7 +1,21 @@
 # Dyuknow
 
-The main app uses the accepted MVP preview UI. Venue and talent flows
-are a browser-local demo. Admin onboarding is the live data collection flow.
+`/app` is the real app, running on Supabase: email-code sign-in, self-serve
+onboarding, profiles, job posts, booking requests, booking, messages and
+in-app notifications. `/preview` keeps the old browser-only demo.
+`/admin/onboarding` is the original intake form and still writes to the
+onboarding archive (`talent_profiles`, `venue_profiles`), which the app never
+reads or writes.
+
+| Address | What it is |
+| --- | --- |
+| `/` | Landing page. Login goes to `/login`. |
+| `/login` | Email, then a 6-digit code. A test password form shows when `NEXT_PUBLIC_DEV_LOGIN=true`. |
+| `/join`, `/join/talent`, `/join/venue` | Onboarding for a signed-in person with no profile yet. |
+| `/app` | The app, for signed-in members. |
+| `/admin` | Approve members and check documents. Only logins in the `admins` table. |
+| `/admin/onboarding` | Original intake form (unchanged). |
+| `/preview` | Old browser-only demo (unchanged). |
 
 ## Run locally
 
@@ -10,42 +24,48 @@ npm install
 npm run dev
 ```
 
-Open [the original landing page](http://localhost:3000). Its existing Login
-flow opens [the main app](http://localhost:3000/app). `/app` and `/preview`
-show the same demo and share the existing `dyuknow_mvp_preview_v7` browser
-storage. The demo works without Supabase configuration.
+`.env.local` needs (see `.env.example`):
 
-Open [admin onboarding](http://localhost:3000/admin/onboarding) for real talent
-and venue intake. Configure `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` for this flow. It retains
-its existing forms, uploads and database submission, with the added roles,
-skills, custom skills, shift-alert preferences, dated availability, venue
-address/postcode and team preferences.
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_DEV_LOGIN=true` to show the test password form (never in production)
+- `SUPABASE_SERVICE_ROLE_KEY` and `SEED_PASSWORD`, used only by the seed, wipe and
+  concurrency scripts on your machine
 
-## Compatibility
+## Fake data
 
-Old talent and venue dashboard, profile, booking and message URLs redirect to
-the current demo. Old public onboarding URLs open the matching local demo
-setup. Legacy chats and opportunity details with different sample IDs return
-to the current messages or dashboard screens.
+```sh
+npm run seed     # fake venues, talent, shifts, a booking, messages, notices
+npm run wipe     # removes every @example.com account and its data
+```
 
-Real profile approval is managed through trusted database administration; the
-demo has no owner workspace. No real SMS, payments or
-public member setup are connected to the demo.
+Fake logins (password is `SEED_PASSWORD`): `spruce@`, `sea@`, `harper@` (venues),
+`poppy@`, `camille@`, `theo@`, `ethan@`, `noor@`, `ines@` (talent),
+`maya@` (talent waiting for approval), all `@example.com`, plus the admin
+`admin@dyuknow.com`.
 
-## Documentation
+To be a venue and talent at the same time, use two addresses: one tab on
+`http://localhost:3000`, the other on `http://127.0.0.1:3000`. Each keeps its
+own sign-in.
 
-- [How to try the demo](docs/MVP-preview-walkthrough.md)
-- [User flows](docs/mvp-user-flow.md)
-- [Additive onboarding decisions and database mapping](docs/data-model.md)
+## Database
 
-The onboarding SQL in `supabase/migrations/` was already applied to the
-existing database on 2 October 2026. UI promotion does not reapply it.
+Migrations are in `supabase/migrations/`, applied in order to the live project.
+The backend design is in `docs/backend/` (start with `00-build-brief.md`).
+Database tests are in `supabase/tests/`; each runs inside a transaction that
+rolls back, and can be run with the Supabase SQL editor or MCP.
 
 ## Checks
 
 ```sh
 npm run build
-npm run test:preview
-npm run test:onboarding
+npm run test:preview        # demo rules
+npm run test:onboarding     # onboarding forms
+npm run test:concurrency    # live: simultaneous bookings (needs the seed)
 ```
+
+## Documentation
+
+- [Backend design and build brief](docs/backend/)
+- [User flows](docs/mvp-user-flow.md)
+- [How to try the old demo](docs/MVP-preview-walkthrough.md)
+- [Onboarding archive decisions](docs/data-model.md)

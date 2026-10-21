@@ -1,23 +1,41 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { updateSession } from "@/utils/supabase/proxy";
+import { refreshSession } from "@/utils/supabase/proxy";
 import { legacyDemoDestination } from "@/lib/demoRoutes";
 
-export function proxy(request: NextRequest) {
+function isUnder(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/** Pages that need a signed-in person. /admin/onboarding stays open, as today. */
+function needsSignIn(pathname: string) {
+  if (isUnder(pathname, "/admin/onboarding")) return false;
+  return isUnder(pathname, "/app") || isUnder(pathname, "/join") || isUnder(pathname, "/admin");
+}
+
+export async function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
   // Resolve old links before rendering, including the former modal routes.
-  const destination = legacyDemoDestination(request.nextUrl.pathname);
+  const destination = legacyDemoDestination(pathname);
   if (destination) return NextResponse.redirect(new URL(destination, request.url));
 
-  // The main app is a browser-local demo. Admin intake keeps its existing
-  // Supabase session handling and submission path.
-  if (
-    request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname === "/app" ||
-    request.nextUrl.pathname.startsWith("/app/") ||
-    request.nextUrl.pathname.startsWith("/preview")
-  ) {
-    return NextResponse.next();
+  // The browser-only demo stays exactly as it was.
+  if (isUnder(pathname, "/preview")) return NextResponse.next();
+
+  const { response, signedIn } = await refreshSession(request);
+
+  // Only sends signed-out people to /login; who belongs where once signed in
+  // is decided by each page from the person's own members row.
+  if (!signedIn && needsSignIn(pathname)) {
+    const login = new URL("/login", request.url);
+    login.search = "";
+    login.searchParams.set("next", `${pathname}${search}`);
+    const redirect = NextResponse.redirect(login);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
-  return updateSession(request);
+
+  return response;
 }
 
 export const config = {

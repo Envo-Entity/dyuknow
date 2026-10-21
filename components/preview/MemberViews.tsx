@@ -362,13 +362,15 @@ function Conversation({
   );
 }
 export function Notifications() {
-  const { data, actor, act, go } = usePreview();
+  const { data, actor, act, go, live } = usePreview();
   const notices = data.notices.filter((n) => n.to === actor);
   return (
     <>
       <Heading
-        title="Texts"
-        description="Preview only: the SMS messages this account would have received."
+        title={live ? "Notifications" : "Texts"}
+        description={
+          live ? undefined : "Preview only: the SMS messages this account would have received."
+        }
       >
         <Button
           variant="secondary"
@@ -670,14 +672,15 @@ function VenueFacts({ v }: { v: Member }) {
 }
 export { VenueFacts };
 export function Profile() {
-  const { actor, me, side, act, toast, go } = usePreview();
+  const { actor, me, side, act, toast, go, live } = usePreview();
+  const photoInput = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Member>(() => structuredClone(me!));
   const [edit, setEdit] = useState(false);
   const v = form.venue;
   function setVenue(patch: Partial<NonNullable<Member["venue"]>>) {
     setForm({ ...form, venue: { ...form.venue!, ...patch } });
   }
-  function save() {
+  async function save() {
     if (!form.name.trim()) return toast("Add a name.");
     if (!form.postcode.trim()) return toast("Add a postcode.");
     if (side === "talent" && !form.roles.length)
@@ -701,7 +704,7 @@ export function Profile() {
             postcode: form.postcode,
             venue: form.venue,
           };
-    if (act({ type: "profile", actor, patch }, "Profile saved.")) setEdit(false);
+    if (await act({ type: "profile", actor, patch }, "Profile saved.")) setEdit(false);
   }
   return (
     <>
@@ -717,6 +720,24 @@ export function Profile() {
         <aside>
           <Photo src={me!.photo} alt={me!.name} className="pv-detail-photo" />
           {!me!.approved && <Badge>Waiting for approval</Badge>}
+          {live && (
+            <>
+              <Button variant="secondary" onClick={() => photoInput.current?.click()}>
+                {me!.photo ? "Change photo" : "Add a photo"}
+              </Button>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) act({ type: "photo", actor, file }, "Photo saved.");
+                  e.target.value = "";
+                }}
+              />
+            </>
+          )}
         </aside>
         <div>
           {!edit ? (
@@ -801,6 +822,23 @@ export function Profile() {
               <Field label={side === "venue" ? "Postcode" : "Home postcode"}>
                 <input value={form.postcode} onChange={(e) => setForm({ ...form, postcode: e.target.value })} />
               </Field>
+              {/* The real app edits phones here, with no code. */}
+              {live && (
+                <Field
+                  label={side === "venue" ? "On-site phone" : "Mobile number"}
+                  hint={
+                    side === "venue"
+                      ? "Only shared with talent you book."
+                      : "Only shared with a venue that books you."
+                  }
+                >
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                </Field>
+              )}
               {side === "talent" ? (
                 <>
                   <h3>Positions</h3>

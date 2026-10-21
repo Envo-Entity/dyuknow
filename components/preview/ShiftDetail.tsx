@@ -25,6 +25,7 @@ import {
   workedWith,
   bookOnAccept,
   declinedByAll,
+  endedLabel,
   teamOf,
   type Booking,
   type Data,
@@ -132,8 +133,8 @@ export function BookConfirm({
       {extending && <p>Adds to {firstName(t)}’s booking.</p>}
       <Button
         disabled={!picked.length}
-        onClick={() => {
-          const next = act(
+        onClick={async () => {
+          const next = await act(
             { type: "book", actor, shift: shift.id, talent, days: picked },
             `${firstName(t)} is booked.`,
           );
@@ -265,13 +266,13 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   const c = coverage(data, s);
   const status = venueSummary(data, s);
   const open = s.status === "open";
-  const endedLabel = (r: Response) =>
-    ({
+  const endedText = (r: Response) =>
+    endedLabel(r, member(data, s.venue).name) ?? {
       declined: "Declined",
       withdrawn: "Withdrew",
       lapsed: "Booked elsewhere",
       "not-selected": "Filled by someone else",
-    })[r.status as "declined"];
+    }[r.status as "declined"];
   return (
     <>
       <div className="pv-topbar">
@@ -481,7 +482,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           <div className="pv-talent-grid is-medium">
             {[
               ...invited.map((r) => [r.talent, "No reply yet"] as const),
-              ...ended.map((r) => [r.talent, endedLabel(r)] as const),
+              ...ended.map((r) => [r.talent, endedText(r)] as const),
             ].map(([id, status]) => (
               <ProfileCard key={id} person={member(data, id)} size="medium" status={status}>
                 {!readOnly && (
@@ -523,9 +524,9 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
             </select>
           </Field>
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "close", actor, shift: s.id, reason },
                   s.mode === "request" ? "Request cancelled." : "Job post removed.",
                 )
@@ -589,9 +590,9 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           </div>
           <Button
             disabled={!invitees.length}
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "invite", actor, shift: s.id, talents: invitees },
                   "Sent.",
                 )
@@ -609,7 +610,7 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   );
 }
 function TalentShift({ s }: { s: Shift }) {
-  const { data, actor, me, act, go, back } = usePreview();
+  const { data, actor, me, act, go, back, live } = usePreview();
   const message = useMessage();
   const [sheet, setSheet] = useState(false);
   const venue = member(data, s.venue);
@@ -647,8 +648,8 @@ function TalentShift({ s }: { s: Shift }) {
       ? member(data, data.shifts.find((x) => x.id === other.shift)!.venue).name
       : "";
   };
-  function sendResponse(days: string[]) {
-    const result = act(
+  async function sendResponse(days: string[]) {
+    const result = await act(
       { type: "respond", actor, shift: s.id, days },
       accept ? `You’re booked at ${venue.name}.` : `Sent to ${venue.name}.`,
       accept ? undefined : { undo: true },
@@ -679,8 +680,137 @@ function TalentShift({ s }: { s: Shift }) {
         : yesLabel}
     </Button>
   );
+  // The real app decides from the answer first, as the database does.
+  const declineBar = (
+    <>
+      <div className="pv-bar-row">
+        {sayYes}
+        <Button
+          variant="secondary"
+          onClick={() =>
+            act(
+              { type: "decline", actor, shift: s.id },
+              "Declined.",
+              { undo: true },
+            )
+          }
+        >
+          Decline
+        </Button>
+      </div>
+      <Button variant="quiet" onClick={() => message(venue.id)}>
+        Message {venue.name}
+      </Button>
+    </>
+  );
+  const clashNote = (
+    <p className="pv-bar-note">
+      You’re booked at {clashWith(s.days[0].date) || "another venue"} then.
+    </p>
+  );
+  // Booked, with cancelled days of this booking open again: offer them.
+  const offerAgain =
+    b && r
+      ? b.days.filter(
+          (d) =>
+            b.log[d]?.status === "cancelled" &&
+            free.includes(d) &&
+            !offeredDates(s, r).includes(d),
+        )
+      : [];
+  const endedNote = (status?: string) =>
+    (r && endedLabel(r, venue.name)) ||
+    (status === "declined"
+      ? "You declined."
+      : status === "withdrawn"
+        ? "You withdrew."
+        : status === "cancelled"
+          ? `This booking was cancelled${cancelled?.reason ? `: ${cancelled.reason}` : "."}`
+          : s.status === "expired"
+            ? "This shift has started."
+            : s.status === "closed"
+              ? `${venue.name} cancelled this ${s.mode === "request" ? "request" : "job post"}${s.closeReason ? `: ${s.closeReason}` : "."}`
+              : "Filled by someone else.");
+  const ended = ["declined", "withdrawn", "lapsed", "not-selected", "cancelled"].includes(
+    r?.status || "",
+  );
   let bar;
-  if (b)
+  if (live) {
+    if (r?.status === "invited" && s.status === "open") bar = free.length ? declineBar : clashNote;
+    else if (b)
+      bar = (
+        <>
+          <p className="pv-bar-note">
+            <Badge good>You’re booked</Badge> {datesLabel(mine)}
+            {r && bookableDates(data, s, r).length > 0
+              ? `. ${venue.name} may also book you for ${datesLabel(bookableDates(data, s, r))}.`
+              : ""}
+          </p>
+          <div className="pv-bar-row">
+            <Button onClick={() => go(`booking/${b.id}`)}>View your booking</Button>
+            {s.status === "open" && offerAgain.length > 0 && (
+              <Button variant="secondary" onClick={() => sendResponse(offerAgain)}>
+                Offer {datesLabel(offerAgain)} again
+              </Button>
+            )}
+          </div>
+        </>
+      );
+    else if (r?.status === "can-cover")
+      bar = (
+        <>
+          <p className="pv-bar-note">
+            Waiting for {venue.name} to book you{multi ? ` · ${datesLabel(waitingDates)}` : ""}.
+          </p>
+          <div className="pv-bar-row">
+            <Button onClick={() => message(venue.id)}>Message</Button>
+            <Button
+              variant="secondary"
+              onClick={() => act({ type: "withdraw", actor, shift: s.id }, "Withdrawn.")}
+            >
+              Withdraw
+            </Button>
+          </div>
+        </>
+      );
+    else if (s.status !== "open")
+      bar = (
+        <>
+          <p className="pv-bar-note">{endedNote(r?.status)}</p>
+          <Button variant="secondary" onClick={() => go("home")}>
+            See open jobs
+          </Button>
+        </>
+      );
+    // Said yes again after a cancelled booking, or after an ended answer
+    // on a job post in their positions.
+    else if (
+      ended &&
+      (r?.status === "cancelled" || (s.mode === "post" && eligible)) &&
+      free.length
+    )
+      bar = (
+        <>
+          <p className="pv-bar-note">{endedNote(r?.status)}</p>
+          {sayYes}
+        </>
+      );
+    else if (ended)
+      bar = (
+        <>
+          <p className="pv-bar-note">{endedNote(r?.status)}</p>
+          <Button variant="secondary" onClick={() => go("home")}>
+            See open jobs
+          </Button>
+        </>
+      );
+    else if (s.mode === "request")
+      bar = <p className="pv-bar-note">This request was sent to someone else.</p>;
+    else if (!eligible)
+      bar = <p className="pv-bar-note">This job is for {shiftLabel(s)} only.</p>;
+    else if (!free.length) bar = clashNote;
+    else bar = sayYes;
+  } else if (b)
     bar = (
       <>
         <p className="pv-bar-note">
@@ -1161,9 +1291,9 @@ export function BookingDetail({ id }: { id: string }) {
           <Button
             variant="danger"
             disabled={!reason || !cancelDays.length}
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   {
                     type: "cancel",
                     actor,
@@ -1192,9 +1322,9 @@ export function BookingDetail({ id }: { id: string }) {
             <TimeSelect label="To" value={confirm.end} onChange={(end) => setConfirm({ ...confirm, end })} />
           </div>
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "worked", start: confirm.start, end: confirm.end },
                   "Hours confirmed.",
                 )
@@ -1207,9 +1337,9 @@ export function BookingDetail({ id }: { id: string }) {
           <Button
             variant="quiet"
             className="pv-danger-text"
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "no-show" },
                   "Marked as a no-show.",
                 )

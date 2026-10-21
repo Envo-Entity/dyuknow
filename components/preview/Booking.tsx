@@ -444,8 +444,8 @@ export function DateTimeBar({
 // Opens (or reuses) the one conversation with this person.
 export function useMessage() {
   const { actor, act, go } = usePreview();
-  return (person: string) => {
-    const next = act({ type: "open-thread", actor, with: person });
+  return async (person: string) => {
+    const next = await act({ type: "open-thread", actor, with: person });
     if (!next) return;
     const me = member(next, actor);
     const t = threadBetween(

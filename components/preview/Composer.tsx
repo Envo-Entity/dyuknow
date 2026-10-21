@@ -116,10 +116,10 @@ export function ShiftComposer({
     : [];
   // Each one is explained on its own line below, with what to do about it.
   if (!validation && taken.length) validation = alreadyAsked(taken[0].p, taken[0].r!.status);
-  function send() {
+  async function send() {
     if (validation) return toast(validation);
     const one = people.length === 1 && draft.capacity === 1;
-    const result = act(
+    const result = await act(
       { type: "post", actor, draft },
       request
         ? one

@@ -64,7 +64,7 @@ const DOC_LABEL: Record<DocStatus, string> = {
 };
 
 export function AccountPage() {
-  const { me } = usePreview();
+  const { me, live } = usePreview();
   if (!me) return null;
   return (
     <>
@@ -72,7 +72,7 @@ export function AccountPage() {
       <nav className="pv-account-index" aria-label="Account sections">
         {[
           ["verification", "Verification"],
-          ["texts", "Texts"],
+          live ? ["notifications", "Notifications"] : ["texts", "Texts"],
           ["help", "Help"],
           ["details", "Account"],
         ].map(([id, label]) => (
@@ -86,7 +86,7 @@ export function AccountPage() {
       </nav>
       <div className="pv-account-cards">
         <Verification me={me} />
-        <Texts me={me} />
+        {live ? <LiveNotices me={me} /> : <Texts me={me} />}
         <Help />
         <Details me={me} />
       </div>
@@ -95,7 +95,7 @@ export function AccountPage() {
 }
 
 function Verification({ me }: { me: Member }) {
-  const { actor, act } = usePreview();
+  const { actor, act, live } = usePreview();
   const input = useRef<HTMLInputElement>(null);
   const [doc, setDoc] = useState("");
   const docs = accountOf(me).docs;
@@ -106,20 +106,27 @@ function Verification({ me }: { me: Member }) {
         {done} of {Object.keys(docs).length} checked. Your profile shows a tick, never the file.
       </p>
       <div className="pv-doc-list">
-        {Object.entries(docs).map(([name, d]) => (
+        {Object.entries(docs).map(([name, d]) => {
+          // Real app only: Dyuknow looked at the file and didn't accept it.
+          const rejected = live && name in live.rejected ? live.rejected[name] : undefined;
+          return (
           <div key={name} className={`pv-doc is-${d.status}`}>
             <span>
               <strong>{name}</strong>
               <small>
-                {d.status === "verified"
+                {rejected !== undefined
+                  ? `${rejected ? `${rejected}. ` : ""}Upload a new one.`
+                  : d.status === "verified"
                   ? `Checked ${d.updated ? displayDate(d.updated.slice(0, 10)) : ""}`
                   : d.status === "review"
                     ? `${d.file} · usually within a day`
-                    : "Upload a photo or PDF"}
+                    : live
+                      ? "Upload a JPEG, PNG or PDF"
+                      : "Upload a photo or PDF"}
               </small>
             </span>
             <Badge good={d.status === "verified"} attention={d.status === "missing"}>
-              {DOC_LABEL[d.status]}
+              {rejected !== undefined ? "Not accepted" : DOC_LABEL[d.status]}
             </Badge>
             <Button
               variant={d.status === "missing" ? "primary" : "secondary"}
@@ -128,21 +135,25 @@ function Verification({ me }: { me: Member }) {
                 input.current?.click();
               }}
             >
-              {d.status === "missing" ? "Upload" : "Replace"}
+              {d.status === "missing" && rejected === undefined ? "Upload" : "Replace"}
             </Button>
           </div>
-        ))}
+          );
+        })}
       </div>
-      {/* The preview keeps only the file's name; nothing leaves the browser. */}
+      {/* The demo keeps only the file's name; the real app uploads the file. */}
       <input
         ref={input}
         type="file"
-        accept="image/*,application/pdf"
+        accept={live ? "image/jpeg,image/png,application/pdf" : "image/*,application/pdf"}
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file && doc)
-            act({ type: "upload-doc", actor, doc, file: file.name }, `${doc} sent to Dyuknow to check.`);
+            act(
+              { type: "upload-doc", actor, doc, file: file.name, blob: live ? file : undefined },
+              `${doc} sent to Dyuknow to check.`,
+            );
           e.target.value = "";
         }}
       />
@@ -211,12 +222,48 @@ function Texts({ me }: { me: Member }) {
   );
 }
 
+// Real app: notices live in the app, on the bell. Only talent have a setting.
+function LiveNotices({ me }: { me: Member }) {
+  const { actor, side, act } = usePreview();
+  return (
+    <Card id="notifications" title="Notifications">
+      <p className="pv-muted">Notices show in the app, on the bell.</p>
+      {side === "talent" && (
+        <div className="pv-toggle-list">
+          <label className="pv-toggle">
+            <span>
+              <strong>New job posts</strong>
+              <small>In your positions</small>
+            </span>
+            <select
+              value={me.alert}
+              onChange={(e) =>
+                act(
+                  { type: "profile", actor, patch: { alert: e.target.value as Member["alert"] } },
+                  "Saved.",
+                )
+              }
+            >
+              {SHIFT_ALERTS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Help() {
+  const { live } = usePreview();
   return (
     <Card id="help" title="Help">
       <div className="pv-help-links">
         <a href={`tel:${HELP_PHONE.replace(/\s/g, "")}`}>
-          <small>Call or text</small>
+          <small>{live ? "Call" : "Call or text"}</small>
           <strong>{HELP_PHONE}</strong>
         </a>
         <a href={`mailto:${HELP_EMAIL}`}>
@@ -229,28 +276,38 @@ function Help() {
 }
 
 function Details({ me }: { me: Member }) {
-  const { actor, act, data, toast } = usePreview();
+  const { actor, act, data, toast, live } = usePreview();
   const a = accountOf(me);
   const [phone, setPhone] = useState<{ number: string; code: string; step: 1 | 2 } | null>(null);
   const [del, setDel] = useState(false);
   return (
     <Card id="details" title="Account">
-      <div className="pv-pay-row">
-        <span>
-          <small>Phone</small>
-          <strong>{me.phone}</strong>
-        </span>
-        <Button variant="secondary" onClick={() => setPhone({ number: "", code: "", step: 1 })}>
-          Change
-        </Button>
-      </div>
+      {live ? (
+        <div className="pv-pay-row">
+          <span>
+            <small>Email</small>
+            <strong>{live.email}</strong>
+          </span>
+        </div>
+      ) : (
+        <div className="pv-pay-row">
+          <span>
+            <small>Phone</small>
+            <strong>{me.phone}</strong>
+          </span>
+          <Button variant="secondary" onClick={() => setPhone({ number: "", code: "", step: 1 })}>
+            Change
+          </Button>
+        </div>
+      )}
       <div className="pv-account-actions">
-        <Button variant="secondary" onClick={() => navigateRoute("/")}>
+        <Button variant="secondary" onClick={() => (live ? live.logout() : navigateRoute("/"))}>
           Log out
         </Button>
         {a.deletion ? (
           <p className="pv-muted">
-            Deletion requested {clockLabel(a.deletion)}. Dyuknow will confirm by text.{" "}
+            Deletion requested {clockLabel(a.deletion)}.{" "}
+            {live ? "Dyuknow will be in touch to confirm." : "Dyuknow will confirm by text."}{" "}
             <button
               className="pv-text-link"
               onClick={() => act({ type: "delete-account", actor, cancel: true }, "Deletion request withdrawn.")}
@@ -296,11 +353,11 @@ function Details({ me }: { me: Member }) {
               </Field>
               <Button
                 disabled={phone.code.length !== 6}
-                onClick={() => {
+                onClick={async () => {
                   if (phone.code !== "123456") return toast("That code doesn’t match. Use 123456.");
                   if (data.members.some((m) => m.id !== actor && m.phone.replace(/\D/g, "") === phone.number.replace(/\D/g, "")))
                     return toast("That number belongs to another member.");
-                  if (act({ type: "profile", actor, patch: { phone: phone.number.trim() } }, "Phone number changed."))
+                  if (await act({ type: "profile", actor, patch: { phone: phone.number.trim() } }, "Phone number changed."))
                     setPhone(null);
                 }}
               >
@@ -314,12 +371,12 @@ function Details({ me }: { me: Member }) {
         <Modal title="Delete your account?" onClose={() => setDel(false)}>
           <p>
             Upcoming bookings stay until they’re done or cancelled. Dyuknow removes your profile and
-            documents, then confirms by text.
+            documents, then {live ? "gets in touch to confirm" : "confirms by text"}.
           </p>
           <Button
             variant="danger"
-            onClick={() => {
-              if (act({ type: "delete-account", actor }, "Deletion requested.")) setDel(false);
+            onClick={async () => {
+              if (await act({ type: "delete-account", actor }, "Deletion requested.")) setDel(false);
             }}
           >
             Request deletion
