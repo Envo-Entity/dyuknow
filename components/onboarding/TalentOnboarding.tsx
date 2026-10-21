@@ -29,6 +29,7 @@ import {
 } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
 import { submitTalentOnboarding } from "@/lib/onboardingSubmit";
+import { needsKitchenDocuments, type SelfServeResult } from "@/lib/onboardingSelfServe";
 import type { TalentIdentity } from "@/lib/types";
 
 const TOTAL_STEPS = 9;
@@ -41,12 +42,22 @@ interface TalentOnboardingProps {
   onBack0?: () => void;
   /** Called after the Supabase submit instead of completeOnboarding()+redirect into the mock app. Providing this also skips the "already onboarded" gate, since that flag belongs to the consumer flow, not an admin draft. */
   onDone?: () => void;
+  /** Self-serve mode (/join/talent): saves through this instead of the onboarding archive and shows its message on failure. Omit at /admin/onboarding. */
+  submit?: (identity: TalentIdentity) => Promise<SelfServeResult>;
+  /** Self-serve: the login email, shown read-only instead of the email question. */
+  loginEmail?: string;
+  /** Self-serve: resume a draft at this step, and hear about step changes to keep the draft current. */
+  initialStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
-export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onDone }: TalentOnboardingProps = {}) {
+const KNOWN_FOR_LIMIT = 3;
+
+export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onDone, submit, loginEmail, initialStep, onStepChange }: TalentOnboardingProps = {}) {
   const router = useRouter();
   const { data, completeOnboarding, setTalentIdentity } = useAppStore();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep ?? 0);
+  const selfServe = submit !== undefined;
   const [saveStatus, setSaveStatus] = useState<"submitting" | "saved" | "error">("submitting");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submittedRef = useRef(false);
@@ -84,6 +95,10 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   const mono = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
 
   useEffect(() => {
+    onStepChange?.(step);
+  }, [step, onStepChange]);
+
+  useEffect(() => {
     if (!isAdmin && data.onboarded.talent) router.replace("/app/talent");
   }, [isAdmin, data.onboarded.talent, router]);
 
@@ -113,11 +128,13 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   }
 
   function toggleKnownFor(trait: string) {
+    if (selfServe && !knownFor.includes(trait) && knownFor.length >= KNOWN_FOR_LIMIT) return;
     toggleFromList(knownFor, trait, (next) => setTalentIdentityFn({ knownFor: next }));
   }
 
   function addCustomKnownFor(trait: string) {
     if (knownFor.some((existing) => existing.toLowerCase() === trait.toLowerCase())) return;
+    if (selfServe && knownFor.length >= KNOWN_FOR_LIMIT) return;
     setTalentIdentityFn({ knownFor: [...knownFor, trait] });
   }
 
@@ -128,6 +145,18 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
   async function save() {
     setSubmitError(null);
     setSaveStatus("submitting");
+    if (submit) {
+      const selfServeResult = identity ? await submit(identity) : { ok: false as const, message: "Check your answers and try again." };
+      if (!selfServeResult.ok) {
+        submittedRef.current = false;
+        setSaveStatus("error");
+        setSubmitError(selfServeResult.message);
+        return;
+      }
+      setSaveStatus("saved");
+      return;
+    }
+
     const result = identity ? await submitTalentOnboarding(identity) : { ok: true as const };
 
     if (!result.ok) {
@@ -161,10 +190,21 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
           <StepHeader eyebrow="Talent" title="Tell us about yourself." />
           <FormField label="Full name" value={name} onChange={(v) => setTalentIdentityFn({ name: v })} placeholder="e.g. Camille Aubert" />
           <FormField label="Mobile number" value={mobile} onChange={(v) => setTalentIdentityFn({ mobile: v })} placeholder="e.g. 07700 900123" type="tel" inputMode="tel" />
-          <FormField label="Email address" value={email} onChange={(v) => setTalentIdentityFn({ email: v })} placeholder="e.g. camille@email.com" type="email" inputMode="email" />
+          {selfServe ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-label">Email address</span>
+              <div className="rounded-2xl border border-border bg-mist px-4 py-3.5 text-[15px] text-ink lg:px-5 lg:py-4 lg:text-[16px]">{loginEmail}</div>
+              <p className="text-[13px] text-ink-soft">This is the email you sign in with.</p>
+            </div>
+          ) : (
+            <FormField label="Email address" value={email} onChange={(v) => setTalentIdentityFn({ email: v })} placeholder="e.g. camille@email.com" type="email" inputMode="email" />
+          )}
           <FormField label="Home postcode" value={postcode} onChange={(v) => setTalentIdentityFn({ postcode: v })} placeholder="e.g. W1J 8HA" />
           <FormField label="Date of birth" value={dob} onChange={(v) => setTalentIdentityFn({ dob: v })} type="date" />
-          <ContinueButton onClick={() => setStep(1)} />
+          {selfServe && (!name.trim() || !mobile.trim() || !postcode.trim()) && (
+            <p className="text-[13px] text-ink-soft">Add your name, mobile number and postcode to continue.</p>
+          )}
+          <ContinueButton disabled={selfServe && (!name.trim() || !mobile.trim() || !postcode.trim())} onClick={() => setStep(1)} />
         </div>
       )}
 
@@ -196,6 +236,7 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
           ))}
           <ChipField label="Your own skills · optional" options={[]} selected={customSkills} onToggle={(v) => setTalentIdentityFn({ customSkills: customSkills.filter((s) => s !== v) })} allowCustom customMaxLength={80} customLabel="Add your own skill" onAddCustom={(v) => setTalentIdentityFn({ customSkills: addCustomSkill(customSkills, v, skills) })} />
           <p className="text-[13px] text-ink-soft">Add a specific skill in up to 80 characters.</p>
+          {selfServe && !positions.length && <p className="text-[13px] text-ink-soft">Choose at least one position to continue.</p>}
           <ContinueButton disabled={!positions.length} onClick={() => setStep(3)} />
         </div>
       )}
@@ -251,7 +292,9 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
         <div className="flex flex-col gap-6">
           <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately for the owner to review." />
           <UploadRow label="Right to Work (visa / passport)" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
-          <UploadRow label="Food Safety Certificate" optional value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
+          {(!selfServe || needsKitchenDocuments(positions)) && (
+            <UploadRow label="Food Safety Certificate" optional value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
+          )}
           <UploadRow label="CV" optional note="recommended" value={cv} onChange={(v) => setTalentIdentityFn({ cv: v })} />
           <ContinueButton onClick={() => setStep(6)} />
         </div>

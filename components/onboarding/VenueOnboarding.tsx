@@ -25,6 +25,7 @@ import {
 } from "@/lib/data";
 import { useAppStore } from "@/lib/store";
 import { submitVenueOnboarding } from "@/lib/onboardingSubmit";
+import type { SelfServeResult } from "@/lib/onboardingSelfServe";
 import type { VenueIdentity } from "@/lib/types";
 import { TEAM_NAMES } from "@/lib/catalogue";
 import { venueDisplayName, teamsFromLegacyRoles } from "@/lib/onboardingModel";
@@ -39,12 +40,20 @@ interface VenueOnboardingProps {
   onBack0?: () => void;
   /** Called after the Supabase submit instead of completeOnboarding()+redirect into the mock app. Providing this also skips the "already onboarded" gate, since that flag belongs to the consumer flow, not an admin draft. */
   onDone?: () => void;
+  /** Self-serve mode (/join/venue): saves through this instead of the onboarding archive and shows its message on failure. Omit at /admin/onboarding. */
+  submit?: (identity: VenueIdentity) => Promise<SelfServeResult>;
+  /** Self-serve: resume a draft at this step, and hear about step changes to keep the draft current. */
+  initialStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
-export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDone }: VenueOnboardingProps = {}) {
+const KNOWN_FOR_LIMIT = 3;
+
+export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDone, submit, initialStep, onStepChange }: VenueOnboardingProps = {}) {
   const router = useRouter();
   const { data, completeOnboarding, setVenueIdentity } = useAppStore();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep ?? 0);
+  const selfServe = submit !== undefined;
   const [saveStatus, setSaveStatus] = useState<"submitting" | "saved" | "error">("submitting");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submittedRef = useRef(false);
@@ -83,6 +92,19 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   const knownFor = identity?.knownFor ?? [];
   const agreedCommunity = identity?.agreedCommunity ?? [];
   const mono = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
+  const venueStepZeroMissing = [
+    !name.trim() && !tradingName.trim() && "a name",
+    !address.trim() && "the street address",
+    !postcode.trim() && "a postcode",
+    !contactName.trim() && "the contact person",
+    !contactPhone.trim() && "their phone",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  useEffect(() => {
+    onStepChange?.(step);
+  }, [step, onStepChange]);
 
   useEffect(() => {
     if (!isAdmin && data.onboarded.venue) router.replace("/app/venue");
@@ -104,6 +126,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   }
 
   function toggleKnownFor(trait: string) {
+    if (selfServe && !knownFor.includes(trait) && knownFor.length >= KNOWN_FOR_LIMIT) return;
     toggleFromList(knownFor, trait, (next) => setVenueIdentityFn({ knownFor: next }));
   }
 
@@ -114,6 +137,18 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
   async function save() {
     setSubmitError(null);
     setSaveStatus("submitting");
+    if (submit) {
+      const selfServeResult = identity ? await submit(identity) : { ok: false as const, message: "Check your answers and try again." };
+      if (!selfServeResult.ok) {
+        submittedRef.current = false;
+        setSaveStatus("error");
+        setSubmitError(selfServeResult.message);
+        return;
+      }
+      setSaveStatus("saved");
+      return;
+    }
+
     const result = identity ? await submitVenueOnboarding(identity) : { ok: true as const };
 
     if (!result.ok) {
@@ -157,7 +192,8 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
           <FormField label="Position" value={contactPosition} onChange={(v) => setVenueIdentityFn({ contactPosition: v })} placeholder="e.g. General Manager" />
           <FormField label="Phone" value={contactPhone} onChange={(v) => setVenueIdentityFn({ contactPhone: v })} placeholder="e.g. 020 7946 0958" type="tel" inputMode="tel" />
           <FormField label="Email" value={contactEmail} onChange={(v) => setVenueIdentityFn({ contactEmail: v })} placeholder="e.g. jonathan@thelarkspur.co.uk" type="email" inputMode="email" />
-          <ContinueButton disabled={!address.trim() || !postcode.trim()} onClick={() => setStep(1)} />
+          {selfServe && venueStepZeroMissing && <p className="text-[13px] text-ink-soft">Add {venueStepZeroMissing} to continue.</p>}
+          <ContinueButton disabled={!address.trim() || !postcode.trim() || (selfServe && !!venueStepZeroMissing)} onClick={() => setStep(1)} />
         </div>
       )}
 

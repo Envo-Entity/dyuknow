@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoginModal } from "@/components/landing/LoginModal";
 import { cn } from "@/lib/cn";
 
 const NAV_LINKS = [
@@ -205,7 +204,6 @@ function RoleIcon({ children }: { children: React.ReactNode }) {
 export function LandingPage() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [howTab, setHowTab] = useState<"venues" | "staff">("venues");
   const [emailSent, setEmailSent] = useState(false);
@@ -221,11 +219,7 @@ export function LandingPage() {
 
   function openLogin() {
     setMobileOpen(false);
-    setLoginOpen(true);
-  }
-
-  function handleLoggedIn() {
-    router.push("/app");
+    router.push("/login");
   }
 
   return (
@@ -771,7 +765,6 @@ export function LandingPage() {
         </div>
       </footer>
 
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onContinue={handleLoggedIn} />}
     </div>
   );
 }
