@@ -221,7 +221,9 @@ export const SKILLS = CATALOGUE_SKILLS;
 export function areaOf(m: Pick<Member, "postcode">) {
   const p = m.postcode.trim().toUpperCase();
   if (!p) return "";
-  return p.includes(" ") ? p.split(" ")[0] : p.slice(0, -3) || p;
+  if (p.includes(" ")) return p.split(" ")[0];
+  // An area on its own ("SW1X", "TW9") is already the part shown.
+  return p.length <= 4 ? p : p.slice(0, -3) || p;
 }
 export function fullAddress(m: Member) {
   return [m.venue?.address, m.postcode].filter(Boolean).join(", ");

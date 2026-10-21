@@ -88,11 +88,9 @@ const londonClock = new Intl.DateTimeFormat("en-GB", {
 function londonTime(instant: string) {
   return londonClock.format(new Date(instant));
 }
-// "TW9" is all others ever see of a postcode. The demo's areaOf() reads the
-// part before a space, so an area alone is followed by a space and an
-// invisible character that trim() keeps.
+// "TW9" is all others ever see of a postcode; areaOf() shows it as it is.
 function areaOnly(area: string | null) {
-  return area ? `${area} ​` : "";
+  return area ?? "";
 }
 function pounds(pence: number | null | undefined) {
   return pence == null ? undefined : Math.round(pence) / 100;

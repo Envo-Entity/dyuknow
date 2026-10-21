@@ -156,6 +156,12 @@ export function useLiveApp() {
 
   const logout = useCallback(async () => {
     if (snap.current) clearDrafts(snap.current.me.id);
+    try {
+      for (const key of Object.keys(localStorage))
+        if (key.startsWith("dyuknow.join-draft.")) localStorage.removeItem(key);
+    } catch {
+      /* Storage can be unavailable; signing out still works. */
+    }
     await supabase.auth.signOut();
     window.location.replace("/login");
   }, [supabase]);
