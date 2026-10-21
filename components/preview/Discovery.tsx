@@ -13,6 +13,7 @@ import {
   shiftLabel,
   firstName,
   venueSummary,
+  endedLabel,
   standing,
   teamOf,
   type Booking,
@@ -275,12 +276,12 @@ export function TalentHome() {
             {ended.map((r) =>
               responseRow(
                 r,
-                {
+                endedLabel(r, member(data, data.shifts.find((s) => s.id === r.shift)!.venue).name) ?? ({
                   withdrawn: "Withdrawn",
                   declined: "Declined",
                   "not-selected": "Filled by someone else",
                   lapsed: "Booked elsewhere",
-                }[r.status as "withdrawn"] || r.status,
+                }[r.status as "withdrawn"] || r.status),
               ),
             )}
           </div>

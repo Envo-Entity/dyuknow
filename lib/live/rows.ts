@@ -94,6 +94,8 @@ export type ShiftRow = {
   end_time: string;
   note: string;
   created_at: string;
+  closed_by: "venue" | "dyuknow" | "all-declined" | null;
+  close_reason: string | null;
 };
 export type ShiftDayRow = {
   id: string;
@@ -117,6 +119,7 @@ export type AnswerRow = {
     | "not-selected"
     | "lapsed"
     | "cancelled";
+  end_reason: "filled" | "venue-closed" | "booked-elsewhere" | "shift-started" | "unavailable" | null;
   created_at: string;
 };
 export type AnswerDayRow = { answer_id: string; shift_id: string; shift_day_id: string };

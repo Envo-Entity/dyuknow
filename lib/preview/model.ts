@@ -90,6 +90,10 @@ export type Shift = {
   // Live app only: whether Accept books, decided by the database because
   // talent can't see who else a request went to.
   acceptBooks?: boolean;
+  // Live app only: who closed it, and the reason talent see.
+  // null while not closed.
+  closedBy?: "venue" | "dyuknow" | "all-declined" | null;
+  closeReason?: string;
 };
 // One person's answer to a shift. "invited" means a booking request is
 // waiting for them; "can-cover" means they said yes and the venue decides.
@@ -101,7 +105,35 @@ export type Response = {
   status: ResponseStatus;
   // Dates the talent said yes to. Missing means every date of the shift.
   days?: string[];
+  // Live app only: why a not-selected or lapsed answer ended.
+  endReason?: "filled" | "venue-closed" | "booked-elsewhere" | "shift-started" | "unavailable";
 };
+// What an ended answer says, from its end reason (live app). Undefined when
+// there is no reason, so the demo keeps its own words.
+export function endedLabel(
+  r: Response,
+  venueName?: string,
+  form: "short" | "long" = "long",
+) {
+  switch (r.endReason) {
+    case "filled":
+      return form === "short" ? "Filled" : "Filled by someone else";
+    case "venue-closed":
+      return form === "short"
+        ? "Cancelled"
+        : venueName
+          ? `Cancelled by ${venueName}`
+          : "Cancelled by the venue";
+    case "booked-elsewhere":
+      return "Booked elsewhere";
+    case "shift-started":
+      return form === "short" ? "Started" : "This shift has started.";
+    case "unavailable":
+      return "Ended";
+    default:
+      return undefined;
+  }
+}
 // The one conversation between a venue and a talent member. Booking requests,
 // answers and booking updates all land here.
 export type Thread = {
@@ -521,6 +553,8 @@ export function datesSummary(dates: string[]) {
 }
 // A booking request everyone it went to turned down.
 export function declinedByAll(data: Data, s: Shift) {
+  // Live app: the database records that nobody was left.
+  if (s.closedBy !== undefined) return s.closedBy === "all-declined";
   const answers = data.responses.filter((r) => r.shift === s.id && r.source === "invite");
   return (
     s.mode === "request" &&
@@ -535,6 +569,8 @@ export function venueSummary(data: Data, s: Shift) {
     (r) =>
       r.shift === s.id &&
       ["can-cover", "booked"].includes(r.status) &&
+      // Only yeses from approved talent can be booked (all are, in the demo).
+      data.members.find((m) => m.id === r.talent)?.approved !== false &&
       bookableDates(data, s, r).length > 0,
   ).length;
   const c = coverage(data, s);
@@ -729,6 +765,8 @@ export function bookingPast(data: Data, b: Booking) {
   return !days.length || days[days.length - 1].to <= data.now;
 }
 export function responseLabel(r: Response) {
+  const ended = endedLabel(r, undefined, "short");
+  if (ended) return ended;
   return {
     invited: "Booking request",
     "can-cover": "Said yes",

@@ -135,7 +135,10 @@ export async function runLive(
     case "post": {
       const d = action.draft;
       const days = makeDays(d);
-      const result = await call<{ shift_id: string }>(supabase, "post_shift", {
+      const result = await call<{ shift_id: string; mode: string; alerted_count?: number }>(
+        supabase,
+        "post_shift",
+        {
         p_team: d.family,
         p_positions: d.roles,
         p_dates: days.map((x) => x.date),
@@ -146,8 +149,16 @@ export async function runLive(
         p_note: d.note,
         p_to: [...new Set(d.to)],
         p_client_ref: ref(),
-      });
-      return { shift: result.shift_id };
+        },
+      );
+      return {
+        shift: result.shift_id,
+        // A job post nobody hears about: say so, and point to requests.
+        success:
+          result.mode === "post" && result.alerted_count === 0
+            ? "Nobody will be alerted about this job post. Try sending booking requests instead."
+            : undefined,
+      };
     }
     case "respond": {
       const s = shiftOf(action.shift);

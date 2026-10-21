@@ -3,8 +3,10 @@
 // lib/preview/model.ts keeps working unchanged.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  coverage,
   datePlus,
   londonDate,
+  openDates,
   type Account,
   type Availability,
   type Booking,
@@ -354,6 +356,8 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
       mode: s.mode,
       status: s.status,
       created: iso(s.created_at),
+      closedBy: s.status === "closed" ? s.closed_by : null,
+      closeReason: s.close_reason || undefined,
     });
   }
   const shiftIds = new Set(dataShifts.map((s) => s.id));
@@ -396,6 +400,7 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
         shift: a.shift_id,
         talent: a.talent_id,
         source: a.source,
+        endReason: a.end_reason ?? undefined,
         status: a.status,
         // A booking request asks for every day; a yes names its days.
         days:
@@ -431,7 +436,24 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
     for (const r of perDay.values()) {
       const date = dayById.get(r.shift_day_id)?.day_date ?? londonDate(iso(r.starts_at));
       days.push(date);
-      if (r.status === "booked") continue;
+      if (r.status === "booked") {
+        // Unconfirmed 48 hours after it ended: worked at the planned hours,
+        // as the sweep records it.
+        if (Date.parse(iso(r.ends_at)) + CONTACT_WINDOW <= Date.parse(now)) {
+          const shift = shifts.find((x) => x.id === b.shift_id);
+          log[date] = {
+            status: "worked",
+            by: "dyuknow",
+            at: now,
+            start: hm(shift?.start_time),
+            end: hm(shift?.end_time),
+            hours:
+              Math.round(((Date.parse(r.ends_at) - Date.parse(r.starts_at)) / 3600000) * 100) / 100,
+            auto: true,
+          };
+        }
+        continue;
+      }
       log[date] = {
         status: r.status,
         by: r.recorded_by || (r.auto_confirmed ? "dyuknow" : ""),
@@ -487,6 +509,28 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
           log: {},
         });
     }
+
+  // A shift with no future day left to fill and a day short has started
+  // unfilled, whether or not the sweep has run yet. Anyone still waiting on
+  // it has lapsed.
+  const timed: Data = {
+    ...({} as Data),
+    now,
+    shifts: dataShifts,
+    bookings: dataBookings,
+  };
+  for (const s of dataShifts) {
+    if (s.status !== "open") continue;
+    const cover = coverage(timed, s);
+    if (openDates(timed, s).length || !s.days.some((d) => cover[d.date].length < s.capacity))
+      continue;
+    s.status = "expired";
+    for (const r of responses)
+      if (r.shift === s.id && ["invited", "can-cover"].includes(r.status)) {
+        r.status = "lapsed";
+        r.endReason = "shift-started";
+      }
+  }
 
   // ---- Conversations, messages, read markers. ----
   const threads: Thread[] = conversations.map((c) => ({
