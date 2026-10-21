@@ -10,7 +10,7 @@ reads or writes.
 | Address | What it is |
 | --- | --- |
 | `/` | Landing page. Login goes to `/login`. |
-| `/login` | Email, then a 6-digit code. A test password form shows when `NEXT_PUBLIC_DEV_LOGIN=true`. |
+| `/login` | Sign in with email and password. Create an account (confirmed with a 6-digit email code). Forgot password (6-digit code, then a new password). |
 | `/join`, `/join/talent`, `/join/venue` | Onboarding for a signed-in person with no profile yet. |
 | `/app` | The app, for signed-in members. |
 | `/admin` | Approve members and check documents. Only logins in the `admins` table. |
@@ -27,7 +27,6 @@ npm run dev
 `.env.local` needs (see `.env.example`):
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_DEV_LOGIN=true` to show the test password form (never in production)
 - `SUPABASE_SERVICE_ROLE_KEY` and `SEED_PASSWORD`, used only by the seed, wipe and
   concurrency scripts on your machine
 
@@ -38,7 +37,7 @@ npm run seed     # fake venues, talent, shifts, a booking, messages, notices
 npm run wipe     # removes every @example.com account and its data
 ```
 
-Fake logins (password is `SEED_PASSWORD`): `spruce@`, `sea@`, `harper@` (venues),
+Fake logins (password is `SEED_PASSWORD`; sign in normally at `/login`, locally or on the live site): `spruce@`, `sea@`, `harper@` (venues),
 `poppy@`, `camille@`, `theo@`, `ethan@`, `noor@`, `ines@` (talent),
 `maya@` (talent waiting for approval), all `@example.com`, plus the admin
 `admin@dyuknow.com`.
