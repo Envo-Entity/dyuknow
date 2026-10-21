@@ -132,8 +132,8 @@ export function BookConfirm({
       {extending && <p>Adds to {firstName(t)}’s booking.</p>}
       <Button
         disabled={!picked.length}
-        onClick={() => {
-          const next = act(
+        onClick={async () => {
+          const next = await act(
             { type: "book", actor, shift: shift.id, talent, days: picked },
             `${firstName(t)} is booked.`,
           );
@@ -523,9 +523,9 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
             </select>
           </Field>
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "close", actor, shift: s.id, reason },
                   s.mode === "request" ? "Request cancelled." : "Job post removed.",
                 )
@@ -589,9 +589,9 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           </div>
           <Button
             disabled={!invitees.length}
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "invite", actor, shift: s.id, talents: invitees },
                   "Sent.",
                 )
@@ -647,8 +647,8 @@ function TalentShift({ s }: { s: Shift }) {
       ? member(data, data.shifts.find((x) => x.id === other.shift)!.venue).name
       : "";
   };
-  function sendResponse(days: string[]) {
-    const result = act(
+  async function sendResponse(days: string[]) {
+    const result = await act(
       { type: "respond", actor, shift: s.id, days },
       accept ? `You’re booked at ${venue.name}.` : `Sent to ${venue.name}.`,
       accept ? undefined : { undo: true },
@@ -1161,9 +1161,9 @@ export function BookingDetail({ id }: { id: string }) {
           <Button
             variant="danger"
             disabled={!reason || !cancelDays.length}
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   {
                     type: "cancel",
                     actor,
@@ -1192,9 +1192,9 @@ export function BookingDetail({ id }: { id: string }) {
             <TimeSelect label="To" value={confirm.end} onChange={(end) => setConfirm({ ...confirm, end })} />
           </div>
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "worked", start: confirm.start, end: confirm.end },
                   "Hours confirmed.",
                 )
@@ -1207,9 +1207,9 @@ export function BookingDetail({ id }: { id: string }) {
           <Button
             variant="quiet"
             className="pv-danger-text"
-            onClick={() => {
+            onClick={async () => {
               if (
-                act(
+                await act(
                   { type: "confirm-day", actor, booking: id, date: confirm.date, status: "no-show" },
                   "Marked as a no-show.",
                 )

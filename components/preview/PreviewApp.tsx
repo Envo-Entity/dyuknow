@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccountIcon,
   BookingsIcon,
@@ -37,7 +37,8 @@ import {
   type ShiftDraft,
   areaOf,
 } from "@/lib/preview/model";
-import { PreviewContext, usePreview } from "./context";
+import { PreviewContext, usePreview, type AppAction, type LiveExtras } from "./context";
+import { useLiveApp } from "@/lib/live/store";
 import { SHIFT_ALERTS } from "@/lib/catalogue";
 import {
   Badge,
@@ -65,25 +66,94 @@ import { AccountPage } from "./Account";
 import { Chips } from "./MemberViews";
 import { TEAMS, TEAM_NAMES } from "@/lib/catalogue";
 import "./preview.css";
-export function PreviewApp() {
-  const rawData = usePreviewData();
+// "demo": the browser-only sample world (/preview). "live": the real app on
+// Supabase for the signed-in member (/app). The screens are the same.
+export function PreviewApp({ mode = "demo" }: { mode?: "demo" | "live" }) {
+  return mode === "live" ? <LiveApp /> : <DemoApp />;
+}
+type Run = (action: AppAction) => { data: Data; success?: string } | Promise<{ data: Data; success?: string }>;
+// What the shell needs from the real app only.
+type LiveShell = LiveExtras & {
+  memberId: string;
+  side: Side;
+  approved: boolean;
+  needsYou?: number;
+  accountAttention: boolean;
+  readTarget: (target: string) => unknown;
+};
+function DemoApp() {
+  const data = usePreviewData();
+  const run = useCallback<Run>((action) => ({ data: dispatch(action as Action) }), []);
+  return <Shell data={data} run={run} />;
+}
+function LiveApp() {
+  const live = useLiveApp();
+  const snap = live.snapshot;
+  const extras = useMemo<LiveShell | undefined>(
+    () =>
+      snap
+        ? {
+            email: snap.email,
+            rejected: snap.rejected,
+            logout: live.logout,
+            memberId: snap.me.id,
+            side: snap.me.side,
+            approved: snap.me.approved && !snap.me.deleted_at,
+            needsYou: snap.badges?.needs_you,
+            accountAttention:
+              snap.badges?.account_attention ?? Object.keys(snap.rejected).length > 0,
+            readTarget: live.readTarget,
+          }
+        : undefined,
+    [snap, live.logout, live.readTarget],
+  );
+  if (!snap || !extras)
+    return (
+      <div className="pv-app">
+        <main className="pv-main">
+          {live.status === "error" ? (
+            <Empty title="Couldn’t load Dyuknow" text={live.error}>
+              <Button onClick={() => void live.reload()}>Try again</Button>
+            </Empty>
+          ) : (
+            <Empty title="Loading…" />
+          )}
+        </main>
+      </div>
+    );
+  return <Shell data={snap.data} run={live.run} live={extras} />;
+}
+// Pages that show other people or shifts wait until Dyuknow approves.
+const WAITING_PAGES = ["home", "post", "team", "new", "again", "talent", "venue"];
+function Shell({ data, run, live }: { data: Data; run: Run; live?: LiveShell }) {
   // The snapshot an Undo returns to; a ref keeps `act` stable.
-  const latest = useRef(rawData);
+  const latest = useRef(data);
   useEffect(() => {
-    latest.current = rawData;
-  }, [rawData]);
+    latest.current = data;
+  }, [data]);
   const route = usePreviewRoute();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [route]);
   const parts = route.split("/").filter(Boolean);
-  const side = (parts[0] === "talent" ? "talent" : "venue") as Side;
-  const actor = parts[1] || "";
-  const data = rawData;
-  const page = parts[2] || "home";
-  const id = parts[3];
+  // The real app is always the signed-in member, whatever the address says.
+  const side = live ? live.side : ((parts[0] === "talent" ? "talent" : "venue") as Side);
+  const actor = live ? live.memberId : parts[1] || "";
+  const wrongPlace = !!live && (parts[0] !== live.side || parts[1] !== live.memberId);
+  const page =
+    (wrongPlace ? undefined : parts[2]) || (live && !live.approved ? "profile" : "home");
+  const id = wrongPlace ? undefined : parts[3];
+  useEffect(() => {
+    if (wrongPlace && live)
+      navigateRoute(`/${live.side}/${live.memberId}/${page}`, { replace: true });
+  }, [wrongPlace, live, page]);
+  // Opening a shift or booking reads the notices about it.
+  const readTarget = live?.readTarget;
+  useEffect(() => {
+    if (readTarget && id && (page === "shift" || page === "booking")) readTarget(`${page}/${id}`);
+  }, [readTarget, page, id]);
   const me = data.members.find((m) => m.id === actor);
-  const entry = !actor || !me;
+  const entry = !live && (!actor || !me);
   const [accounts, setAccounts] = useState(false);
   const [controls, setControls] = useState(false);
   const [rawFeedback, setRawFeedback] = useState<{
@@ -109,12 +179,15 @@ export function PreviewApp() {
     (text: string) => setFeedback({ text, error: true }),
     [setFeedback],
   );
+  const isLive = !!live;
   const act = useCallback(
-    (action: Action, success?: string, options?: { undo?: boolean }): Data | null => {
+    async (action: AppAction, success?: string, options?: { undo?: boolean }): Promise<Data | null> => {
       try {
-        const before = options?.undo ? latest.current : undefined;
-        const next = dispatch(action);
-        if (success) setFeedback({ text: success, error: false, undo: before });
+        // Undo puts back a browser snapshot, so it exists in the demo only.
+        const before = options?.undo && !isLive ? latest.current : undefined;
+        const result = await run(action);
+        const text = result.success ?? success;
+        if (text) setFeedback({ text, error: false, undo: before });
         else if (
           ![
             "read-chat",
@@ -125,13 +198,13 @@ export function PreviewApp() {
           ].includes(action.type)
         )
           setFeedback(null);
-        return next;
+        return result.data;
       } catch (e) {
         setFeedback({ text: (e as Error).message, error: true });
         return null;
       }
     },
-    [setFeedback],
+    [setFeedback, run, isLive],
   );
   // An Undo offer lasts a few seconds, then the answer stands.
   useEffect(() => {
@@ -150,9 +223,10 @@ export function PreviewApp() {
     (t) => (side === "venue" ? t.venue : t.talent) === actor,
   );
   // Decisions waiting on this person: booking requests to answer for talent,
-  // people to book for the venue.
+  // people to book for the venue. The real app takes the database's count.
   const decisions =
-    side === "talent"
+    live?.needsYou ??
+    (side === "talent"
       ? data.responses.filter(
           (r) =>
             r.talent === actor &&
@@ -166,7 +240,7 @@ export function PreviewApp() {
               (s) =>
                 s.id === r.shift && s.venue === actor && s.status === "open",
             ),
-        ).length;
+        ).length);
   // Talent decide on Shifts; venues on Bookings.
   const decisionsOn = side === "talent" ? "home" : "bookings";
   const messageUnread = myThreads.some((t) => unreadChat(data, actor, t));
@@ -184,10 +258,27 @@ export function PreviewApp() {
     { path: "messages", label: "Messages", icon: MessagesIcon },
     { path: "profile", label: "Profile", icon: AccountIcon },
   ];
+  // Not approved yet: own profile, account, availability and any history,
+  // but nobody else's shifts or cards.
+  const waiting =
+    !!live &&
+    !live.approved &&
+    (WAITING_PAGES.includes(page) ||
+      (page === "messages" && !myThreads.length) ||
+      (page === "bookings" &&
+        side === "venue" &&
+        !data.shifts.some((s) => s.venue === actor)));
   let content;
   if (entry)
     content = <Welcome key={`${side}/${actor}`} initialSetupSide={actor === "setup" ? side : null} />;
-  else if (page === "guide") content = <Stories />;
+  else if (waiting)
+    content = (
+      <Empty
+        title="Waiting for approval"
+        text="Dyuknow is checking your profile. We’ll let you know here when you’re approved."
+      />
+    );
+  else if (page === "guide" && !live) content = <Stories />;
   else if (page === "home")
     content = side === "venue" ? <VenueHome /> : <TalentHome />;
   else if (page === "bookings") content = <WorkHub key={actor} />;
@@ -202,7 +293,7 @@ export function PreviewApp() {
   else if (page === "post" && side === "venue") content = <JobPostStart />;
   // new/<team>[/<people>[/<position or ->[/chat]]]: one form for a job post
   // (no people) or a booking request (the people it goes to).
-  else if (page === "new" && side === "venue" && FAMILIES[id])
+  else if (page === "new" && side === "venue" && id && FAMILIES[id])
     content = (
       <ShiftComposer
         key={parts.slice(3).join("/")}
@@ -230,18 +321,18 @@ export function PreviewApp() {
     );
   }
   else if (page === "shift")
-    content = <ShiftDetail key={`${actor}-${id}`} id={id} />;
+    content = <ShiftDetail key={`${actor}-${id}`} id={id!} />;
   else if (page === "booking")
-    content = <BookingDetail key={`${actor}-${id}`} id={id} />;
+    content = <BookingDetail key={`${actor}-${id}`} id={id!} />;
   else if (page === "messages") content = <Messages />;
-  else if (page === "chat") content = <Thread key={`${actor}-${id}`} id={id} />;
+  else if (page === "chat") content = <Thread key={`${actor}-${id}`} id={id!} />;
   else if (page === "notifications") content = <Notifications />;
   else if (page === "availability" && side === "talent")
     content = <AvailabilityEditor back="home" />;
   else if (page === "profile" && me) content = <Profile key={actor} />;
   else if (page === "account" && me) content = <AccountPage />;
-  else if (page === "talent") content = <TalentProfile id={id} />;
-  else if (page === "venue") content = <VenueDetail id={id} />;
+  else if (page === "talent") content = <TalentProfile id={id!} />;
+  else if (page === "venue") content = <VenueDetail id={id!} />;
   else
     content = (
       <Empty
@@ -263,6 +354,7 @@ export function PreviewApp() {
         toast,
         error: feedback?.error ? feedback.text : "",
         profileBack,
+        live: live && { email: live.email, rejected: live.rejected, logout: live.logout },
       }}
     >
       <div
@@ -273,27 +365,51 @@ export function PreviewApp() {
             : ""
         }`}
       >
-        <PreviewPill
-          clock={clockLabel(data.now)}
-          texts={!entry ? unread : undefined}
-          onTexts={() => go("notifications")}
-          onGuide={entry ? undefined : () => go("guide")}
-          onControls={() => setControls(true)}
-          onAccounts={entry ? undefined : () => setAccounts(true)}
-        />
-        {!entry && (
+        {!live && (
+          <PreviewPill
+            clock={clockLabel(data.now)}
+            texts={!entry ? unread : undefined}
+            onTexts={() => go("notifications")}
+            onGuide={entry ? undefined : () => go("guide")}
+            onControls={() => setControls(true)}
+            onAccounts={entry ? undefined : () => setAccounts(true)}
+          />
+        )}
+        {!entry && me && (
           <>
             <header className="pv-header">
               <button className="pv-wordmark" onClick={() => go("home")}>
                 Dyuknow
               </button>
-              <AccountMenu
-                name={me!.name}
-                detail={me!.roles.length ? me!.roles.join(" · ") : areaOf(me!)}
-                photo={me!.photo}
-                onProfile={() => go("profile")}
-                onAccount={() => go("account")}
-              />
+              {live ? (
+                <div className="pv-header-actions">
+                  <button
+                    className="pv-notification-button"
+                    onClick={() => go("notifications")}
+                    aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+                  >
+                    <BellIcon />
+                    {unread > 0 && <span>{unread > 9 ? "9+" : unread}</span>}
+                  </button>
+                  <AccountMenu
+                    name={me.name}
+                    detail={me.roles.length ? me.roles.join(" · ") : areaOf(me)}
+                    photo={me.photo}
+                    attention={live.accountAttention}
+                    onProfile={() => go("profile")}
+                    onAccount={() => go("account")}
+                    onLogout={live.logout}
+                  />
+                </div>
+              ) : (
+                <AccountMenu
+                  name={me.name}
+                  detail={me.roles.length ? me.roles.join(" · ") : areaOf(me)}
+                  photo={me.photo}
+                  onProfile={() => go("profile")}
+                  onAccount={() => go("account")}
+                />
+              )}
             </header>
             <nav className="pv-nav" aria-label="Main navigation">
               {nav.map((item, i) => (
@@ -371,7 +487,7 @@ export function PreviewApp() {
             </button>
           </div>
         )}
-        {accounts && (
+        {!live && accounts && (
           <AccountSwitcher
             onClose={() => {
               setAccounts(false);
@@ -379,7 +495,7 @@ export function PreviewApp() {
             }}
           />
         )}
-        {controls && (
+        {!live && controls && (
           <PreviewControls
             page={page}
             id={id}
@@ -391,6 +507,14 @@ export function PreviewApp() {
         )}
       </div>
     </PreviewContext.Provider>
+  );
+}
+function BellIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </svg>
   );
 }
 function Welcome({ initialSetupSide = null }: { initialSetupSide?: "venue" | "talent" | null }) {
@@ -944,8 +1068,8 @@ function Setup({
           <p>{form.bio}</p>
           <p>{side === "venue" ? fullAddress(form) : form.skills.join(" · ")}</p>
           <Button
-            onClick={() => {
-              const result = act(
+            onClick={async () => {
+              const result = await act(
                 {
                   type: "join",
                   availabilityDates:
@@ -1006,7 +1130,7 @@ function PreviewControls({
         ? data.shifts.find((s) => s.id === b.shift)
         : undefined;
   // Another person says yes and the venue books them: the real two steps.
-  function fillOther() {
+  async function fillOther() {
     if (!shift || shift.status !== "open") return;
     const other = data.members.find(
       (m) =>
@@ -1038,7 +1162,7 @@ function PreviewControls({
     );
     const done = `${other.name} said yes and was booked.`;
     if (r?.status !== "can-cover") {
-      const next = act({ type: "respond", actor: other.id, shift: shift.id });
+      const next = await act({ type: "respond", actor: other.id, shift: shift.id });
       if (!next) return;
       // A request sent only to them books on accept.
       if (next.responses.find((x) => x.shift === shift.id && x.talent === other.id)?.status === "booked")
@@ -1047,7 +1171,7 @@ function PreviewControls({
     act({ type: "book", actor: shift.venue, shift: shift.id, talent: other.id }, done);
   }
   // Another venue books this talent for the same hours.
-  function overlapping() {
+  async function overlapping() {
     if (!shift || side !== "talent") return;
     const me = member(data, actor);
     const venue = data.members.find(
@@ -1068,7 +1192,7 @@ function PreviewControls({
       note: "Overlapping sample service for the conflict story.",
       to: [actor],
     };
-    const next = act({ type: "post", actor: venue.id, draft: d });
+    const next = await act({ type: "post", actor: venue.id, draft: d });
     if (!next) return;
     // Sent only to this person, so accepting books them.
     act(
@@ -1332,14 +1456,19 @@ function AccountMenu({
   name,
   detail,
   photo,
+  attention,
   onProfile,
   onAccount,
+  onLogout,
 }: {
   name: string;
   detail: string;
   photo?: string;
+  // A document needs replacing: a dot on the menu and on Account.
+  attention?: boolean;
   onProfile?: () => void;
   onAccount?: () => void;
+  onLogout?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1365,6 +1494,7 @@ function AccountMenu({
         onClick={() => setOpen(!open)}
       >
         {photo ? <Photo src={photo} alt={name} /> : <AccountIcon />}
+        {attention && <span className="pv-unread-dot" aria-label="Account needs attention" />}
       </button>
       {open && (
         <div className="pv-account-menu" role="menu">
@@ -1392,9 +1522,10 @@ function AccountMenu({
               }}
             >
               <SettingsIcon /> Account
+              {attention && <span className="pv-unread-dot" aria-hidden="true" />}
             </button>
           )}
-          <button role="menuitem" onClick={() => navigateRoute("/")}>
+          <button role="menuitem" onClick={() => (onLogout ? onLogout() : navigateRoute("/"))}>
             <LogOutIcon /> Log out
           </button>
         </div>
