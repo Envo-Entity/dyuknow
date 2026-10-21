@@ -376,6 +376,9 @@ begin
   -- She can offer more days on her booking; the venue then adds them.
   assert pg_temp.yes(3, s, array[d2])->>'result' = 'said-yes';
   assert (pg_temp.lines(1, 3))[cardinality(pg_temp.lines(1, 3))] = 'card:Can also do ' || private.fmt_date(d2);
+  -- Offering a day already offered again sends nothing twice.
+  perform pg_temp.expect(format('select pg_temp.yes(3, %L, array[%L::date])', s, d2), 'You’ve already said yes to this.');
+  assert (select count(*) from public.messages where shift_id = s and body like 'Can also do%') = 1;
   assert pg_temp.book(1, s, 3)->>'shift_status' = 'open';
   assert private.day_dates(private.booked_days_here(pg_temp.m(3), s)) = array[d1, d2];
   assert exists (select 1 from public.notifications where member_id = pg_temp.m(3) and kind = 'days-added'
@@ -494,6 +497,7 @@ begin
   perform pg_temp.book(1, s, 4);
   assert pg_temp.status(s, 3) = 'not-selected';
   perform pg_temp.expect(format('select public.send_to_more(%L, array[]::uuid[], gen_random_uuid())', s), 'This shift is no longer open.');
+  perform pg_temp.expect(format('select public.send_to_more(%L, (select array_agg(gen_random_uuid()) from generate_series(1, 101)), gen_random_uuid())', s), 'Choose up to 100 people.');
   perform pg_temp.login(2);
   perform pg_temp.expect(format('select public.send_to_more(%L, array[pg_temp.m(5)], gen_random_uuid())', s), 'This shift no longer exists.');
 end $$;
@@ -564,6 +568,9 @@ begin
   perform pg_temp.expect($q$select public.post_shift('Kitchen','{CDP}',array['2026-10-25'::date],'01:30','05:00',1,1800,'',null,gen_random_uuid())$q$, 'That time happens twice when the clocks go back. Choose another.');
   perform pg_temp.expect($q$select public.post_shift('Kitchen','{CDP}',array[pg_temp.d(-1)],'17:00','23:00',1,1800,'',null,gen_random_uuid())$q$, 'That start time has passed.');
   perform pg_temp.expect($q$select public.post_shift('Kitchen','{CDP}',array[pg_temp.d(56)],'17:00','23:00',1,1800,'',null,gen_random_uuid())$q$, 'Choose dates in the next 8 weeks.');
+  perform pg_temp.expect($q$select public.post_shift('Kitchen','{CDP}',array[pg_temp.d(5)],'17:00','23:00',1,1800,'',(select array_agg(gen_random_uuid()) from generate_series(1, 101)),gen_random_uuid())$q$, 'Choose up to 100 people.');
+  -- Unknown ids are not locked, and still get the plain refusal.
+  perform pg_temp.expect($q$select public.post_shift('Kitchen','{CDP}',array[pg_temp.d(5)],'17:00','23:00',1,1800,'',array[gen_random_uuid()],gen_random_uuid())$q$, 'Choose talent members to send this to.');
   -- Repeats are dropped and the list is sorted; overnight ends the next morning.
   r := public.post_shift('Kitchen','{CDP}',array[pg_temp.d(9), pg_temp.d(7), pg_temp.d(9)],'22:00','02:00',1,1850,'',null,gen_random_uuid());
   assert (select array_agg(day_date order by day_date) from public.shift_days where shift_id = (r->>'shift_id')::uuid) = array[pg_temp.d(7), pg_temp.d(9)];
