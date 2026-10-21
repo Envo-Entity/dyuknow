@@ -7,33 +7,43 @@ import { createClient } from "@/utils/supabase/client";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { destinationAfterSignIn, safeNext } from "@/components/auth/routing";
 
+// Sign in: email + password, straight in.
+// Create account: email + password, then a 6-digit code proves the email.
+// Forgot password: a 6-digit code, then a new password.
+type Stage = "signin" | "signup" | "signup-code" | "forgot" | "reset-code";
+
 const RESEND_AFTER_SECONDS = 60;
 const CODE_LENGTH = 6;
+const MIN_PASSWORD = 8;
 
 const MESSAGES = {
+  badEmail: "Enter a valid email address.",
+  wrongLogin: "That email and password don’t match. Check them, or reset your password.",
+  shortPassword: `Use at least ${MIN_PASSWORD} characters.`,
+  mismatch: "The two passwords don’t match.",
   wrongCode: "That code is wrong or has expired. Check it, or send a new one.",
   tooSoon: "Wait a minute before asking for another code.",
-  badEmail: "Enter a valid email address.",
-  noConnection: "Couldn’t send the code. Check your connection and try again.",
-  noConnectionCheck: "Couldn’t check the code. Check your connection and try again.",
-  testSignIn: "That email and password don’t match a test account.",
+  noConnection: "Couldn’t reach Dyuknow. Check your connection and try again.",
+  weakPassword: "Choose a stronger password.",
+  samePassword: "Choose a password you haven’t used here before.",
 } as const;
 
 function looksLikeEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function sendCodeMessage(error: AuthError): string {
+function sendMessage(error: AuthError): string {
   if (isAuthRetryableFetchError(error)) return MESSAGES.noConnection;
   if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit" || error.status === 429) return MESSAGES.tooSoon;
   if (error.code === "email_address_invalid" || error.code === "validation_failed") return MESSAGES.badEmail;
+  if (error.code === "weak_password") return MESSAGES.weakPassword;
   return MESSAGES.noConnection;
 }
 
-function verifyMessage(error: AuthError): string {
-  if (isAuthRetryableFetchError(error)) return MESSAGES.noConnectionCheck;
+function codeMessage(error: AuthError): string {
+  if (isAuthRetryableFetchError(error)) return MESSAGES.noConnection;
   if (isAuthApiError(error)) return MESSAGES.wrongCode;
-  return MESSAGES.noConnectionCheck;
+  return MESSAGES.noConnection;
 }
 
 const inputClass =
@@ -41,12 +51,15 @@ const inputClass =
 const primaryClass =
   "w-full cursor-pointer rounded-full border-none bg-ink px-5 py-3.5 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-30 lg:py-4 lg:text-[15px]";
 const labelClass = "text-[11px] font-semibold uppercase tracking-[0.14em] text-label";
+const linkClass = "cursor-pointer font-semibold text-ink underline underline-offset-2 disabled:opacity-30";
 
-export function LoginForm({ next: rawNext, devLogin }: { next: string | null; devLogin: boolean }) {
+export function LoginForm({ next: rawNext }: { next: string | null }) {
   const next = safeNext(rawNext);
   const [supabase] = useState(() => createClient());
-  const [stage, setStage] = useState<"email" | "code">("email");
+  const [stage, setStage] = useState<Stage>("signin");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,13 +81,13 @@ export function LoginForm({ next: rawNext, devLogin }: { next: string | null; de
   }, []);
 
   useEffect(() => {
-    if (stage !== "code" || sentAt === null) return;
+    if (sentAt === null) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [stage, sentAt]);
+  }, [sentAt]);
 
   useEffect(() => {
-    if (stage === "code") codeRef.current?.focus();
+    if (stage === "signup-code" || stage === "reset-code") codeRef.current?.focus();
   }, [stage]);
 
   async function goOn() {
@@ -83,25 +96,41 @@ export function LoginForm({ next: rawNext, devLogin }: { next: string | null; de
     window.location.replace(destination);
   }
 
-  async function sendCode() {
+  function go(to: Stage) {
+    setStage(to);
+    setError(null);
+    setCode("");
+    setPassword("");
+    setConfirm("");
+  }
+
+  function cleanEmail(): string | null {
     const clean = email.trim().toLowerCase();
     setEmail(clean);
     if (!looksLikeEmail(clean)) {
       setError(MESSAGES.badEmail);
-      return;
+      return null;
     }
+    return clean;
+  }
+
+  function checkNewPassword(): boolean {
+    if (password.length < MIN_PASSWORD) {
+      setError(MESSAGES.shortPassword);
+      return false;
+    }
+    if (password !== confirm) {
+      setError(MESSAGES.mismatch);
+      return false;
+    }
+    return true;
+  }
+
+  async function run(work: () => Promise<void>) {
     setBusy(true);
     setError(null);
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({ email: clean, options: { shouldCreateUser: true } });
-      if (otpError) {
-        setError(sendCodeMessage(otpError));
-        return;
-      }
-      setCode("");
-      setSentAt(Date.now());
-      setNow(Date.now());
-      setStage("code");
+      await work();
     } catch {
       setError(MESSAGES.noConnection);
     } finally {
@@ -109,36 +138,91 @@ export function LoginForm({ next: rawNext, devLogin }: { next: string | null; de
     }
   }
 
-  async function checkCode(token: string) {
-    if (token.length !== CODE_LENGTH || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: "email" });
-      if (verifyError) {
-        setError(verifyMessage(verifyError));
-        setBusy(false);
-        return;
+  function codeSent() {
+    setCode("");
+    setSentAt(Date.now());
+    setNow(Date.now());
+  }
+
+  const signIn = () =>
+    run(async () => {
+      const clean = cleanEmail();
+      if (!clean) return;
+      const { error: e } = await supabase.auth.signInWithPassword({ email: clean, password });
+      if (e) {
+        if (e.code === "email_not_confirmed") {
+          // They started an account but never entered the code: send a fresh one.
+          const { error: r } = await supabase.auth.resend({ type: "signup", email: clean });
+          if (r) return setError(sendMessage(r));
+          codeSent();
+          setStage("signup-code");
+          return;
+        }
+        return setError(isAuthRetryableFetchError(e) ? MESSAGES.noConnection : MESSAGES.wrongLogin);
       }
       await goOn();
-    } catch {
-      setError(MESSAGES.noConnectionCheck);
-      setBusy(false);
-    }
-  }
+    });
+
+  const signUp = () =>
+    run(async () => {
+      const clean = cleanEmail();
+      if (!clean || !checkNewPassword()) return;
+      const { data, error: e } = await supabase.auth.signUp({ email: clean, password });
+      if (e) return setError(sendMessage(e));
+      // With email confirmation on there is no session until the code is entered.
+      if (data.session) return goOn();
+      codeSent();
+      setStage("signup-code");
+    });
+
+  const confirmSignUp = (token: string) =>
+    run(async () => {
+      if (token.length !== CODE_LENGTH) return;
+      const { error: e } = await supabase.auth.verifyOtp({ email, token, type: "signup" });
+      if (e) return setError(codeMessage(e));
+      await goOn();
+    });
+
+  const sendReset = () =>
+    run(async () => {
+      const clean = cleanEmail();
+      if (!clean) return;
+      const { error: e } = await supabase.auth.resetPasswordForEmail(clean);
+      // The same next step whether or not the address has an account, so this
+      // screen can't be used to find out who is on Dyuknow.
+      if (e && (e.status === 429 || isAuthRetryableFetchError(e))) return setError(sendMessage(e));
+      codeSent();
+      setStage("reset-code");
+    });
+
+  const resetPassword = () =>
+    run(async () => {
+      if (code.length !== CODE_LENGTH) return setError(MESSAGES.wrongCode);
+      if (!checkNewPassword()) return;
+      const { error: v } = await supabase.auth.verifyOtp({ email, token: code, type: "recovery" });
+      if (v) return setError(codeMessage(v));
+      const { error: u } = await supabase.auth.updateUser({ password });
+      if (u) {
+        return setError(u.code === "same_password" ? MESSAGES.samePassword : u.code === "weak_password" ? MESSAGES.weakPassword : MESSAGES.noConnection);
+      }
+      await goOn();
+    });
+
+  const resendCode = () =>
+    run(async () => {
+      const { error: e } =
+        stage === "signup-code"
+          ? await supabase.auth.resend({ type: "signup", email })
+          : await supabase.auth.resetPasswordForEmail(email);
+      if (e) return setError(sendMessage(e));
+      codeSent();
+    });
 
   function onCodeChange(value: string) {
     const digits = value.replace(/\D/g, "").slice(0, CODE_LENGTH);
     setCode(digits);
     if (error) setError(null);
-    if (digits.length === CODE_LENGTH) void checkCode(digits);
-  }
-
-  function changeEmail() {
-    setStage("email");
-    setCode("");
-    setError(null);
-    setSentAt(null);
+    if (stage === "signup-code" && digits.length === CODE_LENGTH) void confirmSignUp(digits);
   }
 
   const secondsLeft = sentAt === null ? 0 : Math.max(0, RESEND_AFTER_SECONDS - Math.floor((now - sentAt) / 1000));
@@ -154,151 +238,183 @@ export function LoginForm({ next: rawNext, devLogin }: { next: string | null; de
     );
   }
 
+  const errorLine = error && (
+    <p role="alert" className="-mt-2 text-[13px] font-semibold text-ink">
+      {error}
+    </p>
+  );
+
+  const emailField = (
+    <label className="flex flex-col gap-2">
+      <span className={labelClass}>Email address</span>
+      <input
+        className={inputClass}
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        spellCheck={false}
+        placeholder="e.g. camille@email.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (error) setError(null);
+        }}
+        autoFocus
+      />
+    </label>
+  );
+
+  const passwordField = (label: string, value: string, set: (v: string) => void, autoComplete: string) => (
+    <label className="flex flex-col gap-2">
+      <span className={labelClass}>{label}</span>
+      <input
+        className={inputClass}
+        type="password"
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => {
+          set(e.target.value);
+          if (error) setError(null);
+        }}
+      />
+    </label>
+  );
+
+  const codeField = (
+    <label className="flex flex-col gap-2">
+      <span className={labelClass}>6-digit code</span>
+      <input
+        ref={codeRef}
+        className={`${inputClass} text-center font-semibold tracking-[0.5em]`}
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        pattern="[0-9]*"
+        maxLength={CODE_LENGTH + 10}
+        placeholder="••••••"
+        value={code}
+        onChange={(e) => onCodeChange(e.target.value)}
+        disabled={busy}
+      />
+    </label>
+  );
+
+  const resendRow = (back: Stage, backLabel: string) => (
+    <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
+      <button type="button" onClick={() => go(back)} className={linkClass}>
+        {backLabel}
+      </button>
+      {secondsLeft > 0 ? (
+        <span className="text-muted">New code in {secondsLeft}s</span>
+      ) : (
+        <button type="button" onClick={() => void resendCode()} disabled={busy} className={linkClass}>
+          Send a new code
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <LoginFrame>
-      {stage === "email" ? (
-        <form
-          className="flex flex-col gap-6"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            void sendCode();
-          }}
-        >
-          <StepHeader eyebrow="Sign in" title="Your email." description="We’ll send you a 6-digit code. New here? The same code gets you started." />
-          <label className="flex flex-col gap-2">
-            <span className={labelClass}>Email address</span>
-            <input
-              className={inputClass}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder="e.g. camille@email.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError(null);
-              }}
-              autoFocus
-            />
-          </label>
-          {error && (
-            <p role="alert" className="-mt-2 text-[13px] font-semibold text-ink">
-              {error}
-            </p>
-          )}
-          <button type="submit" className={primaryClass} disabled={busy || !email.trim()}>
-            {busy ? "Sending…" : "Continue"}
-          </button>
-        </form>
-      ) : (
-        <form
-          className="flex flex-col gap-6"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            void checkCode(code);
-          }}
-        >
-          <StepHeader eyebrow="Sign in" title="Check your email." description={`We sent a 6-digit code to ${email}.`} />
-          <label className="flex flex-col gap-2">
-            <span className={labelClass}>6-digit code</span>
-            <input
-              ref={codeRef}
-              className={`${inputClass} text-center font-semibold tracking-[0.5em]`}
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]*"
-              maxLength={CODE_LENGTH + 10}
-              placeholder="••••••"
-              value={code}
-              onChange={(e) => onCodeChange(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          {error && (
-            <p role="alert" className="-mt-2 text-[13px] font-semibold text-ink">
-              {error}
-            </p>
-          )}
-          <button type="submit" className={primaryClass} disabled={busy || code.length !== CODE_LENGTH}>
-            {busy ? "Checking…" : "Sign in"}
-          </button>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
-            <button type="button" onClick={changeEmail} className="cursor-pointer font-semibold text-ink underline underline-offset-2">
-              Use a different email
-            </button>
-            {secondsLeft > 0 ? (
-              <span className="text-muted">New code in {secondsLeft}s</span>
-            ) : (
-              <button type="button" onClick={() => void sendCode()} disabled={busy} className="cursor-pointer font-semibold text-ink underline underline-offset-2 disabled:opacity-30">
-                Send a new code
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-
-      {devLogin && <TestSignIn onSignedIn={goOn} />}
-    </LoginFrame>
-  );
-}
-
-function TestSignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
-  const [supabase] = useState(() => createClient());
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function signIn() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-      if (signInError) {
-        setError(MESSAGES.testSignIn);
-        setBusy(false);
-        return;
-      }
-      await onSignedIn();
-    } catch {
-      setError(MESSAGES.testSignIn);
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form
-      className="mt-10 flex flex-col gap-4 border-t border-dashed border-hairline pt-6"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        void signIn();
-      }}
-    >
-      <div>
-        <div className={labelClass}>Test sign-in</div>
-        <p className="mt-1.5 text-[13px] text-muted">For the seeded test accounts only. Not shown in production.</p>
-      </div>
-      <input className={inputClass} type="email" autoComplete="off" placeholder="Test email" aria-label="Test email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className={inputClass} type="password" autoComplete="off" placeholder="Password" aria-label="Test password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      {error && (
-        <p role="alert" className="text-[13px] font-semibold text-ink">
-          {error}
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={busy || !email.trim() || !password}
-        className="w-full cursor-pointer rounded-full border border-border bg-paper px-5 py-3 text-sm font-semibold text-ink disabled:cursor-default disabled:opacity-30"
+      <form
+        className="flex flex-col gap-6"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (stage === "signin") void signIn();
+          else if (stage === "signup") void signUp();
+          else if (stage === "signup-code") void confirmSignUp(code);
+          else if (stage === "forgot") void sendReset();
+          else void resetPassword();
+        }}
       >
-        {busy ? "Signing in…" : "Test sign-in"}
-      </button>
-    </form>
+        {stage === "signin" && (
+          <>
+            <StepHeader eyebrow="Sign in" title="Welcome back." />
+            {emailField}
+            {passwordField("Password", password, setPassword, "current-password")}
+            {errorLine}
+            <button type="submit" className={primaryClass} disabled={busy || !email.trim() || !password}>
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
+              <button type="button" onClick={() => go("forgot")} className={linkClass}>
+                Forgot password?
+              </button>
+              <span className="text-muted">
+                New here?{" "}
+                <button type="button" onClick={() => go("signup")} className={linkClass}>
+                  Create an account
+                </button>
+              </span>
+            </div>
+          </>
+        )}
+
+        {stage === "signup" && (
+          <>
+            <StepHeader eyebrow="Create an account" title="Join Dyuknow." description="We’ll email you a 6-digit code to confirm it’s you." />
+            {emailField}
+            {passwordField("Password", password, setPassword, "new-password")}
+            {passwordField("Confirm password", confirm, setConfirm, "new-password")}
+            <p className="-mt-3 text-[12.5px] text-muted">At least {MIN_PASSWORD} characters.</p>
+            {errorLine}
+            <button type="submit" className={primaryClass} disabled={busy || !email.trim() || !password || !confirm}>
+              {busy ? "Creating…" : "Create account"}
+            </button>
+            <div className="text-[13px] text-muted">
+              Already have an account?{" "}
+              <button type="button" onClick={() => go("signin")} className={linkClass}>
+                Sign in
+              </button>
+            </div>
+          </>
+        )}
+
+        {stage === "signup-code" && (
+          <>
+            <StepHeader eyebrow="Create an account" title="Check your email." description={`We sent a 6-digit code to ${email}. Enter it to confirm your account.`} />
+            {codeField}
+            {errorLine}
+            <button type="submit" className={primaryClass} disabled={busy || code.length !== CODE_LENGTH}>
+              {busy ? "Checking…" : "Confirm"}
+            </button>
+            {resendRow("signup", "Use a different email")}
+          </>
+        )}
+
+        {stage === "forgot" && (
+          <>
+            <StepHeader eyebrow="Forgot password" title="Reset your password." description="Enter your email and we’ll send you a 6-digit code." />
+            {emailField}
+            {errorLine}
+            <button type="submit" className={primaryClass} disabled={busy || !email.trim()}>
+              {busy ? "Sending…" : "Send code"}
+            </button>
+            <div className="text-[13px]">
+              <button type="button" onClick={() => go("signin")} className={linkClass}>
+                Back to sign in
+              </button>
+            </div>
+          </>
+        )}
+
+        {stage === "reset-code" && (
+          <>
+            <StepHeader eyebrow="Forgot password" title="Choose a new password." description={`If ${email} has an account, we’ve sent it a 6-digit code.`} />
+            {codeField}
+            {passwordField("New password", password, setPassword, "new-password")}
+            {passwordField("Confirm new password", confirm, setConfirm, "new-password")}
+            {errorLine}
+            <button type="submit" className={primaryClass} disabled={busy || code.length !== CODE_LENGTH || !password || !confirm}>
+              {busy ? "Saving…" : "Save password and sign in"}
+            </button>
+            {resendRow("forgot", "Use a different email")}
+          </>
+        )}
+      </form>
+    </LoginFrame>
   );
 }
 
