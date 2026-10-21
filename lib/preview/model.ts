@@ -25,6 +25,8 @@ export type Member = {
   name: string;
   phone: string;
   postcode: string;
+  // Place name shown to others instead of a postcode, e.g. "Richmond upon Thames".
+  areaName?: string;
   photo: string;
   bio: string;
   roles: string[];
@@ -253,7 +255,8 @@ export const FAMILIES: Record<string, { roles: string[]; photo: string }> = {
 };
 export const SKILLS = CATALOGUE_SKILLS;
 // "TW9 1UA" → "TW9": the only part of a postcode shown before a booking.
-export function areaOf(m: Pick<Member, "postcode">) {
+export function areaOf(m: Pick<Member, "postcode"> & { areaName?: string }) {
+  if (m.areaName) return m.areaName;
   const p = m.postcode.trim().toUpperCase();
   if (!p) return "";
   if (p.includes(" ")) return p.split(" ")[0];
@@ -582,9 +585,13 @@ export function venueSummary(data: Data, s: Shift) {
       b.shift === s.id &&
       b.days.some((d) => b.log[d]?.status === "cancelled" && open.includes(d)),
   );
-  const prefix = dropped.length
-    ? `${joinNames([...new Set(dropped.map((b) => firstName(member(data, b.talent))))])} cancelled · `
-    : "";
+  // A cancellation reopened a day: say what's needed, not who cancelled
+  // (the shift page and the booking say who and why).
+  const prefix = dropped.length ? "Cover needed again · " : "";
+  // People asked and still deciding: someone who declined isn't waited on.
+  const deciding = data.responses
+    .filter((r) => r.shift === s.id && r.status === "invited")
+    .map((r) => firstName(member(data, r.talent)));
   if (s.status === "filled") return { text: "Filled", good: true, needs: false };
   if (s.status === "expired")
     return { text: "Started unfilled", good: false, needs: false };
@@ -601,7 +608,7 @@ export function venueSummary(data: Data, s: Shift) {
         s.capacity > 1
           ? `${c[s.days[0].date].length} of ${s.capacity} booked`
           : prefix
-            ? "needs someone"
+            ? ""
             : "Needs someone";
     else {
       const need = open.map((d) => ({
@@ -614,12 +621,12 @@ export function venueSummary(data: Data, s: Shift) {
         ? `${need.map((x) => shortDay(x.d)).join(", ")} ${need.length > 1 ? "each need" : "needs"} ${people(need[0].k, need[0].more)}`
         : need.map((x) => `${shortDay(x.d)} needs ${people(x.k, x.more)}`).join(" · ");
     }
-    return { text: `${prefix}${text}`, good: false, needs: !!dropped.length };
+    // Once the venue has asked someone else, the next move is theirs: it waits.
+    if (dropped.length && deciding.length)
+      return { text: `Waiting for ${joinNames(deciding)}`, good: false, needs: false };
+    const full = text ? `${prefix}${text}` : prefix.replace(/ · $/, "");
+    return { text: full, good: false, needs: !!dropped.length };
   }
-  // Only the people still deciding: someone who declined isn't waited on.
-  const deciding = data.responses
-    .filter((r) => r.shift === s.id && r.status === "invited")
-    .map((r) => firstName(member(data, r.talent)));
   return {
     text:
       s.mode === "request" && deciding.length

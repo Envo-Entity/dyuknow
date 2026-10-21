@@ -188,6 +188,20 @@ test("cancel keeps history, tells the other side, and frees both calendars", () 
   const t = threadBetween(d, "spruce", "poppy");
   assert.ok(d.messages.some((m) => m.thread === t.id && /cancelled/.test(m.text)));
 });
+test("after a cancellation, asking someone else moves the shift from Needs you to waiting", () => {
+  let d = post(seed(), { count: 1 });
+  const s = d.shifts[0].id;
+  d = respond(d, s);
+  d = book(d, s);
+  d = transition(d, { type: "cancel", actor: "poppy", booking: d.bookings[0].id, reason: "Illness" });
+  let sum = venueSummary(d, d.shifts[0]);
+  assert.equal(sum.text, "Cover needed again");
+  assert.equal(sum.needs, true);
+  d = transition(d, { type: "invite", actor: "spruce", shift: s, talents: ["theo"] });
+  sum = venueSummary(d, d.shifts[0]);
+  assert.equal(sum.text, "Waiting for Theo");
+  assert.equal(sum.needs, false);
+});
 test("cancelling one day of a multi-day booking keeps the rest and reopens that day", () => {
   let d = post(seed(), { count: 3 });
   const s = d.shifts[0].id;
@@ -202,7 +216,7 @@ test("cancelling one day of a multi-day booking keeps the rest and reopens that 
   assert.deepEqual(openDates(d, d.shifts[0]), [fri]);
   assert.equal(d.shifts[0].status, "open");
   assert.equal(d.responses.find((r) => r.talent === "poppy").status, "booked");
-  assert.equal(venueSummary(d, d.shifts[0]).text, "Poppy cancelled · Fri 9 needs 1 person");
+  assert.equal(venueSummary(d, d.shifts[0]).text, "Cover needed again · Fri 9 needs 1 person");
   // A day that has started can't be cancelled.
   d = transition(d, { type: "advance", until: d.shifts[0].days[0].from });
   assert.throws(
@@ -470,7 +484,7 @@ test("a cancellation reopens a filled multi-day, two-person shift for the days i
   d = transition(d, { type: "cancel", actor: "theo", booking: theo, reason: "Illness" });
   assert.equal(d.shifts[0].status, "open");
   assert.equal(openDates(d, d.shifts[0]).length, 2);
-  assert.match(venueSummary(d, d.shifts[0]).text, /^Theo cancelled · .* each need 1 more person$/);
+  assert.match(venueSummary(d, d.shifts[0]).text, /^Cover needed again · .* each need 1 more person$/);
 });
 test("people told it was filled can say yes again once it reopens", () => {
   let d = post(seed());

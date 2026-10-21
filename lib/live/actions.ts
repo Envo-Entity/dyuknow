@@ -1,6 +1,8 @@
 // Each tap in the live app becomes one database function call (see
 // docs/backend/00-build-brief.md → Function signatures). Refusals come back
 // as plain messages and are thrown as they are, so the screens show them.
+import { saveMyAreaName } from "./area";
+import { compressImageToJpeg } from "@/lib/image";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   availableDates,
@@ -63,7 +65,7 @@ async function upload(
   supabase: SupabaseClient,
   bucket: string,
   path: string,
-  file: File,
+  file: Blob,
 ) {
   const { error } = await supabase.storage
     .from(bucket)
@@ -274,14 +276,18 @@ export async function runLive(
       const changes = profileChanges(me, rest);
       if (Object.keys(changes).length)
         await call(supabase, "update_my_profile", { p_changes: changes });
+      // A new postcode means a new place name for others to see.
+      if (rest.postcode !== undefined && rest.postcode !== me.postcode)
+        await saveMyAreaName(supabase, rest.postcode);
       return {};
     }
     case "photo": {
-      const ext = PHOTO_TYPES[action.file.type];
-      if (!ext) throw new Error("Choose a JPEG, PNG or WebP photo.");
-      if (action.file.size > 5 * 1024 * 1024) throw new Error("Choose a photo up to 5 MB.");
-      const path = `${snap.userId}/${randomName()}.${ext}`;
-      await upload(supabase, "member-photos", path, action.file);
+      if (!PHOTO_TYPES[action.file.type]) throw new Error("Choose a JPEG, PNG or WebP photo.");
+      // Compress before upload, as onboarding does: a JPEG of about 200 KB.
+      const photo = await compressImageToJpeg(action.file);
+      if (photo.size > 5 * 1024 * 1024) throw new Error("Choose a photo up to 5 MB.");
+      const path = `${snap.userId}/${randomName()}.jpg`;
+      await upload(supabase, "member-photos", path, photo);
       try {
         const result = await call<{ old_path?: string | null }>(supabase, "set_my_photo", {
           p_storage_path: path,
