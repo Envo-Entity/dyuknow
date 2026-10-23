@@ -25,8 +25,8 @@ export type Member = {
   name: string;
   phone: string;
   postcode: string;
-  // Place name shown to others instead of a postcode, e.g. "Richmond upon Thames".
-  areaName?: string;
+  // Live app: the postcode exactly as the member typed it, shown as is.
+  shownPostcode?: string;
   photo: string;
   bio: string;
   roles: string[];
@@ -255,8 +255,8 @@ export const FAMILIES: Record<string, { roles: string[]; photo: string }> = {
 };
 export const SKILLS = CATALOGUE_SKILLS;
 // "TW9 1UA" → "TW9": the only part of a postcode shown before a booking.
-export function areaOf(m: Pick<Member, "postcode"> & { areaName?: string }) {
-  if (m.areaName) return m.areaName;
+export function areaOf(m: Pick<Member, "postcode"> & { shownPostcode?: string }) {
+  if (m.shownPostcode) return m.shownPostcode.trim().toUpperCase();
   const p = m.postcode.trim().toUpperCase();
   if (!p) return "";
   if (p.includes(" ")) return p.split(" ")[0];

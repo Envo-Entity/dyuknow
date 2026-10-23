@@ -1,7 +1,6 @@
 // Each tap in the live app becomes one database function call (see
 // docs/backend/00-build-brief.md → Function signatures). Refusals come back
 // as plain messages and are thrown as they are, so the screens show them.
-import { saveMyAreaName } from "./area";
 import { compressImageToJpeg } from "@/lib/image";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -276,9 +275,6 @@ export async function runLive(
       const changes = profileChanges(me, rest);
       if (Object.keys(changes).length)
         await call(supabase, "update_my_profile", { p_changes: changes });
-      // A new postcode means a new place name for others to see.
-      if (rest.postcode !== undefined && rest.postcode !== me.postcode)
-        await saveMyAreaName(supabase, rest.postcode);
       return {};
     }
     case "photo": {
