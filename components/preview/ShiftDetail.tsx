@@ -1189,7 +1189,9 @@ export function BookingDetail({ id }: { id: string }) {
                           ? venueView
                             ? "Confirms automatically after 48 hours"
                             : `${v.name} has 48 hours to confirm`
-                          : `${r.hours} hours · about £${r.pay}`}
+                          : r.status === "no-show"
+                            ? "Not paid"
+                            : `${r.hours} hours · about £${r.pay}`}
                   </small>
                 </span>
                 {venueView && r.status === "to-confirm" ? (
@@ -1210,7 +1212,9 @@ export function BookingDetail({ id }: { id: string }) {
           <p className="pv-muted">
             £{s.rate}/h · {shiftLabel(s)} · paid by {v.name}
             {worked.length
-              ? ` · ${worked.reduce((n, r) => n + r.hours, 0)} hours worked so far`
+              ? ` · ${worked.reduce((n, r) => n + r.hours, 0)} hours worked${
+                  records.some((r) => r.status === "booked" || r.status === "to-confirm") ? " so far" : ""
+                }`
               : ""}
           </p>
         </Section>

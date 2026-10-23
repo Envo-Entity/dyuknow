@@ -180,8 +180,13 @@ function Shell({ data, run, live }: { data: Data; run: Run; live?: LiveShell }) 
     [setFeedback],
   );
   const isLive = !!live;
+  // The same tap again while the first is still saving does nothing.
+  const pending = useRef(new Set<string>());
   const act = useCallback(
     async (action: AppAction, success?: string, options?: { undo?: boolean }): Promise<Data | null> => {
+      const key = JSON.stringify(action);
+      if (pending.current.has(key)) return null;
+      pending.current.add(key);
       try {
         // Undo puts back a browser snapshot, so it exists in the demo only.
         const before = options?.undo && !isLive ? latest.current : undefined;
@@ -202,6 +207,8 @@ function Shell({ data, run, live }: { data: Data; run: Run; live?: LiveShell }) 
       } catch (e) {
         setFeedback({ text: (e as Error).message, error: true });
         return null;
+      } finally {
+        pending.current.delete(key);
       }
     },
     [setFeedback, run, isLive],

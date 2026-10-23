@@ -33,6 +33,7 @@ import {
   type Message,
   type Shift,
   areaOf,
+  freeLabel,
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
@@ -465,7 +466,7 @@ export function AvailabilityEditor({ back }: { back?: string }) {
                 : a?.kind === "not-free"
                   ? "Not free"
                   : a
-                    ? `${a.start}–${a.end}`
+                    ? freeLabel(a)
                     : "Not set";
             }}
             tone={(d) => mark(d)?.kind}
@@ -605,7 +606,7 @@ export function TalentProfile({ id }: { id: string }) {
           .slice(0, 7)
           .map((a) => (
             <span key={a.date}>
-              {displayDate(a.date)} · {a.start}–{a.end}
+              {displayDate(a.date)} · {freeLabel(a)}
             </span>
           ))}
       </div>
