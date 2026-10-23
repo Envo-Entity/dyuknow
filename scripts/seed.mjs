@@ -31,19 +31,6 @@ const londonFmt = new Intl.DateTimeFormat("sv-SE", {
   minute: "2-digit",
   hourCycle: "h23",
 });
-// UK postcode -> place name (e.g. "Richmond upon Thames"); null if unknown.
-async function areaName(postcode) {
-  try {
-    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
-    if (res.ok) return (await res.json())?.result?.admin_district ?? null;
-    // Made-up postcodes: fall back to the outward part, e.g. "E8".
-    const out = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(postcode.split(" ")[0])}`);
-    return out.ok ? ((await out.json())?.result?.admin_district?.[0] ?? null) : null;
-  } catch {
-    return null;
-  }
-}
-
 function londonToday() {
   return londonFmt.format(new Date()).slice(0, 10);
 }
@@ -426,16 +413,6 @@ async function main() {
     ),
     "insert talents",
   );
-
-  // 6b. Place names shown instead of postcodes, from postcodes.io.
-  for (const p of [...VENUES, ...TALENT]) {
-    const name = await areaName(p.postcode);
-    if (!name) continue;
-    check(
-      await db.from(VENUES.includes(p) ? "venues" : "talents").update({ area_name: name }).eq("member_id", p.id),
-      `set area name for ${p.email}`,
-    );
-  }
 
   // 7. Documents: one per required type, mostly verified.
   const docRows = [];

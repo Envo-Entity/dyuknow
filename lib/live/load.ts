@@ -1,7 +1,6 @@
 // Reads everything the signed-in member may see (row-level security decides)
 // and builds the demo's Data object from it, so every helper in
 // lib/preview/model.ts keeps working unchanged.
-import { saveMyAreaName } from "./area";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   coverage,
@@ -91,10 +90,6 @@ const londonClock = new Intl.DateTimeFormat("en-GB", {
 function londonTime(instant: string) {
   return londonClock.format(new Date(instant));
 }
-// "TW9" is all others ever see of a postcode; areaOf() shows it as it is.
-function areaOnly(area: string | null) {
-  return area ?? "";
-}
 function pounds(pence: number | null | undefined) {
   return pence == null ? undefined : Math.round(pence) / 100;
 }
@@ -133,7 +128,6 @@ function verifiedAccount(labels: string[] | null): Account {
   };
 }
 
-let areaLookupStarted = false;
 export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
   const {
     data: { user },
@@ -246,7 +240,7 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
       name: t?.full_name || "",
       phone: t?.mobile_number || "",
       postcode: t?.home_postcode || "",
-      areaName: t?.area_name || undefined,
+      shownPostcode: t?.home_postcode || undefined,
       photo: photoUrl(t?.photo_path ?? null),
       bio: t?.bio || "",
       roles: t?.positions ?? [],
@@ -266,7 +260,7 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
       name: v?.display_name || "",
       phone: v?.contact_phone || "",
       postcode: v?.postcode || "",
-      areaName: v?.area_name || undefined,
+      shownPostcode: v?.postcode || undefined,
       photo: photoUrl(v?.photo_path ?? null),
       bio: v?.bio || "",
       roles: [],
@@ -284,11 +278,6 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
       account,
     };
   }
-  // Older profiles have no place name yet: look it up once in the background.
-  if (!self.areaName && self.postcode && !areaLookupStarted) {
-    areaLookupStarted = true;
-    void saveMyAreaName(supabase, self.postcode);
-  }
   const members = new Map<string, Member>([[me.id, self]]);
   for (const c of talentCards)
     if (c.member_id !== me.id)
@@ -297,8 +286,8 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
         side: "talent",
         name: c.full_name || "",
         phone: "",
-        postcode: areaOnly(c.home_area),
-        areaName: c.area_name || undefined,
+        postcode: c.postcode || "",
+        shownPostcode: c.postcode || undefined,
         photo: photoUrl(c.photo_path),
         bio: c.bio || "",
         roles: c.positions ?? [],
@@ -315,8 +304,8 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
         side: "venue",
         name: c.display_name || "",
         phone: "",
-        postcode: areaOnly(c.area),
-        areaName: c.area_name || undefined,
+        postcode: c.postcode || "",
+        shownPostcode: c.postcode || undefined,
         photo: photoUrl(c.photo_path),
         bio: c.bio || "",
         roles: [],
