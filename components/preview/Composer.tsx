@@ -6,6 +6,8 @@ import {
   londonDate,
   makeDays,
   firstName,
+  openDates,
+  datesLabel,
   joinNames,
   member,
   openAnswer,
@@ -220,7 +222,31 @@ export function ShiftComposer({
               </button>
             </p>
           ))}
-          {duplicate && (
+          {duplicate && request && openDates(data, duplicate).length > 0 ? (
+            // An open shift for these hours still needs someone: send that one
+            // instead of starting a second shift for the same place.
+            <div className="pv-warning">
+              <p>
+                Your {duplicate.roles.join(" or ")}{" "}
+                {duplicate.mode === "post" ? "job post" : "request"} for{" "}
+                {datesLabel(openDates(data, duplicate))} still needs someone. Send it to{" "}
+                {joinNames(people.map(firstName))} instead?
+              </p>
+              <div className="pv-actions">
+                <Button
+                  onClick={async () => {
+                    const ok = await act(
+                      { type: "invite", actor, shift: duplicate.id, talents: draft.to },
+                      `Sent to ${joinNames(people.map(firstName))}.`,
+                    );
+                    if (ok) go(`shift/${duplicate.id}`);
+                  }}
+                >
+                  Send that job to {joinNames(people.map(firstName))}
+                </Button>
+              </div>
+            </div>
+          ) : duplicate && (
             <p className="pv-warning">
               You already have a {duplicate.mode === "post" ? "job post" : "request"} for{" "}
               {duplicate.roles.join(" or ")} then.{" "}

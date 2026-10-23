@@ -13,6 +13,7 @@ import {
   dayRecords,
   displayDate,
   firstName,
+  joinNames,
   hoursOf,
   member,
   offeredDates,
@@ -266,8 +267,26 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
   const c = coverage(data, s);
   const status = venueSummary(data, s);
   const open = s.status === "open";
+  // People whose yes ended because the shift filled, who could cover a day
+  // that reopened: the venue can ask them again with one tap.
+  const earlier = open
+    ? ended.filter(
+        (r) =>
+          r.status === "not-selected" &&
+          (r.endReason ?? "filled") === "filled" &&
+          member(data, r.talent)?.approved !== false &&
+          availableDates(data, r.talent, s).length > 0,
+      )
+    : [];
+  const askAgain = (id: string) =>
+    act(
+      { type: "invite", actor, shift: s.id, talents: [id] },
+      `Sent to ${firstName(member(data, id))}.`,
+    );
   const endedText = (r: Response) =>
-    endedLabel(r, member(data, s.venue).name) ?? {
+    earlier.includes(r)
+      ? "Said yes earlier"
+      : endedLabel(r, member(data, s.venue).name) ?? {
       declined: "Declined",
       withdrawn: "Withdrew",
       lapsed: "Booked elsewhere",
@@ -462,7 +481,18 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
           ) : (
             <p>No replies yet.</p>
           )}
+          {earlier.length > 0 && (
+            <p className="pv-muted">
+              {joinNames(earlier.map((r) => firstName(member(data, r.talent))))}{" "}
+              said yes before it filled. Ask again and they can accept in one tap.
+            </p>
+          )}
           <div className="pv-actions">
+            {earlier.map((r) => (
+              <Button key={r.talent} onClick={() => askAgain(r.talent)}>
+                Ask {firstName(member(data, r.talent))} again
+              </Button>
+            ))}
             <Button variant="secondary" onClick={() => setModal("invite")}>
               Send to more people
             </Button>
@@ -489,6 +519,9 @@ function VenueShift({ s, readOnly }: { s: Shift; readOnly: boolean }) {
                   <>
                     {status === "Declined" && s.mode === "request" && !declinedByAll(data, s) && (
                       <Button onClick={() => go(`again/${s.id}/${id}`)}>New request</Button>
+                    )}
+                    {status === "Said yes earlier" && (
+                      <Button onClick={() => askAgain(id)}>Ask again</Button>
                     )}
                     <Button variant="secondary" onClick={() => message(id)}>
                       Message
