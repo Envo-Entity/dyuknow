@@ -482,6 +482,10 @@ export function busyDates(data: Data, talent: string, shift: Shift) {
     )
     .map((d) => d.date);
 }
+// A free day saved as midnight to midnight is the whole day.
+export function freeLabel(a: Availability) {
+  return a.start === "00:00" && a.end === "00:00" ? "All day" : `${a.start}–${a.end}`;
+}
 export function availableDates(data: Data, talent: string, shift: Shift) {
   const open = openDates(data, shift);
   return shift.days

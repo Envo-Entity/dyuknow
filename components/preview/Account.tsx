@@ -115,7 +115,7 @@ function Verification({ me }: { me: Member }) {
               <strong>{name}</strong>
               <small>
                 {rejected !== undefined
-                  ? `${rejected ? `${rejected}. ` : ""}Upload a new one.`
+                  ? `${rejected ? `${rejected.replace(/[.!\s]+$/, "")}. ` : ""}Upload a new one.`
                   : d.status === "verified"
                   ? `Checked ${d.updated ? displayDate(d.updated.slice(0, 10)) : ""}`
                   : d.status === "review"

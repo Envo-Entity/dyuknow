@@ -284,8 +284,11 @@ export function TimeSelect({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    // Near the foot of a sheet the wheels open below the fold; bring them up.
+    menu.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     const away = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
@@ -315,7 +318,7 @@ export function TimeSelect({
         <Chevron open={open} />
       </button>
       {open && (
-        <div className="pv-time-menu" role="dialog" aria-label={label}>
+        <div className="pv-time-menu" role="dialog" aria-label={label} ref={menu}>
           <div className="pv-wheels">
             <span className="pv-wheel-band" aria-hidden="true" />
             <Wheel label={`${label} hour`} items={HOURS} value={h} onChange={(x) => onChange(`${x}:${m}`)} />
