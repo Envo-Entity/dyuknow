@@ -184,11 +184,10 @@ centered serif monogram letter, `grayscale(1) contrast(1.06)` applied via the
 `.ph-mono` class. This **is** the intended aesthetic (the original brief's
 "editorial monogram fallback"), not a temporary gap — treat it as a first
 -class visual, not a loading state. When real photography is supplied, drop
-it into `PhotoTile`/`Avatar` as a background image behind the monogram layer
-and keep the same grayscale/desaturated treatment (the design brief specifies
-monochrome photography throughout; a `photoTreatment` enum — monochrome /
-desaturated / colour — existed as a design-tool knob in the original file but
-has no in-app settings UI, so we hard-code monochrome).
+it into `PhotoTile`/`Avatar` in full colour. (The original brief called for
+monochrome photography; that was dropped in Oct 2026 — real photos and
+landing imagery render in colour, with no grayscale filter. Only the monogram
+fallback keeps `.ph-mono`.)
 
 ## Component inventory
 

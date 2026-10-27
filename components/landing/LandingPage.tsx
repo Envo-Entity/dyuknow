@@ -425,7 +425,7 @@ export function LandingPage() {
             <img
               src="/assets/landing/c1.jpg"
               alt="A chef in his kitchen, mid-prep, holding up fresh pasta dough"
-              className="h-full w-full object-cover grayscale transition-[filter,transform] duration-500 hover:scale-[1.03] hover:grayscale-0"
+              className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
             />
           </div>
           <div>
@@ -551,7 +551,7 @@ export function LandingPage() {
                     src={`/assets/landing/${photo.file}`}
                     alt={isDuplicate ? "" : photo.alt}
                     aria-hidden={isDuplicate || undefined}
-                    className="h-full w-full object-cover grayscale transition-[filter,transform] duration-500 hover:scale-105 hover:grayscale-0"
+                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                   />
                 </div>
               );
