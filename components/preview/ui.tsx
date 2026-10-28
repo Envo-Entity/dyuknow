@@ -47,7 +47,8 @@ export function Photo({
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt={alt} className={`pv-photo ${className}`} />
   ) : (
-    <span className={`pv-monogram ${className}`} aria-hidden="true">
+    // No photo: the initial takes the photo's class, so it keeps the photo's size everywhere.
+    <span className={`pv-photo pv-monogram ${className}`} aria-hidden="true">
       {alt.slice(0, 1)}
     </span>
   );
