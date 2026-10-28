@@ -35,6 +35,7 @@ import {
   areaOf,
   freeLabel,
 } from "@/lib/preview/model";
+import { PhotoCropper } from "@/components/ui/PhotoCropper";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
@@ -675,6 +676,7 @@ export { VenueFacts };
 export function Profile() {
   const { actor, me, side, act, toast, go, live } = usePreview();
   const photoInput = useRef<HTMLInputElement>(null);
+  const [picked, setPicked] = useState<File | null>(null);
   const [form, setForm] = useState<Member>(() => structuredClone(me!));
   const [edit, setEdit] = useState(false);
   const v = form.venue;
@@ -732,10 +734,20 @@ export function Profile() {
                 hidden
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) act({ type: "photo", actor, file }, "Photo saved.");
+                  if (file) setPicked(file);
                   e.target.value = "";
                 }}
               />
+              {picked && (
+                <PhotoCropper
+                  file={picked}
+                  onCancel={() => setPicked(null)}
+                  onCrop={(file) => {
+                    setPicked(null);
+                    act({ type: "photo", actor, file }, "Photo saved.");
+                  }}
+                />
+              )}
             </>
           )}
         </aside>

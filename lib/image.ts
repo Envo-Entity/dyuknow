@@ -74,6 +74,41 @@ export async function compressImageToJpeg(file: File, maxBytes = MAX_COMPRESSED_
   }
 }
 
+/** Every member photo is 4:5 portrait (width / height). */
+export const PHOTO_ASPECT = 4 / 5;
+
+/** A file the browser can show in an <img>: HEIC becomes JPEG first. */
+export async function displayableImage(file: File): Promise<Blob> {
+  return isHeicFile(file) ? convertHeicToJpeg(file) : file;
+}
+
+export interface CropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Cuts `rect` (in the image's own pixels) out of the photo as a JPEG,
+ * at most 1080×1350. Callers compress it afterwards, as with any photo. */
+export async function cropImage(file: Blob, rect: CropRect): Promise<File> {
+  const { img, revoke } = await loadImage(file);
+  try {
+    const scale = Math.min(1, 1080 / rect.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(rect.width * scale);
+    canvas.height = Math.round(rect.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+    ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height, 0, 0, canvas.width, canvas.height);
+    const blob = await canvasToBlob(canvas, 0.92);
+    if (!blob) throw new Error("Could not crop image");
+    return new File([blob], "photo.jpg", { type: "image/jpeg" });
+  } finally {
+    revoke();
+  }
+}
+
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

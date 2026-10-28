@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Avatar } from "@/components/ui/Avatar";
+import { PhotoCropper } from "@/components/ui/PhotoCropper";
+import { PhotoTile } from "@/components/ui/PhotoTile";
 import { fileToDataUrl } from "@/lib/image";
 
 interface PhotoUploadStepProps {
@@ -13,9 +14,10 @@ interface PhotoUploadStepProps {
 export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [picked, setPicked] = useState<File | null>(null);
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
+  async function handleFile(file: File) {
+    setPicked(null);
     try {
       const dataUrl = await fileToDataUrl(file);
       setError(null);
@@ -30,10 +32,10 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex h-[132px] w-[132px] cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-hairline transition-colors hover:border-ink lg:h-[160px] lg:w-[160px]"
+        className="flex h-[160px] w-[128px] cursor-pointer items-center justify-center rounded-[24px] border-2 border-dashed border-hairline p-1 transition-colors hover:border-ink lg:h-[200px] lg:w-[160px]"
       >
         {photo ? (
-          <Avatar mono={mono} photoUrl={photo} size={124} />
+          <PhotoTile mono={mono} photoUrl={photo} className="h-full w-full rounded-[19px]" />
         ) : (
           <span className="px-4 text-center text-[12.5px] font-semibold leading-[1.4] text-muted lg:text-[13.5px]">
             Tap to add a photo
@@ -45,8 +47,13 @@ export function PhotoUploadStep({ mono, photo, onPhoto }: PhotoUploadStepProps) 
         type="file"
         accept="image/*,.heic,.heif"
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) setPicked(file);
+          e.target.value = "";
+        }}
       />
+      {picked && <PhotoCropper file={picked} onCancel={() => setPicked(null)} onCrop={handleFile} />}
       {error && <div className="text-[12.5px] font-semibold text-ink lg:text-[13.5px]">{error}</div>}
       <button
         type="button"

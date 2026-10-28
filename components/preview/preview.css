@@ -278,6 +278,9 @@
   object-fit: cover;
   display: block;
 }
+/* Every large photo is 4:5 portrait, on every screen and size, so a
+   member's photo looks the same wherever it appears. Small ones are 4:5
+   too, or circles cut from the middle of that same frame. */
 .pv-monogram {
   display: grid;
   place-items: center;
@@ -350,8 +353,7 @@
 }
 .pv-role-mosaic {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr;
-  grid-template-rows: 225px 225px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 .pv-role {
@@ -360,9 +362,7 @@
   position: relative;
   text-align: left;
   color: white;
-}
-.pv-role-0 {
-  grid-row: span 2;
+  aspect-ratio: 4 / 5;
 }
 .pv-role::after {
   content: "";
@@ -394,7 +394,7 @@
 }
 .pv-role h2 {
   font-family: var(--font-instrument-serif), Georgia, serif;
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1.25;
   margin: 3px 0;
 }
@@ -512,7 +512,7 @@
 }
 .pv-card-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
 }
 .pv-shift-card {
@@ -530,7 +530,8 @@
   transform: translateY(-3px);
 }
 .pv-shift-card > .pv-photo {
-  height: 210px;
+  height: auto;
+  aspect-ratio: 4 / 5;
 }
 /* No photo yet: the initial fills the photo's place, clear of the card body. */
 .pv-shift-card > .pv-monogram {
@@ -601,7 +602,8 @@
   align-items: center;
 }
 .pv-venue-card > .pv-photo {
-  height: 280px;
+  height: auto;
+  aspect-ratio: 4 / 5;
   border-radius: 25px;
 }
 .pv-venue-card h2 {
@@ -794,7 +796,7 @@
   border-bottom: 1px solid #e9ece4;
 }
 .pv-candidate > .pv-photo {
-  width: 60px;
+  width: 56px;
   height: 70px;
   flex: none;
   border-radius: 16px;
@@ -840,7 +842,7 @@
 .pv-detail-layout,
 .pv-profile-layout {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
   gap: 48px;
   align-items: start;
 }
@@ -849,7 +851,8 @@
   top: 56px;
 }
 .pv-detail-photo {
-  height: 420px;
+  height: auto;
+  aspect-ratio: 4 / 5;
   border-radius: 26px;
 }
 .pv-venue-stamp {
@@ -1006,8 +1009,8 @@
   border-bottom: 1px solid #e9ece4;
 }
 .pv-thread-row > .pv-photo {
-  width: 70px;
-  height: 78px;
+  width: 64px;
+  height: 80px;
   flex: none;
   border-radius: 20px;
 }
@@ -1041,7 +1044,8 @@
   gap: 35px;
 }
 .pv-chat-context > .pv-photo {
-  height: 210px;
+  height: auto;
+  aspect-ratio: 4 / 5;
   border-radius: 24px;
 }
 .pv-chat-context h2 {
@@ -1211,12 +1215,13 @@
 }
 .pv-profile-hero {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
   gap: 45px;
   align-items: center;
 }
 .pv-profile-hero > .pv-photo {
-  height: 430px;
+  height: auto;
+  aspect-ratio: 4 / 5;
   border-radius: 25px;
 }
 .pv-profile-hero h2 {
@@ -1602,7 +1607,17 @@
     padding-left: 146px;
   }
   .pv-role-mosaic {
-    grid-template-rows: 200px 200px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .pv-role {
+    grid-column: span 2;
+  }
+  .pv-role-0,
+  .pv-role-1 {
+    grid-column: span 3;
+  }
+  .pv-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .pv-role > div {
     left: 10px;
@@ -1713,11 +1728,13 @@
   }
   .pv-role-mosaic {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 250px 195px 195px;
     gap: 12px;
   }
+  .pv-role,
+  .pv-role-1 {
+    grid-column: span 1;
+  }
   .pv-role-0 {
-    grid-row: span 1;
     grid-column: span 2;
   }
   .pv-role > div {
@@ -1747,9 +1764,6 @@
   .pv-card-top {
     font-size: 11px;
   }
-  .pv-shift-card > .pv-photo {
-    height: 240px;
-  }
   .pv-home-controls,
   .pv-section-head {
     align-items: flex-start;
@@ -1773,9 +1787,6 @@
   .pv-venue-card {
     grid-template-columns: 1fr;
     gap: 18px;
-  }
-  .pv-venue-card > .pv-photo {
-    height: 240px;
   }
   .pv-venue-card h2 {
     font-size: 35px;
@@ -1810,15 +1821,9 @@
     position: relative;
     top: auto;
   }
-  .pv-detail-photo {
-    height: 290px;
-  }
   .pv-profile-hero {
     grid-template-columns: 1fr;
     gap: 25px;
-  }
-  .pv-profile-hero > .pv-photo {
-    height: 310px;
   }
   .pv-thread-row {
     gap: 12px;
@@ -1826,7 +1831,7 @@
   }
   .pv-thread-row > .pv-photo {
     height: 60px;
-    width: 52px;
+    width: 48px;
   }
   .pv-thread-row h2 {
     font-size: 25px;
@@ -2004,8 +2009,8 @@
   background: #eef0ea;
 }
 .pv-row > .pv-photo {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 60px;
   flex: none;
   border-radius: 14px;
   font-size: 22px;
@@ -2065,8 +2070,8 @@
   text-align: left;
 }
 .pv-next > .pv-photo {
-  width: 76px;
-  height: 76px;
+  width: 64px;
+  height: 80px;
   flex: none;
   border-radius: 18px;
 }
@@ -2276,8 +2281,8 @@
   cursor: not-allowed;
 }
 .pv-pick > .pv-photo {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 60px;
   flex: none;
   border-radius: 16px;
 }
@@ -2389,7 +2394,7 @@
 }
 .pv-response > .pv-photo {
   width: 84px;
-  height: 104px;
+  height: 105px;
   flex: none;
   border-radius: 18px;
 }
@@ -2442,8 +2447,8 @@
   margin-bottom: 14px;
 }
 .pv-confirm-person > .pv-photo {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 60px;
   flex: none;
   border-radius: 16px;
 }
@@ -2465,13 +2470,13 @@
 }
 .pv-talent-shift {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
   gap: 36px;
   align-items: start;
 }
 .pv-venue-hero {
   border-radius: 26px;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 4 / 5;
   height: auto;
 }
 .pv-eyebrow-link {
@@ -2630,8 +2635,8 @@
     font-size: 24px;
   }
   .pv-next > .pv-photo {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 70px;
   }
   /* Dialogs become bottom sheets on phones. */
   .pv-modal {
@@ -2884,8 +2889,8 @@ dl.pv-arrival > div {
 /* Public profiles are separate actions from invitation selection. */
 .pv-profile-photo-link {
   display: block;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 60px;
   flex: none;
   border-radius: 16px;
   overflow: hidden;
@@ -2940,7 +2945,7 @@ dl.pv-arrival > div {
 .pv-invite-toggle input:checked + span { background: #141712; color: #fff; border-color: #141712; }
 .pv-invite-toggle input:focus-visible + span { outline: 2px solid #3f6541; outline-offset: 4px; }
 .pv-invite-toggle:has(input:disabled) { opacity: 0.4; cursor: not-allowed; }
-.pv-response > .pv-profile-photo-link { width: 84px; height: 104px; border-radius: 18px; }
+.pv-response > .pv-profile-photo-link { width: 84px; height: 105px; border-radius: 18px; }
 .pv-booking-person { align-items: flex-start; }
 .pv-booking-person .pv-text-link { display: block; font-size: 13px; margin: 4px 0; }
 
@@ -3006,23 +3011,23 @@ dl.pv-arrival > div {
   .pv-thread-row > .pv-badge { font-size: 10px; }
   .pv-thread-row .pv-thread-action { grid-column: 3; grid-row: 2; font-size: 12px; min-height: 32px; }
   .pv-thread-row > div { grid-row: span 2; }
-  .pv-response > .pv-profile-photo-link { width: 58px; height: 72px; border-radius: 14px; }
+  .pv-response > .pv-profile-photo-link { width: 56px; height: 70px; border-radius: 14px; }
   .pv-pick { gap: 12px; padding: 16px 12px; }
   .pv-pick .pv-name-link { min-height: 36px; }
 }
 .pv-member-row .pv-name-link { font: inherit; font-weight: 600; min-height: 32px; }
 .pv-row-details { display: block; width: 100%; text-align: left; min-height: 44px; }
-.pv-member-row > .pv-profile-photo-link { width: 48px; height: 54px; border-radius: 14px; }
+.pv-member-row > .pv-profile-photo-link { width: 48px; height: 60px; border-radius: 14px; }
 .pv-thread-row > .pv-badge { margin-left: 0; }
 .pv-conversation-person .pv-text-link { padding: 0; }
 .pv-thread-action { padding: 8px 0; }
 .pv-venue-hero-link { display: block; width: 100%; text-align: left; }
 .pv-venue-hero-link .pv-venue-hero { width: 100%; }
-.pv-next > .pv-profile-photo-link { width: 72px; height: 80px; border-radius: 16px; }
+.pv-next > .pv-profile-photo-link { width: 64px; height: 80px; border-radius: 16px; }
 .pv-next .pv-name-link { font: inherit; }
 .pv-next > .pv-icon-button { flex: none; }
 @media (max-width: 760px) {
-  .pv-next > .pv-profile-photo-link { width: 64px; height: 72px; }
+  .pv-next > .pv-profile-photo-link { width: 56px; height: 70px; }
 }
 /* A team: big photo cards, status on the photo. */
 .pv-team-roles {
@@ -4075,9 +4080,6 @@ dl.pv-arrival > div {
 }
 .pv-talent-card.is-medium {
   border-radius: 20px;
-}
-.pv-talent-card.is-medium .pv-talent-card-photo {
-  aspect-ratio: 1;
 }
 .pv-talent-card.is-medium .pv-talent-card-name {
   left: 12px;
