@@ -245,6 +245,30 @@ export function ShiftCard({
     </button>
   );
 }
+// A venue on Dyuknow, hiring or not. Same card family as a shift.
+export function VenueCard({ venue, openJobs }: { venue: Member; openJobs: number }) {
+  const { go } = usePreview();
+  const kind = venue.venue ? [...venue.venue.types, ...venue.venue.cuisines].join(" · ") : "";
+  return (
+    <button className="pv-shift-card" onClick={() => go(`venue/${venue.id}`)}>
+      <Photo src={venue.photo} alt={venue.name} />
+      <div className="pv-shift-card-body">
+        <div className="pv-card-top">
+          <span>{areaOf(venue)}</span>
+          {openJobs > 0 && (
+            <Badge good>{openJobs === 1 ? "1 open job" : `${openJobs} open jobs`}</Badge>
+          )}
+        </div>
+        <h2>{venue.name}</h2>
+        {kind && <p className="pv-card-role">{kind}</p>}
+        <div className="pv-card-foot">
+          <span>See venue</span>
+          <ArrowRightIcon size={18} />
+        </div>
+      </div>
+    </button>
+  );
+}
 // A compact, comparable list row for schedules and inboxes.
 export function Row({
   photo,
