@@ -25,7 +25,7 @@ import {
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { AvailabilityEditor, VenueFacts, Verified } from "./MemberViews";
-import { DateTimeBar, TeamMosaic, savedWhen, useMessage, whenDays, whenPath } from "./Booking";
+import { DateTimeBar, TeamMosaic, savedWhen, whenDays, whenPath } from "./Booking";
 import {
   Badge,
   Button,
@@ -37,6 +37,7 @@ import {
   Row,
   Section,
   ShiftCard,
+  VenueCard,
 } from "./ui";
 
 function whenLine(data: Data, s: Shift, dates?: string[]) {
@@ -199,6 +200,15 @@ export function TalentHome() {
         availableDates(data, actor, s).length > 0,
     )
     .sort((a, b) => a.days[0].from.localeCompare(b.days[0].from));
+  // Every venue on Dyuknow, hiring or not; those hiring come first.
+  const venues = data.members
+    .filter((m) => m.side === "venue" && m.approved)
+    .map((v) => ({
+      v,
+      open: data.shifts.filter((s) => s.venue === v.id && s.mode === "post" && s.status === "open")
+        .length,
+    }))
+    .sort((a, b) => b.open - a.open || a.v.name.localeCompare(b.v.name));
   const responseRow = (r: (typeof mine)[number], status: string) => {
     const s = data.shifts.find((s) => s.id === r.shift)!;
     const v = member(data, s.venue);
@@ -263,9 +273,21 @@ export function TalentHome() {
             })}
           </div>
         ) : (
-          <Empty title="No jobs for you right now" />
+          <Empty
+            title="No open jobs in your positions right now"
+            text="Venues can still book you straight from your profile. Keep your availability up to date."
+          />
         )}
       </Section>
+      {venues.length > 0 && (
+        <Section title="Venues on Dyuknow">
+          <div className="pv-card-grid">
+            {venues.map(({ v, open }) => (
+              <VenueCard key={v.id} venue={v} openJobs={open} />
+            ))}
+          </div>
+        </Section>
+      )}
       {history > 0 && (
         <details className="pv-history">
           <summary>Past and closed ({history})</summary>
@@ -292,7 +314,6 @@ export function TalentHome() {
 }
 export function VenueDetail({ id }: { id: string }) {
   const { data, actor, side, go, profileBack } = usePreview();
-  const message = useMessage();
   const v = member(data, id);
   if (!v)
     return (
@@ -302,6 +323,10 @@ export function VenueDetail({ id }: { id: string }) {
     (s) => s.venue === id && s.mode === "post" && s.status === "open",
   );
   const bookedHere = data.bookings.some((b) => b.talent === actor && !b.cancelled && data.shifts.some((s) => s.id === b.shift && s.venue === id));
+  // Venues start conversations; talent reply once one exists.
+  const thread = data.threads.find(
+    (t) => t.venue === id && t.talent === actor && data.messages.some((m) => m.thread === t.id),
+  );
   return (
     <>
       <Heading title={v.name} description={areaOf(v)} back={profileBack} />
@@ -311,11 +336,17 @@ export function VenueDetail({ id }: { id: string }) {
           <Verified m={v} />
           {v.bio && <p>{v.bio}</p>}
           <VenueFacts v={v} />
-          {side === "talent" && (
-            <div className="pv-actions">
-              <Button onClick={() => message(v.id)}>Message {v.name}</Button>
-            </div>
-          )}
+          {side === "talent" &&
+            (thread ? (
+              <div className="pv-actions">
+                <Button onClick={() => go(`chat/${thread.id}`)}>Open conversation</Button>
+              </div>
+            ) : (
+              <p className="pv-muted pv-small">
+                Venues start conversations. Apply to an open job, or keep your availability up to
+                date so {v.name} can book you.
+              </p>
+            ))}
           {v.venue && bookedHere && (
             <dl className="pv-profile-info">
               <div><dt>Address</dt><dd>{fullAddress(v)}</dd></div>
@@ -332,7 +363,7 @@ export function VenueDetail({ id }: { id: string }) {
           ))}
         </div>
       ) : (
-        <Empty title="No open jobs here">
+        <Empty title="No open jobs here" text={`When ${v.name} posts a job, it shows here.`}>
           <Button onClick={() => go("home")}>See open jobs</Button>
         </Empty>
       )}
