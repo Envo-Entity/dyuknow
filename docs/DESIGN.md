@@ -32,8 +32,8 @@ Rejects: white list with a blue accent, gig-app urgency, dashboards, stats, mark
 - No uppercase eyebrows except `label` style for small section labels.
 
 ## Phone parts, not web parts
-- Tabs: native tabs (Liquid Glass on iOS, Material on Android). Venue's "Post a job" is the prominent tab.
-- Headers: native stack headers; large titles on tab roots that collapse on scroll.
+- Tabs: native tabs (Liquid Glass on iOS, Material on Android). Venue's "Post a job" is the prominent tab. Tab badges are ink (they all mean "waiting on you").
+- Headers: native stack headers with a small title. Native large titles render empty under native tabs in SDK 58, so tab roots show their serif page title as the first content element (`<Screen title>`), like the pass's own label.
 - Sheets: `formSheet` with detents for every self-contained task (book, which days, cancel days, confirm hours, close, send to more, crop). Android sheets have no header — render title inside.
 - Forms: grouped Settings-style rows (`FormSection` + `TextRow`, `SwitchRow`, `PickerRow`, `TimeRow`). Never boxed fields with labels above.
 - Menus: `Stack.Toolbar.Menu` for "⋯" actions.

@@ -117,7 +117,9 @@ function Navigator() {
           <Stack.Screen name="sheet/send-more" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         </Stack.Protected>
 
-        <Stack.Screen name="kit" options={{ title: 'Kit' }} />
+        <Stack.Protected guard={__DEV__}>
+          <Stack.Screen name="kit" options={{ title: 'Kit' }} />
+        </Stack.Protected>
       </Stack>
     </NavThemeProvider>
   );

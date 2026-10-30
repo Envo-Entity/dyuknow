@@ -20,6 +20,7 @@ import { useTheme } from '@/theme/useTheme';
 import { dateToHm, dateToYmd, formatDay, hmToDate, ymdToDate } from './dates';
 import { select as tick } from './haptics';
 import { Icon } from './Icon';
+import { Photo } from './Photo';
 import { SelectSheet, type SelectOption } from './SelectSheet';
 import { Text } from './Text';
 
@@ -84,9 +85,15 @@ export type TextRowProps = {
   onBlur?: () => void;
   editable?: boolean;
   autoFocus?: boolean;
+  /** Single line with the label above the input (long labels, emails, names). */
+  stacked?: boolean;
+  /** Muted text before the input ("£"). */
+  prefix?: string;
+  /** Muted text after the input ("/ hour"). */
+  suffix?: string;
 };
 
-export function TextRow({ label, value, onChangeText, placeholder, multiline, maxLength, error, editable = true, ...input }: TextRowProps) {
+export function TextRow({ label, value, onChangeText, placeholder, multiline, maxLength, error, editable = true, stacked, prefix, suffix, ...input }: TextRowProps) {
   const t = useTheme();
   const row = useRowStyle();
   const ref = useRef<TextInputInstance>(null);
@@ -134,12 +141,52 @@ export function TextRow({ label, value, onChangeText, placeholder, multiline, ma
     );
   }
 
+  const affix = (text: string | undefined) =>
+    text ? (
+      <Text variant="body" color="muted" tabular importantForAccessibility="no" accessibilityElementsHidden>
+        {text}
+      </Text>
+    ) : null;
+  const spoken = [prefix ? `${label}, ${prefix}` : label, suffix].filter(Boolean).join(' ');
+
+  if (stacked) {
+    return (
+      <View>
+        <Pressable onPress={() => ref.current?.focus()} style={{ paddingHorizontal: t.space.lg, paddingTop: t.space.sm + 2, paddingBottom: t.space.sm, gap: t.space.xxs }} accessible={false}>
+          <Text variant="subhead" color="muted">
+            {label}
+          </Text>
+          <View style={[styles.row, { gap: t.space.xs }]}>
+            {affix(prefix)}
+            <TextInput
+              ref={ref}
+              {...input}
+              value={value}
+              onChangeText={onChangeText}
+              placeholder={placeholder}
+              placeholderTextColor={t.c.faint}
+              maxLength={maxLength}
+              editable={editable}
+              accessibilityLabel={spoken}
+              accessibilityHint={error ?? undefined}
+              selectionColor={t.c.focus}
+              style={[inputStyle, { flex: 1, color: editable ? t.c.text : t.c.muted, minHeight: t.hit - 12 }]}
+            />
+            {affix(suffix)}
+          </View>
+        </Pressable>
+        {error ? <ErrorLine text={error} /> : null}
+      </View>
+    );
+  }
+
   return (
     <View>
       <Pressable onPress={() => ref.current?.focus()} style={[styles.row, row]} accessible={false}>
         <Text variant="body" numberOfLines={1} style={{ flexShrink: 0, maxWidth: '45%' }}>
           {label}
         </Text>
+        {affix(prefix)}
         <TextInput
           ref={ref}
           {...input}
@@ -149,11 +196,12 @@ export function TextRow({ label, value, onChangeText, placeholder, multiline, ma
           placeholderTextColor={t.c.faint}
           maxLength={maxLength}
           editable={editable}
-          accessibilityLabel={label}
+          accessibilityLabel={spoken}
           accessibilityHint={error ?? undefined}
           selectionColor={t.c.focus}
           style={[inputStyle, { flex: 1, textAlign: 'right', color: editable ? t.c.text : t.c.muted, minHeight: t.hit - 8 }]}
         />
+        {affix(suffix)}
       </Pressable>
       {error ? <ErrorLine text={error} /> : null}
     </View>
@@ -477,10 +525,12 @@ export type CheckRowProps = {
   disabled?: boolean;
   /** Shown as the subtitle when disabled ("Already booked"). */
   disabledReason?: string;
+  /** A person's avatar after the check (pick-people lists). */
+  photo?: { uri?: string | null; source?: number; name?: string };
 };
 
-/** Multi-select row: leading circle that fills with a check. */
-export function CheckRow({ title, subtitle, checked, onToggle, disabled, disabledReason }: CheckRowProps) {
+/** Multi-select row: leading circle that fills with a check, then an optional avatar. */
+export function CheckRow({ title, subtitle, checked, onToggle, disabled, disabledReason, photo }: CheckRowProps) {
   const t = useTheme();
   const row = useRowStyle();
   const sub = disabled && disabledReason ? disabledReason : subtitle;
@@ -497,6 +547,17 @@ export function CheckRow({ title, subtitle, checked, onToggle, disabled, disable
       style={({ pressed }) => [styles.row, row, { backgroundColor: pressed ? t.c.fill : 'transparent' }]}
     >
       <Icon name={checked ? 'checkCircle' : 'circle'} size={22} color={disabled ? 'faint' : checked ? 'ink' : 'faint'} />
+      {photo ? (
+        <Photo
+          circle
+          size={Math.round(40 * Math.min(t.scale, 1.1))}
+          uri={photo.uri}
+          source={photo.source}
+          name={photo.name ?? title}
+          accessibilityLabel=""
+          style={disabled ? { opacity: 0.5 } : undefined}
+        />
+      ) : null}
       <RowLabel label={title} subtitle={sub} color={disabled ? 'faint' : 'text'} />
     </Pressable>
   );

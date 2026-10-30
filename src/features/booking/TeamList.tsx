@@ -57,7 +57,7 @@ export function TeamList({ team, dates, time }: { team: string; dates?: string; 
     <Stack.Screen
       options={{
         title: family ? team : '',
-        headerLargeTitle: true,
+        headerLargeTitleEnabled: true,
         headerLargeTitleShadowVisible: false,
         headerLargeStyle: { backgroundColor: t.c.page },
         headerLargeTitleStyle: { fontFamily: fonts.serif, color: t.c.text },

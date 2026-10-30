@@ -8,3 +8,4 @@ export * from './upload';
 export * from './drafts';
 export * from './auth';
 export * from './store';
+export * from './gate';

@@ -12,14 +12,11 @@ export function TabStack() {
   return (
     <Stack
       screenOptions={{
-        headerLargeTitle: true,
+        headerLargeTitleEnabled: false,
         headerLargeTitleShadowVisible: false,
         headerShadowVisible: false,
-        headerTransparent: process.env.EXPO_OS === 'ios',
-        headerBlurEffect: 'systemChromeMaterial',
-        headerStyle: { backgroundColor: process.env.EXPO_OS === 'ios' ? undefined : c.page },
-        headerLargeStyle: { backgroundColor: c.page },
-        headerLargeTitleStyle: { fontFamily: fonts.serif, color: c.text },
+        headerStyle: { backgroundColor: c.page },
+        headerLargeTitleStyle: { color: c.text },
         headerTitleStyle: { fontFamily: fonts.sans, fontWeight: '600', color: c.text },
         headerTintColor: c.ink,
         contentStyle: { backgroundColor: c.page },

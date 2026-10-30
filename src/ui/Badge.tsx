@@ -14,19 +14,25 @@ export type BadgeProps = {
   /** The status word. Always a word; colour is never the only signal. */
   label: string;
   tone?: BadgeTone;
-  /** Override the tone's default symbol; `null` for word only. good defaults to a dot. */
+  /**
+   * Override the tone's default symbol. Defaults: neutral a small circle,
+   * good a sage dot, attention an hourglass, danger an alert. `null` for word
+   * only, which is for non-status labels (a count, a role), never a status.
+   */
   icon?: IconName | null;
+  /** Lines the label may wrap to; default 2. */
+  numberOfLines?: number;
   style?: ViewStyle;
 };
 
 const DEFAULT_ICON: Record<BadgeTone, IconName | 'dot' | null> = {
-  neutral: null,
+  neutral: 'circle',
   good: 'dot',
   attention: 'waiting',
   danger: 'alert',
 };
 
-export function Badge({ label, tone = 'neutral', icon, style }: BadgeProps) {
+export function Badge({ label, tone = 'neutral', icon, numberOfLines = 2, style }: BadgeProps) {
   const t = useTheme();
   const { c } = t;
   const lit = useLit();
@@ -57,7 +63,11 @@ export function Badge({ label, tone = 'neutral', icon, style }: BadgeProps) {
 
   return (
     <View
-      style={[styles.badge, { backgroundColor: bg, minHeight: h, borderRadius: t.radius.pill, paddingHorizontal: t.space.sm + 2, gap: t.space.xs + 1 }, style]}
+      style={[
+        styles.badge,
+        { backgroundColor: bg, minHeight: h, borderRadius: numberOfLines > 1 ? Math.round(h / 2) : t.radius.pill, paddingHorizontal: t.space.sm + 2, paddingVertical: t.space.xxs, gap: t.space.xs + 1 },
+        style,
+      ]}
       accessible
       accessibilityLabel={label}
     >
@@ -65,9 +75,12 @@ export function Badge({ label, tone = 'neutral', icon, style }: BadgeProps) {
         {sym === 'dot' && tone === 'good' && !icon ? (
           <View style={{ width: 6 * t.scale, height: 6 * t.scale, borderRadius: 4 * t.scale, backgroundColor: c.sageDot }} />
         ) : sym ? (
-          <Icon name={sym} size={12} color={fg} weight="semibold" />
+          // A lit neutral badge keeps the lit tint for its symbol, as its word does.
+          <LitContext.Provider value={!!fgRaw}>
+            <Icon name={sym} size={sym === 'circle' ? 10 : 12} color={fg} weight="semibold" />
+          </LitContext.Provider>
         ) : null}
-        <Text variant="footnote" weight="600" color={fg} numberOfLines={1} style={fgRaw ? { color: fgRaw } : undefined}>
+        <Text variant="footnote" weight="600" color={fg} numberOfLines={numberOfLines} style={fgRaw ? { color: fgRaw, flexShrink: 1 } : { flexShrink: 1 }}>
           {label}
         </Text>
       </LitContext.Provider>
@@ -105,6 +118,6 @@ export function CountBadge({ count, max = 9, accessibilityLabel, style }: CountB
 }
 
 const styles = StyleSheet.create({
-  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%' },
   count: { alignItems: 'center', justifyContent: 'center' },
 });

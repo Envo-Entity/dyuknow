@@ -12,11 +12,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { router } from 'expo-router';
 import { AppState } from 'react-native';
-import { unreadChat, type Data, type Member } from '@/domain';
+import { threadBetween, unreadChat, type Data, type Member } from '@/domain';
+import { holdAuth, isAuthHeld, onAuthHoldChange } from './auth';
 import { supabase } from './supabase';
 import { loadLive, type LiveSnapshot } from './load';
-import { errorMessage, isNetworkError, markConversationRead, markNotificationsRead, newClientRef } from './actions';
+import { errorMessage, isNetworkError, markConversationRead, markNotificationsRead, newClientRef, openConversation } from './actions';
 import { clearAllDrafts, writeDraft } from './drafts';
 
 export type LiveStatus = 'loading' | 'signed-out' | 'no-member' | 'admin-only' | 'ready' | 'error';
@@ -26,7 +28,21 @@ export type Badges = {
   needsYou: number;
   accountAttention: boolean;
 };
-export type RunOptions<T> = { success?: string | ((result: T) => string | undefined) };
+export type RunOptions<T> = {
+  /** The success toast (text, or from the result). None → no toast. */
+  success?: string | ((result: T) => string | undefined);
+  /**
+   * What this tap sends (ids, dates, text…). Pass it on every write: a
+   * retried tap reuses its client_ref only when key AND args match, so a
+   * retry with different choices is a new write, never a replay.
+   */
+  args?: unknown;
+  /** Also hand the error line to the caller (a sheet's inline error, §1.6.4). The toast still shows. */
+  onError?: (message: string) => void;
+  /** No commit haptic and no success toast (open_conversation, reads). Errors still toast. */
+  quiet?: boolean;
+};
+export type RunResult<T> = { ok: true; value: T } | { ok: false; error: string; offline: boolean; skipped?: boolean };
 export type Live = {
   status: LiveStatus;
   data: Data | null;
@@ -44,13 +60,21 @@ export type Live = {
   snapshot: LiveSnapshot | null;
   reload(): Promise<void>;
   /**
-   * One tap: `fn` gets a client_ref (the same one again if this key's last
-   * attempt failed for want of a connection). A second call with the same key
-   * while the first is running does nothing (resolves undefined). Shows the
-   * success line (or the error line) through `notify`, fires haptics, then
-   * reloads. Resolves the result, or undefined on failure.
+   * One tap: `fn` gets a client_ref (the same one again only if this key's
+   * last attempt failed for want of a connection AND `opts.args` is the same;
+   * always pass `args`). A second call with the same key while the first is
+   * running does nothing (resolves undefined). Shows the success line (or the
+   * error line) through `notify`, fires haptics (not with `quiet`), calls
+   * `opts.onError` on failure, then reloads. Resolves the result, or undefined
+   * on failure. `runResult` gives the error back too.
    */
   run<T>(key: string, fn: (clientRef: string) => Promise<T>, opts?: RunOptions<T>): Promise<T | undefined>;
+  /**
+   * `run`, resolving `{ ok: true, value }` or `{ ok: false, error, offline }`
+   * so a sheet can show the error inline. A tap ignored because the same key
+   * is already running resolves `{ ok: false, skipped: true, error: '' }`.
+   */
+  runResult<T>(key: string, fn: (clientRef: string) => Promise<T>, opts?: RunOptions<T>): Promise<RunResult<T>>;
   /** Quiet: marks a conversation read up to its newest message. */
   readChat(conversationId: string): Promise<void>;
   /** Quiet: marks notices read: one id, or all when omitted. */
@@ -75,6 +99,30 @@ type State = {
 };
 
 const REFRESH_MS = 60000;
+
+/** Same value → same string, whatever the key order. */
+function stableKey(value: unknown): string {
+  if (value === undefined) return '';
+  const seen = new WeakSet<object>();
+  const norm = (v: unknown): unknown => {
+    if (v && typeof v === 'object') {
+      if (seen.has(v)) return null;
+      seen.add(v);
+      if (Array.isArray(v)) return v.map(norm);
+      return Object.fromEntries(
+        Object.keys(v)
+          .sort()
+          .map((k) => [k, norm((v as Record<string, unknown>)[k])]),
+      );
+    }
+    return v;
+  };
+  try {
+    return JSON.stringify(norm(value)) ?? '';
+  } catch {
+    return String(value);
+  }
+}
 const LiveContext = createContext<Live | null>(null);
 
 function badgesOf(snap: LiveSnapshot): Badges {
@@ -125,7 +173,13 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
   }, [notify, haptic]);
 
   // One load at a time; a request during a load runs once more after it.
+  const deferred = useRef(false);
   const reload = useCallback((): Promise<void> => {
+    // A password reset is mid-way (see holdAuth): load once it is released.
+    if (isAuthHeld()) {
+      deferred.current = true;
+      return Promise.resolve();
+    }
     if (inFlight.current) {
       again.current = true;
       return inFlight.current;
@@ -178,6 +232,11 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
     void reload();
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') return;
+      // The reset screen is still saving the new password; reload on release.
+      if (isAuthHeld()) {
+        deferred.current = true;
+        return;
+      }
       if (event === 'SIGNED_OUT') {
         snap.current = null;
         setState({ status: 'signed-out', snapshot: null, isAdmin: false, error: null });
@@ -185,7 +244,15 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
       // Never call Supabase inside this callback: it runs under the auth lock.
       setTimeout(() => void reload(), 0);
     });
-    return () => data.subscription.unsubscribe();
+    const offHold = onAuthHoldChange((on) => {
+      if (on || !deferred.current) return;
+      deferred.current = false;
+      setTimeout(() => void reload(), 0);
+    });
+    return () => {
+      data.subscription.unsubscribe();
+      offHold();
+    };
   }, [reload]);
 
   const memberId = state.snapshot?.me.id;
@@ -223,39 +290,50 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
     };
   }, [memberId, reload]);
 
-  // A tap's client_ref, kept while the tap may be retried.
-  const refs = useRef(new Map<string, string>());
+  // A tap's client_ref (and what it sent), kept while the tap may be retried.
+  const refs = useRef(new Map<string, { ref: string; args: string }>());
   const pending = useRef(new Set<string>());
-  const run = useCallback(
-    async <T,>(key: string, fn: (clientRef: string) => Promise<T>, opts?: RunOptions<T>): Promise<T | undefined> => {
-      if (pending.current.has(key)) return undefined;
+  const runResult = useCallback(
+    async <T,>(key: string, fn: (clientRef: string) => Promise<T>, opts?: RunOptions<T>): Promise<RunResult<T>> => {
+      if (pending.current.has(key)) return { ok: false, error: '', offline: false, skipped: true };
       pending.current.add(key);
-      let clientRef = refs.current.get(key);
-      if (!clientRef) {
-        clientRef = newClientRef();
-        refs.current.set(key, clientRef);
-      }
+      const args = stableKey(opts?.args);
+      const kept = refs.current.get(key);
+      // Reuse only for the very same tap: same key, same args.
+      const clientRef = kept && kept.args === args ? kept.ref : newClientRef();
+      refs.current.set(key, { ref: clientRef, args });
       try {
-        const result = await fn(clientRef);
+        const value = await fn(clientRef);
         refs.current.delete(key);
-        const text = typeof opts?.success === 'function' ? opts.success(result) : opts?.success;
-        if (text) notifyRef.current(text, 'good');
-        hapticRef.current.commit();
+        if (!opts?.quiet) {
+          const text = typeof opts?.success === 'function' ? opts.success(value) : opts?.success;
+          if (text) notifyRef.current(text, 'good');
+          hapticRef.current.commit();
+        }
         await reload();
-        return result;
+        return { ok: true, value };
       } catch (e) {
         // Only a lost connection keeps the ref: the server may have saved it.
         const offline = isNetworkError(e);
         if (!offline) refs.current.delete(key);
-        notifyRef.current(errorMessage(e), 'error');
+        const message = errorMessage(e);
+        notifyRef.current(message, 'error');
         hapticRef.current.warn();
+        opts?.onError?.(message);
         if (!offline) void reload();
-        return undefined;
+        return { ok: false, error: message, offline };
       } finally {
         pending.current.delete(key);
       }
     },
     [reload],
+  );
+  const run = useCallback(
+    async <T,>(key: string, fn: (clientRef: string) => Promise<T>, opts?: RunOptions<T>): Promise<T | undefined> => {
+      const r = await runResult(key, fn, opts);
+      return r.ok ? r.value : undefined;
+    },
+    [runResult],
   );
 
   const readChat = useCallback(
@@ -294,6 +372,8 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
   }, []);
 
   const logout = useCallback(async () => {
+    holdAuth(false);
+    deferred.current = false;
     await clearAllDrafts();
     refs.current.clear();
     try {
@@ -321,13 +401,14 @@ export function LiveProvider({ children, notify, haptic }: { children: ReactNode
       snapshot: s,
       reload,
       run,
+      runResult,
       readChat,
       readNotice,
       readTarget,
       setDraft,
       logout,
     };
-  }, [state, reload, run, readChat, readNotice, readTarget, setDraft, logout]);
+  }, [state, reload, run, runResult, readChat, readNotice, readTarget, setDraft, logout]);
 
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
@@ -358,4 +439,38 @@ export function useShift(id: string | undefined) {
 export function useBooking(id: string | undefined) {
   const { data } = useLive();
   return useMemo(() => (id ? data?.bookings.find((b) => b.id === id) : undefined), [data, id]);
+}
+
+/** Pull-to-refresh for a `Screen`: `<Screen {...useRefresh()}>`. */
+export function useRefresh(): { refreshing: boolean; onRefresh: () => void } {
+  const { reload } = useLive();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    reload().finally(() => setRefreshing(false));
+  }, [reload]);
+  return { refreshing, onRefresh };
+}
+
+/**
+ * Open-thread (§7.3): `const message = useMessage(); message(otherMemberId)`.
+ * Goes straight to the existing conversation, otherwise runs
+ * open_conversation quietly (no toast, no haptic; errors still toast) and
+ * then pushes `/chat/<id>`.
+ */
+export function useMessage(): (otherMemberId: string) => Promise<void> {
+  const { data, me, side, runResult } = useLive();
+  return useCallback(
+    async (other: string) => {
+      if (!data || !me || !side) return;
+      const existing = side === 'venue' ? threadBetween(data, me.id, other) : threadBetween(data, other, me.id);
+      if (existing) {
+        router.push({ pathname: '/chat/[id]', params: { id: existing.id } });
+        return;
+      }
+      const r = await runResult(`open:${other}`, () => openConversation(other), { quiet: true, args: other });
+      if (r.ok && r.value?.conversation_id) router.push({ pathname: '/chat/[id]', params: { id: r.value.conversation_id } });
+    },
+    [data, me, side, runResult],
+  );
 }

@@ -1,5 +1,5 @@
 import { VenueTabs } from '@/features/shell/Tabs';
 
-export const unstable_settings = { initialRouteName: 'book' };
+export const unstable_settings = { anchor: 'book' };
 
 export default VenueTabs;

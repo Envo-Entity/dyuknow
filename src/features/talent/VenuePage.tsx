@@ -71,7 +71,7 @@ function Page({ data, me, v, isTalent }: { data: Data; me: Member; v: Member; is
       <Stack.Screen
         options={{
           title: v.name,
-          headerLargeTitle: true,
+          headerLargeTitleEnabled: true,
           headerLargeTitleShadowVisible: false,
           headerLargeStyle: { backgroundColor: c.page },
           headerLargeTitleStyle: { fontFamily: fonts.serif, color: c.text },

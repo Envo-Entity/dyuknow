@@ -2,7 +2,7 @@
 // publishable key only: row-level security decides what each member sees.
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, processLock } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -18,7 +18,8 @@ export const supabase = createClient(url, key, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    lock: processLock,
+    // No `lock`: supabase-js 2.118 coordinates refreshes itself (single-flight)
+    // and warns that the option is deprecated (migrations/lockless-coordination.md).
   },
 });
 

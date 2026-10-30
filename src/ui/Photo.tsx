@@ -9,7 +9,10 @@ import { Text } from './Text';
 import { LitContext } from './tone';
 
 export type PhotoProps = {
-  uri: string | null | undefined;
+  /** Remote or local image. Falls back to the monogram when empty or broken. */
+  uri?: string | null;
+  /** A bundled image (`require('…/team.jpg')`); used when `uri` is empty. */
+  source?: number;
   /** Used for the monogram initial and the spoken label. */
   name?: string;
   /** width / height. Default 4/5 portrait. Ignored when `circle`. */
@@ -31,11 +34,12 @@ function initialOf(name?: string): string {
   return n ? n[0].toUpperCase() : '·';
 }
 
-export function Photo({ uri, name, aspect = 4 / 5, radius, width, circle, size = 40, style, accessibilityLabel }: PhotoProps) {
+export function Photo({ uri, source, name, aspect = 4 / 5, radius, width, circle, size = 40, style, accessibilityLabel }: PhotoProps) {
   const t = useTheme();
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | number | null>(null);
   const [measured, setMeasured] = useState(0);
-  const showImage = !!uri && failed !== uri;
+  const key: string | number | null = uri ? uri : source ?? null;
+  const showImage = key != null && failed !== key;
 
   const box: ViewStyle = circle
     ? { width: size, height: size, borderRadius: size / 2 }
@@ -54,11 +58,11 @@ export function Photo({ uri, name, aspect = 4 / 5, radius, width, circle, size =
     >
       {showImage ? (
         <Image
-          source={{ uri }}
+          source={uri ? { uri } : source}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={t.reduceMotion ? 0 : t.motion.fast}
-          onError={() => setFailed(uri)}
+          onError={() => setFailed(key)}
           accessible={false}
         />
       ) : w > 0 ? (
@@ -78,7 +82,8 @@ export function Photo({ uri, name, aspect = 4 / 5, radius, width, circle, size =
 }
 
 export type AvatarProps = {
-  uri: string | null | undefined;
+  uri?: string | null;
+  source?: number;
   name?: string;
   size?: 28 | 40 | 56 | 96;
   style?: ViewStyle;

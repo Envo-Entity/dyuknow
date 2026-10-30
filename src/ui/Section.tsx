@@ -60,11 +60,17 @@ export function Section({ label, footer, children, separatorInset, style }: Sect
 
 export type RowProps = {
   title: string;
+  /** Title in Instrument Serif (title3), for a person's or venue's name. */
+  titleSerif?: boolean;
   subtitle?: string;
+  /** Lines the subtitle may wrap to; default 1. */
+  subtitleLines?: number;
+  /** Tabular numerals in the subtitle (times, hours, money). */
+  subtitleTabular?: boolean;
   /** Leading symbol in a soft tile. */
   icon?: IconName;
   /** Leading avatar. */
-  photo?: { uri: string | null | undefined; name?: string };
+  photo?: { uri?: string | null; source?: number; name?: string };
   /** Custom leading node (overrides icon/photo). */
   leading?: ReactNode;
   /** Muted trailing text ("3 days", "£180"). */
@@ -86,7 +92,10 @@ export type RowProps = {
 /** A list row: two lines max. Place inside `Section`. */
 export function Row({
   title,
+  titleSerif,
   subtitle,
+  subtitleLines = 1,
+  subtitleTabular,
   icon,
   photo,
   leading,
@@ -106,7 +115,7 @@ export function Row({
   const lead =
     leading ??
     (photo ? (
-      <Photo circle size={Math.round(40 * Math.min(t.scale, 1.1))} uri={photo.uri} name={photo.name} accessibilityLabel="" />
+      <Photo circle size={Math.round(40 * Math.min(t.scale, 1.1))} uri={photo.uri} source={photo.source} name={photo.name} accessibilityLabel="" />
     ) : icon ? (
       <View style={{ width: tile, height: tile, borderRadius: t.radius.sm, backgroundColor: t.c.fill, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={17} color={destructive ? 'danger' : 'text'} />
@@ -132,11 +141,11 @@ export function Row({
     >
       {lead}
       <View style={styles.main}>
-        <Text variant="body" color={destructive ? 'danger' : 'text'} numberOfLines={1}>
+        <Text variant={titleSerif ? 'title3' : 'body'} color={destructive ? 'danger' : 'text'} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="subhead" color="muted" numberOfLines={1}>
+          <Text variant="subhead" color="muted" numberOfLines={subtitleLines} tabular={subtitleTabular}>
             {subtitle}
           </Text>
         ) : null}
@@ -158,6 +167,95 @@ export function Row({
       </View>
     );
   }
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={spoken}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: !!disabled }}
+    >
+      {({ pressed }) => content(pressed)}
+    </Pressable>
+  );
+}
+
+export type DetailRowProps = {
+  /** Small muted label on top ("Address", "Mon 28 Sept"). */
+  label: string;
+  /** The value under it; wraps (up to `numberOfLines`, default no limit). */
+  value: string;
+  /** Tabular numerals in the value (times, hours, money). */
+  tabular?: boolean;
+  numberOfLines?: number;
+  /** Custom trailing node, e.g. a Badge. Shown before the chevron. */
+  trailing?: ReactNode;
+  onPress?: () => void;
+  /** Defaults to true when onPress is set. */
+  chevron?: boolean;
+  /** Value in danger colour. */
+  destructive?: boolean;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  style?: ViewStyle;
+};
+
+/**
+ * A Section row for facts: label above a value that may wrap ("17:00–23:00 ·
+ * 6.25 hours · £112.50", an address, a note). Use `Row` for lists of things.
+ */
+export function DetailRow({
+  label,
+  value,
+  tabular,
+  numberOfLines,
+  trailing,
+  onPress,
+  chevron,
+  destructive,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+}: DetailRowProps) {
+  const t = useTheme();
+  const spoken = accessibilityLabel ?? `${label}, ${value}`;
+  const showChevron = chevron ?? !!onPress;
+  const content = (pressed: boolean) => (
+    <View
+      style={[
+        styles.row,
+        {
+          minHeight: t.hit + 8 * t.scale,
+          paddingHorizontal: t.space.lg,
+          paddingVertical: t.space.sm + 3,
+          gap: t.space.md,
+          backgroundColor: pressed ? t.c.fill : 'transparent',
+          opacity: disabled ? 0.42 : 1,
+        },
+        style,
+      ]}
+    >
+      <View style={[styles.main, { gap: 2 }]}>
+        <Text variant="subhead" color="muted">
+          {label}
+        </Text>
+        <Text variant="body" color={destructive ? 'danger' : 'text'} tabular={tabular} numberOfLines={numberOfLines}>
+          {value}
+        </Text>
+      </View>
+      {trailing}
+      {showChevron ? <Icon name="forward" size={13} color="faint" weight="semibold" /> : null}
+    </View>
+  );
+  if (!onPress)
+    return (
+      <View accessible accessibilityLabel={spoken}>
+        {content(false)}
+      </View>
+    );
   return (
     <Pressable
       onPress={onPress}

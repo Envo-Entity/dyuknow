@@ -195,7 +195,7 @@ export function WaitingForApproval({ action, style }: { action?: EmptyProps['act
     <Empty
       icon="waiting"
       title="Waiting for approval"
-      message="Dyuknow is checking your profile. We'll let you know here when you're approved."
+      message="Dyuknow is checking your profile. We’ll let you know here when you’re approved."
       action={action}
       style={style}
     />

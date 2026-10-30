@@ -22,8 +22,10 @@ function SideTabs({ tabs }: { tabs: Tab[] }) {
       tintColor={ink ?? c.ink}
       labelStyle={{ selected: { color: ink ?? c.ink } }}
       backgroundColor={Platform.OS === 'android' ? c.card : undefined}
-      indicatorColor={Platform.OS === 'android' ? c.sageSoft : undefined}
-      badgeBackgroundColor={c.danger}
+      indicatorColor={Platform.OS === 'android' ? c.neutralBg : undefined}
+      // Every tab badge means "waiting on you", so it is ink, like a lit ticket.
+      badgeBackgroundColor={ink ?? c.ink}
+      badgeTextColor={c.onInk}
       minimizeBehavior="onScrollDown">
       {tabs.map((tab) => {
         const icon = icons[tab.icon];

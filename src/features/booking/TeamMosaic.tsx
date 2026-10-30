@@ -50,7 +50,9 @@ export function TeamMosaic({
                 accessibilityLabel={`${name}, ${text}`}
                 style={({ pressed }) => ({
                   width: first ? width : small,
-                  aspectRatio: 4 / 5,
+                  // Explicit heights: aspectRatio inside a wrapping row collapses to zero on iOS.
+                  // The lead tile is wide and as tall as a 4:5 small tile, so the grid fits one screen.
+                  height: first ? small * 1.05 : small * 1.25,
                   borderRadius: first ? t.radius.card : t.radius.lg,
                   overflow: 'hidden',
                   backgroundColor: t.c.monoBg,

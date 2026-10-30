@@ -2,9 +2,10 @@ import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { GestureDetector, usePanGesture, usePinchGesture, useSimultaneousGestures } from 'react-native-gesture-handler';
+import { Modal, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import { GestureDetector, GestureHandlerRootView, usePanGesture, usePinchGesture, useSimultaneousGestures } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -12,6 +13,7 @@ import { useTheme } from '@/theme/useTheme';
 import { Button } from './Button';
 import { Notice } from './States';
 import { Text } from './Text';
+import { ToastHost } from './Toast';
 import { alpha } from './tone';
 
 export type PickedPhoto = { uri: string; width: number; height: number };
@@ -185,6 +187,65 @@ export function PhotoCropper({ uri, width, height, onDone, onCancel, aspect = 4 
         <Button label="Use photo" size="large" fullWidth style={{ flex: 1.4 }} onPress={confirm} loading={busy} />
       </View>
     </View>
+  );
+}
+
+/* ------------------------------------------------------------------ PhotoCropModal */
+
+export type PhotoCropModalProps = {
+  /** The picked photo to crop; the modal shows while this is set (and `visible` isn't false). */
+  photo: PickedPhoto | null;
+  visible?: boolean;
+  onDone: (photo: PickedPhoto) => void;
+  onCancel: () => void;
+  /** Default "Position your photo". */
+  title?: string;
+  aspect?: number;
+  hint?: string;
+  maxWidth?: number;
+  quality?: number;
+};
+
+/**
+ * `PhotoCropper` in a full-screen modal with its title, gestures and toasts
+ * working on both platforms. Typical use: `pickPhoto()` → set `photo` → upload in `onDone`.
+ */
+export function PhotoCropModal({ photo, visible = true, onDone, onCancel, title = 'Position your photo', aspect, hint, maxWidth, quality }: PhotoCropModalProps) {
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const open = visible && !!photo;
+  return (
+    <Modal
+      visible={open}
+      presentationStyle="fullScreen"
+      animationType={t.reduceMotion ? 'fade' : 'slide'}
+      onRequestClose={onCancel}
+      statusBarTranslucent={Platform.OS === 'android'}
+      navigationBarTranslucent={Platform.OS === 'android'}
+    >
+      {/* Gestures need their own root inside a Modal on Android. */}
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.c.page }}>
+        <View style={{ flex: 1, paddingTop: insets.top + t.space.lg, paddingBottom: insets.bottom }}>
+          <Text variant="title" center accessibilityRole="header" style={{ paddingHorizontal: gutter }}>
+            {title}
+          </Text>
+          {photo ? (
+            <PhotoCropper
+              uri={photo.uri}
+              width={photo.width}
+              height={photo.height}
+              onDone={onDone}
+              onCancel={onCancel}
+              aspect={aspect}
+              hint={hint}
+              maxWidth={maxWidth}
+              quality={quality}
+            />
+          ) : null}
+        </View>
+        <ToastHost />
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
 

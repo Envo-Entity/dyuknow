@@ -25,6 +25,36 @@ export const AUTH_MESSAGES = {
   samePassword: 'Choose a password you haven’t used here before.',
 } as const;
 
+// ---------------------------------------------------------------------------
+// Auth hold. Verifying a reset code signs the member in before the new
+// password is saved; LiveProvider would then reload, the root guard would
+// leave the auth screens, and the reset screen would unmount mid-save. While
+// held, LiveProvider ignores sign-in changes and defers reloads; releasing
+// the hold reloads once.
+// ---------------------------------------------------------------------------
+let held = false;
+const holdListeners = new Set<(held: boolean) => void>();
+
+/** Hold (true) or release (false) auth-driven status changes. Releasing reloads the store. */
+export function holdAuth(on: boolean) {
+  if (held === on) return;
+  held = on;
+  for (const l of holdListeners) l(on);
+}
+export function isAuthHeld() {
+  return held;
+}
+/** LiveProvider's subscription. Returns the unsubscribe. */
+export function onAuthHoldChange(listener: (held: boolean) => void) {
+  holdListeners.add(listener);
+  return () => {
+    holdListeners.delete(listener);
+  };
+}
+// The email whose reset code was verified while the new password failed to
+// save: a retry with another password skips the (now used) code.
+let verifiedResetEmail: string | null = null;
+
 export function looksLikeEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -75,6 +105,8 @@ async function guard(work: () => Promise<AuthResult>): Promise<AuthResult> {
  * { ok: true, stage: 'signup-code' } (show the code screen, start the resend timer).
  */
 export function signIn(email: string, password: string) {
+  holdAuth(false);
+  verifiedResetEmail = null;
   return guard(async () => {
     const clean = cleanEmail(email);
     if (!looksLikeEmail(clean)) return fail(AUTH_MESSAGES.badEmail);
@@ -96,6 +128,8 @@ export function signIn(email: string, password: string) {
  * code is entered: { ok: true, stage: 'signup-code' }. With a session: { ok: true }.
  */
 export function signUp(email: string, password: string, confirm: string) {
+  holdAuth(false);
+  verifiedResetEmail = null;
   return guard(async () => {
     const clean = cleanEmail(email);
     if (!looksLikeEmail(clean)) return fail(AUTH_MESSAGES.badEmail);
@@ -110,6 +144,8 @@ export function signUp(email: string, password: string, confirm: string) {
 
 /** The 6-digit sign-up code. Signed in on { ok: true }. */
 export function verifySignupCode(email: string, code: string) {
+  holdAuth(false);
+  verifiedResetEmail = null;
   return guard(async () => {
     const token = cleanCode(code);
     if (token.length !== CODE_LENGTH) return fail(AUTH_MESSAGES.wrongCode);
@@ -138,6 +174,7 @@ export function resendSignupCode(email: string, stage: 'signup-code' | 'reset-co
  * can't be used to find out who is on Dyuknow.
  */
 export function requestPasswordReset(email: string) {
+  verifiedResetEmail = null;
   return guard(async () => {
     const clean = cleanEmail(email);
     if (!looksLikeEmail(clean)) return fail(AUTH_MESSAGES.badEmail);
@@ -147,29 +184,56 @@ export function requestPasswordReset(email: string) {
   });
 }
 
-/** The reset code plus a new password. Signed in on { ok: true }. */
+/**
+ * The reset code plus a new password. Signed in on { ok: true }.
+ * Holds auth (`holdAuth`) for the whole call so the reset screen stays
+ * mounted: a wrong code releases it; a password the server refuses keeps
+ * the hold (the member stays on this screen, and a retry skips the used
+ * code); success releases it, which reloads the store and moves on.
+ * Leaving the screen without succeeding: call `holdAuth(false)`.
+ */
 export function verifyResetAndSetPassword(email: string, code: string, password: string, confirm: string) {
   return guard(async () => {
+    const clean = cleanEmail(email);
     const token = cleanCode(code);
-    if (token.length !== CODE_LENGTH) return fail(AUTH_MESSAGES.wrongCode);
+    const verified = verifiedResetEmail === clean;
+    if (!verified && token.length !== CODE_LENGTH) return fail(AUTH_MESSAGES.wrongCode);
     const bad = checkNewPassword(password, confirm);
     if (bad) return fail(bad);
-    const { error: v } = await supabase.auth.verifyOtp({ email: cleanEmail(email), token, type: 'recovery' });
-    if (v) return fail(codeMessage(v), v);
-    const { error: u } = await supabase.auth.updateUser({ password });
-    if (u)
-      return fail(
-        u.code === 'same_password'
-          ? AUTH_MESSAGES.samePassword
-          : u.code === 'weak_password'
-            ? AUTH_MESSAGES.weakPassword
-            : AUTH_MESSAGES.noConnection,
-        u,
-      );
-    return { ok: true };
+    holdAuth(true);
+    let ok = false;
+    try {
+      if (!verified) {
+        const { error: v } = await supabase.auth.verifyOtp({ email: clean, token, type: 'recovery' });
+        if (v) {
+          holdAuth(false);
+          return fail(codeMessage(v), v);
+        }
+        verifiedResetEmail = clean;
+      }
+      const { error: u } = await supabase.auth.updateUser({ password });
+      if (u)
+        return fail(
+          u.code === 'same_password'
+            ? AUTH_MESSAGES.samePassword
+            : u.code === 'weak_password'
+              ? AUTH_MESSAGES.weakPassword
+              : AUTH_MESSAGES.noConnection,
+          u,
+        );
+      ok = true;
+      verifiedResetEmail = null;
+      return { ok: true };
+    } finally {
+      // Release on success; a thrown network error after a verified code keeps
+      // the hold like a refused password, so the member can retry here.
+      if (ok || verifiedResetEmail !== clean) holdAuth(false);
+    }
   });
 }
 
 export async function signOut() {
+  holdAuth(false);
+  verifiedResetEmail = null;
   await supabase.auth.signOut();
 }
