@@ -1,151 +1,17 @@
-// Small onboarding parts the kit doesn't have yet (kit candidates): a round
-// icon button, the step footer with its reason underneath, a stacked text
-// field for long labels, chip sections and the "add your own" row.
+// Small onboarding parts the kit doesn't have (kit candidates): chip
+// sections, the "add your own" row and the custom chips; plus the copies of
+// picked files that a draft keeps on the device.
 import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useRef, useState, type ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View, type KeyboardTypeOptions, type TextInputInstance, type TextInputProps } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { fonts } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { Button, Chip, ChipGroup, Icon, Section, Text, TextRow, haptics, type ButtonProps, type IconName } from '@/ui';
+import { Button, Chip, ChipGroup, Section, haptics, type ButtonProps } from '@/ui';
 
-const GLASS = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
-/* ------------------------------------------------------------------ RoundButton */
-
-export function RoundButton({ icon, label, onPress, hidden }: { icon: IconName; label: string; onPress: () => void; hidden?: boolean }) {
-  const t = useTheme();
-  const size = Math.round(40 * t.scale);
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={hidden}
-      hitSlop={(t.hit - size) / 2 + 2}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityElementsHidden={hidden}
-      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      style={({ pressed }) => ({
-        width: t.hit,
-        height: t.hit,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: hidden ? 0 : 1,
-        transform: [{ scale: pressed && !t.reduceMotion ? 0.94 : 1 }],
-      })}
-    >
-      {({ pressed }) => (
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: pressed ? t.c.borderStrong : t.c.card,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: t.c.border,
-          }}
-        >
-          <Icon name={icon} size={16} weight="semibold" />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-/* ------------------------------------------------------------------ StepFooter */
-
+/** What the step footer's one button does (StickyAction's primary). */
 export type StepAction = Omit<ButtonProps, 'variant' | 'size' | 'fullWidth'>;
-
-/** StickyAction's look, with room for a reason of any length under the button. */
-export function StepFooter({ primary, reason }: { primary: StepAction; reason?: string | null }) {
-  const t = useTheme();
-  const insets = useSafeAreaInsets();
-  const content = (
-    <View style={{ paddingHorizontal: t.space.lg, paddingTop: t.space.md, paddingBottom: insets.bottom + t.space.md, gap: t.space.sm }}>
-      <Button {...primary} variant="primary" size="large" fullWidth accessibilityHint={reason ?? primary.accessibilityHint} />
-      {reason ? (
-        <Animated.View entering={FadeIn.duration(t.motion.fast)} exiting={FadeOut.duration(t.motion.fast)}>
-          <Text variant="footnote" color="muted" center accessibilityLiveRegion="polite">
-            {reason}
-          </Text>
-        </Animated.View>
-      ) : null}
-    </View>
-  );
-  if (GLASS) {
-    return (
-      <View>
-        <GlassView glassEffectStyle="regular" colorScheme={t.scheme} style={StyleSheet.absoluteFill} />
-        {content}
-      </View>
-    );
-  }
-  return <View style={{ backgroundColor: t.c.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.c.border }}>{content}</View>;
-}
-
-/* ------------------------------------------------------------------ Field */
-
-type FieldProps = {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-  keyboardType?: KeyboardTypeOptions;
-  autoCapitalize?: TextInputProps['autoCapitalize'];
-  autoComplete?: TextInputProps['autoComplete'];
-  textContentType?: TextInputProps['textContentType'];
-  /** Shown before the value ("£"). */
-  prefix?: string;
-  editable?: boolean;
-};
-
-/**
- * A form row inside a Section. Short labels sit inline (the kit's TextRow);
- * long ones sit above the input so they never truncate.
- */
-export function Field({ label, value, onChangeText, prefix, ...rest }: FieldProps) {
-  const t = useTheme();
-  const ref = useRef<TextInputInstance>(null);
-  const stacked = label.length > 16 || !!prefix;
-  if (!stacked) return <TextRow label={label} value={value} onChangeText={onChangeText} returnKeyType="done" {...rest} />;
-  const font = t.text('body');
-  return (
-    <Pressable
-      onPress={() => ref.current?.focus()}
-      accessible={false}
-      style={{ paddingHorizontal: t.space.lg, paddingTop: t.space.sm + 2, paddingBottom: t.space.sm + 2, gap: t.space.xxs, minHeight: t.hit + 4 }}
-    >
-      <Text variant="subhead" color="muted">
-        {label}
-      </Text>
-      <View style={styles.inputRow}>
-        {prefix ? (
-          <Text variant="body" color={value ? 'text' : 'faint'} style={{ marginRight: t.space.xxs }}>
-            {prefix}
-          </Text>
-        ) : null}
-        <TextInput
-          ref={ref}
-          value={value}
-          onChangeText={onChangeText}
-          placeholderTextColor={t.c.faint}
-          selectionColor={t.c.focus}
-          accessibilityLabel={label}
-          returnKeyType="done"
-          {...rest}
-          editable={rest.editable ?? true}
-          style={[font, { fontFamily: fonts.sans, color: rest.editable === false ? t.c.muted : t.c.text, paddingVertical: 0, flex: 1 }]}
-        />
-      </View>
-    </Pressable>
-  );
-}
 
 /* ------------------------------------------------------------------ ChipField */
 
@@ -243,37 +109,36 @@ export function CustomChips({ values, onRemove }: { values: string[]; onRemove: 
   );
 }
 
-/** A plain heading for a group of Sections ("Recent employers"). */
-export function GroupHeading({ title, tag, children }: { title: string; tag?: ReactNode; children?: ReactNode }) {
-  const t = useTheme();
-  return (
-    <View style={{ gap: t.space.xs, paddingHorizontal: t.space.xs }}>
-      <View style={[styles.inputRow, { gap: t.space.sm }]}>
-        <Text variant="title3" accessibilityRole="header">
-          {title}
-        </Text>
-        {tag}
-      </View>
-      {children}
-    </View>
-  );
-}
-
 /* ------------------------------------------------------------------ files */
 
 /**
  * Copies a picked file out of the cache into the app's documents, so a draft
  * left for days still has its photo and documents. Falls back to the original.
  */
+const keptDir = () => new Directory(Paths.document, 'join');
+
 export function keepFile(uri: string, ext: string): string {
   try {
-    const dir = new Directory(Paths.document, 'join');
+    const dir = keptDir();
     if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
     const dest = new File(dir, `${randomUUID()}.${ext}`);
     new File(uri).copySync(dest);
     return dest.uri;
   } catch {
     return uri;
+  }
+}
+
+/**
+ * Deletes every file `keepFile` copied (after a successful submit, and on log
+ * out from "Who are you?"): the drafts that pointed at them are gone too.
+ */
+export function clearKeptFiles() {
+  try {
+    const dir = keptDir();
+    if (dir.exists) dir.delete();
+  } catch {
+    // Nothing to clean up.
   }
 }
 

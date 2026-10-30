@@ -1,16 +1,16 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { useState } from 'react';
-import { ActionSheetIOS, Alert, Linking, Platform, View } from 'react-native';
+import { useRef, useState, type ReactNode } from 'react';
+import { ActionSheetIOS, Alert, Linking, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
 
-import { keepMyAccount, requestAccountDeletion, saveDocument, updateMySettings, useLive } from '@/data';
+import { keepMyAccount, LiveGate, requestAccountDeletion, saveDocument, updateMySettings, useLive, useRefresh } from '@/data';
 import { accountOf, clockLabel, displayDate, SHIFT_ALERTS, type DocStatus, type Member, type ShiftAlert, type UploadedFile } from '@/domain';
+import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import {
   Badge,
   Button,
-  ErrorState,
   haptics,
-  Loading,
+  KeyboardSpacer,
   pickPhoto,
   Row,
   Screen,
@@ -18,6 +18,7 @@ import {
   Segmented,
   SelectSheet,
   Text,
+  TextLink,
   useToast,
   type BadgeTone,
   type IconName,
@@ -26,27 +27,57 @@ import {
 const HELP_PHONE = '+44 20 7946 0000';
 const HELP_EMAIL = 'help@dyuknow.example';
 
+type Jump = 'Verification' | 'Notifications' | 'Help' | 'Account';
+const JUMPS: Jump[] = ['Verification', 'Notifications', 'Help', 'Account'];
+
 /** Account: documents, alerts, text size, help, and the account itself (§7.7). */
 export function Account() {
-  const { me, reload, error } = useLive();
-  const [refreshing, setRefreshing] = useState(false);
-  if (!me) {
-    return (
-      <Screen>{error ? <ErrorState message={error} onRetry={reload} /> : <Loading variant="rows" count={4} />}</Screen>
-    );
-  }
-  const refresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
   return (
-    <Screen gap="xxl" onRefresh={refresh} refreshing={refreshing}>
-      <Verification me={me} />
-      <Notifications me={me} />
-      <TextSize />
-      <Help />
-      <AccountDetails me={me} />
+    <LiveGate approval={false} loading={{ variant: 'rows', count: 4 }}>
+      {({ me }) => <AccountView me={me} />}
+    </LiveGate>
+  );
+}
+
+function AccountView({ me }: { me: Member }) {
+  const t = useTheme();
+  const { refreshing, onRefresh } = useRefresh();
+  // The jump index scrolls to a card, so this screen keeps its own scroll view.
+  const scroll = useRef<ScrollViewInstance>(null);
+  const tops = useRef<Partial<Record<Jump, number>>>({});
+  const at = (jump: Jump, child: ReactNode) => (
+    <View onLayout={(e) => (tops.current[jump] = e.nativeEvent.layout.y)}>{child}</View>
+  );
+  const jumpTo = (jump: Jump) => {
+    const y = tops.current[jump];
+    if (y != null) scroll.current?.scrollTo({ y: Math.max(0, y - t.space.md), animated: !t.reduceMotion });
+  };
+
+  return (
+    <Screen scroll={false} padded={false} contentStyle={{ paddingTop: 0, paddingBottom: 0 }}>
+      <ScrollView
+        ref={scroll}
+        style={{ flex: 1, backgroundColor: t.c.page }}
+        contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: t.space.md, paddingBottom: t.space.xxxl, gap: t.space.xxl }}
+        contentInsetAdjustmentBehavior="automatic"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.c.muted} colors={[t.c.ink]} progressBackgroundColor={t.c.card} />}
+      >
+        <View
+          style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: t.space.lg, paddingHorizontal: t.space.xs, marginBottom: -t.space.sm }}
+          accessibilityRole="toolbar"
+          accessibilityLabel="Jump to"
+        >
+          {JUMPS.map((j) => (
+            <TextLink key={j} label={j} variant="subhead" color="muted" onPress={() => jumpTo(j)} accessibilityHint={`Scrolls to ${j}`} />
+          ))}
+        </View>
+        {at('Verification', <Verification me={me} />)}
+        {at('Notifications', <Notifications me={me} />)}
+        <TextSize />
+        {at('Help', <Help />)}
+        {at('Account', <AccountDetails me={me} />)}
+        {Platform.OS === 'android' ? <KeyboardSpacer /> : null}
+      </ScrollView>
     </Screen>
   );
 }
@@ -58,7 +89,7 @@ type DocState = { detail: string; badge: string; tone: BadgeTone; icon?: IconNam
 function docState(status: DocStatus, rejected: string | undefined, d: { file?: string; updated?: string }): DocState {
   if (rejected !== undefined) {
     const reason = rejected.replace(/[.!\s]+$/, '');
-    return { detail: `${reason ? `${reason}. ` : ''}Upload a new one.`, badge: 'Not accepted', tone: 'danger', action: 'Replace' };
+    return { detail: `${reason ? `${reason}. ` : ''}Upload a new one.`, badge: 'Not accepted', tone: 'attention', icon: 'alert', action: 'Replace' };
   }
   if (status === 'verified')
     return { detail: `Checked ${d.updated ? displayDate(d.updated.slice(0, 10)) : ''}`.trim(), badge: 'Verified', tone: 'good', action: 'Replace' };
@@ -135,6 +166,7 @@ function Verification({ me }: { me: Member }) {
     setBusy(label);
     await run(`doc:${label}`, () => saveDocument(userId, snapshot?.docCodes[label], file), {
       success: `${label} sent to Dyuknow to check.`,
+      args: { label, uri: file.uri },
     });
     setBusy(null);
   };
@@ -153,14 +185,14 @@ function Verification({ me }: { me: Member }) {
           >
             <View style={{ flex: 1, gap: t.space.xs }} accessible accessibilityLabel={`${label}, ${s.badge}. ${s.detail}`}>
               <Text variant="body">{label}</Text>
-              <Text variant="subhead" color="muted" numberOfLines={2}>
+              <Text variant="subhead" color="muted">
                 {s.detail}
               </Text>
               <Badge label={s.badge} tone={s.tone} icon={s.icon} style={{ alignSelf: 'flex-start', marginTop: t.space.xxs }} />
             </View>
             <Button
               label={s.action}
-              variant={s.action === 'Upload' ? 'primary' : 'secondary'}
+              variant="secondary"
               icon="upload"
               loading={busy === label}
               disabled={!!busy}
@@ -180,12 +212,20 @@ function Notifications({ me }: { me: Member }) {
   const { run } = useLive();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<ShiftAlert | null>(null);
-  const footer = 'Notices show in the app. Push notifications aren’t available yet.';
+  const t = useTheme();
+  const notice = 'Notices show in the app, on the bell.';
+  const push = 'Push notifications aren’t available yet.';
 
+  // Venues have no settings here: the two lines sit in the card itself.
   if (me.side !== 'talent') {
     return (
-      <Section label="Notifications" footer={footer}>
-        {[]}
+      <Section label="Notifications">
+        <View style={{ padding: t.space.lg, gap: t.space.xs }}>
+          <Text variant="body">{notice}</Text>
+          <Text variant="subhead" color="muted">
+            {push}
+          </Text>
+        </View>
       </Section>
     );
   }
@@ -195,12 +235,15 @@ function Notifications({ me }: { me: Member }) {
     setOpen(false);
     if (next === me.alert) return;
     setPending(next);
-    await run('alerts', () => updateMySettings(next), { success: 'Saved.' });
+    await run('alerts', () => updateMySettings(next), { success: 'Saved.', args: next });
     setPending(null);
   };
   return (
-    <Section label="Notifications" footer={footer}>
-      <Row icon="bell" title="New job posts" subtitle="In your positions" value={current?.label} onPress={() => setOpen(true)} />
+    <>
+      <Section label="Notifications" footer={`${notice}\n${push}`}>
+        <Row icon="bell" title="New job posts" subtitle="In your positions" value={current?.label} onPress={() => setOpen(true)} />
+      </Section>
+      {/* Outside the Section, so it draws no stray hairline. */}
       <SelectSheet
         visible={open}
         title="New job posts"
@@ -209,7 +252,7 @@ function Notifications({ me }: { me: Member }) {
         onSelect={(v) => void choose(v)}
         onClose={() => setOpen(false)}
       />
-    </Section>
+    </>
   );
 }
 
@@ -260,12 +303,12 @@ function AccountDetails({ me }: { me: Member }) {
         {
           text: 'Request deletion',
           style: 'destructive',
-          onPress: () => void run('delete-account', () => requestAccountDeletion(), { success: 'Deletion requested.' }),
+          onPress: () => void run('delete-account', () => requestAccountDeletion(), { success: 'Deletion requested.', args: me.id }),
         },
       ],
     );
   };
-  const keep = () => void run('keep-account', () => keepMyAccount(), { success: 'Deletion request withdrawn.' });
+  const keep = () => void run('keep-account', () => keepMyAccount(), { success: 'Deletion request withdrawn.', args: me.id });
 
   return (
     <Section

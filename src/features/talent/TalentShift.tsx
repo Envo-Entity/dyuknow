@@ -1,18 +1,21 @@
 // A shift as the talent sees it (§6.1, web TalentShift in ShiftDetail.tsx).
 // Rendered by agent F's shift/[id] route when the member is talent.
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
-import { declineRequest, sayYes, sayYesMessage, useLive, withdrawYes } from '@/data';
+import { declineRequest, LiveGate, sayYes, sayYesMessage, useLive, useMessage, withdrawYes } from '@/data';
 import {
   areaOf,
   bookableDates,
   datesLabel,
   displayDate,
   fullAddress,
+  hoursLabel,
+  money,
   serviceLabel,
   shiftLabel,
+  whenLine,
   type Data,
   type Member,
   type Shift,
@@ -22,9 +25,7 @@ import {
   Badge,
   Button,
   Empty,
-  ErrorState,
   KeyValue,
-  Loading,
   Notice,
   Photo,
   Row,
@@ -32,14 +33,14 @@ import {
   Section,
   StickyAction,
   Text,
+  TextLink,
   Ticket,
   type BadgeProps,
   type ButtonProps,
   type IconName,
 } from '@/ui';
 
-import { pounds, talentShiftState, venueKinds, whenLine, type TalentShiftState } from './logic';
-import { TextLink, useMessageVenue } from './parts';
+import { talentShiftState, venueKinds, type TalentShiftState } from './logic';
 
 /** How long the button shows its check before the screen moves on. */
 const DONE_MS = 900;
@@ -51,42 +52,32 @@ type Bar = { note?: Note; primary?: Action; secondary?: Action; quiet?: Action; 
 type Slot = 'primary' | 'secondary';
 
 export function TalentShift({ id }: { id: string }) {
-  const { data, me, status, error, reload, readTarget } = useLive();
-  const s = data?.shifts.find((x) => x.id === id);
-
-  // Opening a shift reads the notices that point at it (§1.5).
-  const found = !!s;
-  useEffect(() => {
-    if (found) void readTarget(`shift/${id}`);
-  }, [id, found, readTarget]);
-
-  if (!data || !me) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Screen>
-          {status === 'error' ? <ErrorState message={error ?? 'Couldn’t load Dyuknow.'} onRetry={() => void reload()} /> : <Loading count={2} />}
-        </Screen>
-      </>
-    );
-  }
-  if (!s) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Screen>
-          <Empty icon="shifts" title="Shift not found" action={{ label: 'Go home', onPress: () => router.navigate('/t/shifts') }} />
-        </Screen>
-      </>
-    );
-  }
-  return <Detail data={data} me={me} s={s} />;
+  // The route (shift/[id]) marks this shift's notices read (§1.5).
+  const header = <Stack.Screen options={{ title: '' }} />;
+  return (
+    <LiveGate header={header} approval={false} loading={{ count: 2 }}>
+      {({ data, me }) => {
+        const s = data.shifts.find((x) => x.id === id);
+        if (!s) {
+          return (
+            <>
+              {header}
+              <Screen>
+                <Empty icon="shifts" title="Shift not found" action={{ label: 'Go home', onPress: () => router.navigate('/t/shifts') }} />
+              </Screen>
+            </>
+          );
+        }
+        return <Detail data={data} me={me} s={s} />;
+      }}
+    </LiveGate>
+  );
 }
 
 function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
   const t = useTheme();
   const { run } = useLive();
-  const message = useMessageVenue();
+  const message = useMessage();
   const st = talentShiftState(data, me, s);
   const { name, venue, free, multi } = st;
   const [frozen, setFrozen] = useState<Bar | null>(null);
@@ -97,7 +88,7 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
   const sayYesKey = `say-yes:${s.id}`;
   async function respond(snapshot: Bar, slot: Slot, dates: string[]) {
     setFrozen(withSlot(snapshot, slot, { loading: true }));
-    const result = await run(sayYesKey, (ref) => sayYes(s.id, dates, ref), { success: (x) => sayYesMessage(x, name) });
+    const result = await run(sayYesKey, (ref) => sayYes(s.id, dates, ref), { success: (x) => sayYesMessage(x, name), args: [...dates].sort() });
     if (!result) {
       setFrozen(null);
       return;
@@ -116,7 +107,7 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
       {
         text: 'Decline',
         style: 'destructive',
-        onPress: () => void run(`decline:${s.id}`, (ref) => declineRequest(s.id, ref), { success: 'Declined.' }),
+        onPress: () => void run(`decline:${s.id}`, (ref) => declineRequest(s.id, ref), { success: 'Declined.', args: s.id }),
       },
     ]);
   const withdraw = () =>
@@ -125,7 +116,7 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
       {
         text: 'Withdraw',
         style: 'destructive',
-        onPress: () => void run(`withdraw:${s.id}`, (ref) => withdrawYes(s.id, ref), { success: 'Withdrawn.' }),
+        onPress: () => void run(`withdraw:${s.id}`, (ref) => withdrawYes(s.id, ref), { success: 'Withdrawn.', args: s.id }),
       },
     ]);
 
@@ -146,7 +137,18 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
   const area = venue ? areaOf(venue) : '';
   const eyebrow = `${s.mode === 'request' ? 'Booking request' : 'Job post'}${area ? ` · ${area}` : ''}`;
   const hours = st.hours;
-  const footer = shown.primary ? <StickyAction primary={shown.primary} secondary={shown.secondary} /> : undefined;
+  // A plain note rides in the action bar with its buttons (§6.1); the booked
+  // note keeps its badge in the body, and a note without buttons stays there too.
+  const noteInBar = !!shown.primary && !!shown.note && !shown.note.booked;
+  const bodyNote = noteInBar ? undefined : shown.note;
+  const footer = shown.primary ? (
+    <StickyAction
+      primary={shown.primary}
+      secondary={shown.secondary}
+      tertiary={shown.quiet}
+      note={noteInBar ? shown.note?.text : undefined}
+    />
+  ) : undefined;
 
   return (
     <>
@@ -159,12 +161,21 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
         </Pressable>
 
         <View style={{ gap: t.space.xs }}>
-          <TextLink label={eyebrow} onPress={openVenue} accessibilityLabel={`${eyebrow}. View ${name}’s public profile`} />
-          <TextLink onPress={openVenue} variant="largeTitle" accessibilityLabel={`${name}. View public profile`}>
-            <Text variant="largeTitle" accessibilityRole="header">
-              {name}
-            </Text>
-          </TextLink>
+          <TextLink
+            label={eyebrow}
+            onPress={openVenue}
+            variant="footnote"
+            color="muted"
+            underline={false}
+            accessibilityLabel={`${eyebrow}. View ${name}’s public profile`}
+          />
+          <TextLink
+            label={name}
+            onPress={openVenue}
+            variant="largeTitle"
+            underline={false}
+            accessibilityLabel={`${name}. View public profile`}
+          />
           {kinds ? (
             <Text variant="subhead" color="muted">
               {kinds}
@@ -175,9 +186,9 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
           </Text>
         </View>
 
-        {shown.note || shown.inline ? (
+        {bodyNote || shown.inline ? (
           <View style={{ gap: t.space.md }}>
-            {shown.note ? <BarNote note={shown.note} /> : null}
+            {bodyNote ? <BarNote note={bodyNote} /> : null}
             {shown.inline ? <Button {...shown.inline} variant="secondary" fullWidth /> : null}
           </View>
         ) : null}
@@ -203,10 +214,10 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
             value={
               <View style={{ gap: t.space.xxs }}>
                 <Text variant="subhead" weight="600" tabular>
-                  {pounds(s.rate)} / hour
+                  {money(s.rate)} / hour
                 </Text>
                 <Text variant="footnote" color="muted" tabular>
-                  About £{Math.round(s.rate * hours)} a day · {hours} hours
+                  About £{Math.round(s.rate * hours)} a day · {hoursLabel(hours)}
                 </Text>
               </View>
             }
@@ -236,7 +247,6 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
           </Section>
         ) : null}
 
-        {shown.quiet ? <Button {...shown.quiet} variant="quiet" fullWidth /> : null}
       </Screen>
     </>
   );
@@ -333,7 +343,8 @@ function withSlot(bar: Bar, slot: Slot, patch: Partial<Action>): Bar {
   if (!target) return bar;
   const other: Slot = slot === 'primary' ? 'secondary' : 'primary';
   const frozenOther = bar[other] ? { ...bar[other]!, disabled: true } : undefined;
-  return { ...bar, [slot]: { ...target, ...patch }, [other]: frozenOther };
+  const quiet = bar.quiet ? { ...bar.quiet, disabled: true } : undefined;
+  return { ...bar, [slot]: { ...target, ...patch }, [other]: frozenOther, quiet };
 }
 
 /** The bar's note: where I stand on this shift. */

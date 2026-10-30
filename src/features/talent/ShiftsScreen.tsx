@@ -1,16 +1,15 @@
 // The talent home: the Shifts tab (§4, web TalentHome in Discovery.tsx).
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
-import { useLive } from '@/data';
+import { LiveGate, useRefresh } from '@/data';
 import {
   activeDays,
   bookingServices,
   offeredDates,
   relativeDay,
   shiftLabel,
+  whenLine,
   type Booking,
   type Data,
   type Member,
@@ -21,83 +20,48 @@ import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import {
   Badge,
+  Disclosure,
   Empty,
-  ErrorState,
+  GroupHeading,
   Icon,
-  Loading,
   Photo,
   Row,
   Screen,
   Section,
   Text,
+  TextLink,
   Ticket,
-  WaitingForApproval,
   type BadgeTone,
 } from '@/ui';
 
-import { endedStatus, findMember, talentHome, venueName, whenLine } from './logic';
-import { Group, GroupHeading, ShiftCard, TextLink, VenueCard } from './parts';
+import { endedStatus, findMember, talentHome, venueName } from './logic';
+import { Group, ShiftCard, TicketWithLink, VenueCard } from './parts';
 
 export function ShiftsScreen() {
-  const { status, data, me, approved, error, reload } = useLive();
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = async () => {
-    setRefreshing(true);
-    try {
-      await reload();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const header = (
     <>
       <Stack.Screen options={{ title: 'Shifts' }} />
       <HeaderActions />
     </>
   );
-
-  if (!data || !me) {
-    return (
-      <>
-        {header}
-        <Screen>
-          {status === 'error' ? (
-            <ErrorState message={error ?? 'Couldn’t load Dyuknow.'} onRetry={() => void reload()} />
-          ) : (
-            <Loading count={3} />
-          )}
-        </Screen>
-      </>
-    );
-  }
-
-  if (!approved) {
-    return (
-      <>
-        {header}
-        <Screen onRefresh={refresh} refreshing={refreshing}>
-          <WaitingForApproval />
-        </Screen>
-      </>
-    );
-  }
-
   return (
-    <>
-      {header}
-      <Home data={data} me={me} refreshing={refreshing} onRefresh={refresh} />
-    </>
+    <LiveGate header={header} title="Shifts">
+      {({ data, me }) => (
+        <>
+          {header}
+          <Home data={data} me={me} />
+        </>
+      )}
+    </LiveGate>
   );
 }
 
-function Home({ data, me, refreshing, onRefresh }: { data: Data; me: Member; refreshing: boolean; onRefresh: () => void }) {
-  const t = useTheme();
+function Home({ data, me }: { data: Data; me: Member }) {
   const home = talentHome(data, me);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const refresh = useRefresh();
 
   return (
-    <Screen onRefresh={onRefresh} refreshing={refreshing} gap="xxxl">
+    <Screen title="Shifts" {...refresh} gap="xxxl">
       {home.upcoming.length > 0 ? (
         <Group title="Upcoming shifts">
           {home.upcoming.map((b) => (
@@ -136,11 +100,12 @@ function Home({ data, me, refreshing, onRefresh }: { data: Data; me: Member; ref
             );
           })
         ) : (
-          <Ticket spiked padding={0}>
+          <Ticket padding={0}>
             <Empty
               icon="shifts"
               title="No open jobs in your positions right now"
               message="Venues can still book you straight from your profile. Keep your availability up to date."
+              action={{ label: 'Update availability', onPress: () => router.navigate('/t/availability') }}
             />
           </Ticket>
         )}
@@ -149,21 +114,16 @@ function Home({ data, me, refreshing, onRefresh }: { data: Data; me: Member; ref
       {home.venues.length > 0 ? <Venues venues={home.venues} /> : null}
 
       {home.history > 0 ? (
-        <View style={{ gap: t.space.md }}>
-          <HistoryToggle count={home.history} open={historyOpen} onToggle={() => setHistoryOpen((o) => !o)} />
-          {historyOpen ? (
-            <Animated.View entering={t.reduceMotion ? undefined : FadeIn.duration(t.motion.normal)} exiting={t.reduceMotion ? undefined : FadeOut.duration(t.motion.fast)}>
-              <Section separatorInset={68}>
-                {home.pastBookings.map((b) => (
-                  <PastBookingRow key={b.id} data={data} b={b} />
-                ))}
-                {home.ended.map((r) => (
-                  <EndedRow key={r.id} data={data} r={r} />
-                ))}
-              </Section>
-            </Animated.View>
-          ) : null}
-        </View>
+        <Disclosure title="Past and closed" count={home.history}>
+          <Section separatorInset={68}>
+            {home.pastBookings.map((b) => (
+              <PastBookingRow key={b.id} data={data} b={b} />
+            ))}
+            {home.ended.map((r) => (
+              <EndedRow key={r.id} data={data} r={r} />
+            ))}
+          </Section>
+        </Disclosure>
       ) : null}
     </Screen>
   );
@@ -176,34 +136,31 @@ function UpcomingTicket({ data, b }: { data: Data; b: Booking }) {
   const v = findMember(data, s.venue);
   const name = venueName(data, s);
   const first = bookingServices(data, b)[0];
-  const line = `${relativeDay(first.date, data.now)} · ${first.start}–${first.end}${b.days.length > 1 ? ` · ${b.days.length} days` : ''} · ${shiftLabel(s)}`;
+  const line = first
+    ? `${relativeDay(first.date, data.now)} · ${first.start}–${first.end}${b.days.length > 1 ? ` · ${b.days.length} days` : ''} · ${shiftLabel(s)}`
+    : shiftLabel(s);
   const openVenue = () => router.push({ pathname: '/venue/[id]', params: { id: s.venue } });
+  const openBooking = () => router.push({ pathname: '/booking/[id]', params: { id: b.id } });
+  const venueLink = `View ${name}’s public profile`;
   const photoW = Math.round(64 * Math.min(t.scale, 1.15));
   return (
-    <Ticket
-      lit
-      onPress={() => router.push({ pathname: '/booking/[id]', params: { id: b.id } })}
-      accessibilityLabel={`You’re booked, ${name}, ${line}`}
-      accessibilityHint="View booking details"
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
-        <Pressable onPress={openVenue} accessibilityRole="link" accessibilityLabel={`View ${name}’s public profile`}>
-          <Photo uri={v?.photo} name={name} width={photoW} radius={t.radius.sm} accessibilityLabel="" />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0, gap: t.space.xs }}>
-          <Badge label="You’re booked" tone="good" />
-          <TextLink onPress={openVenue} accessibilityLabel={`View ${name}’s public profile`}>
-            <Text variant="title3" numberOfLines={2}>
-              {name}
+    <TicketWithLink label={`You’re booked, ${name}, ${line}`} hint="View booking details" onPress={openBooking} link={{ label: venueLink, onPress: openVenue }}>
+      <Ticket lit onPress={openBooking}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
+          <Pressable onPress={openVenue} hitSlop={8}>
+            <Photo uri={v?.photo} name={name} width={photoW} radius={t.radius.sm} accessibilityLabel="" />
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0, gap: t.space.xs }}>
+            <Badge label="You’re booked" tone="good" />
+            <TextLink label={name} onPress={openVenue} variant="title3" underline={false} />
+            <Text variant="footnote" color="muted" tabular>
+              {line}
             </Text>
-          </TextLink>
-          <Text variant="footnote" color="muted" tabular>
-            {line}
-          </Text>
+          </View>
+          <Icon name="forward" size={14} weight="semibold" />
         </View>
-        <Icon name="forward" size={14} weight="semibold" accessibilityLabel="View booking details" />
-      </View>
-    </Ticket>
+      </Ticket>
+    </TicketWithLink>
   );
 }
 
@@ -229,34 +186,34 @@ function ResponseTicket({
   const name = venueName(data, s);
   const when = whenLine(data, s, offeredDates(s, r));
   const openVenue = () => router.push({ pathname: '/venue/[id]', params: { id: s.venue } });
+  const openShift = () => router.push({ pathname: '/shift/[id]', params: { id: s.id } });
   const photoW = Math.round(56 * Math.min(t.scale, 1.15));
   return (
-    <Ticket
-      lit={lit}
-      onPress={() => router.push({ pathname: '/shift/[id]', params: { id: s.id } })}
-      accessibilityLabel={`${status}, ${name}, ${shiftLabel(s)}, ${when}`}
+    <TicketWithLink
+      label={`${status}, ${name}, ${shiftLabel(s)}, ${when}`}
+      hint="Open the shift"
+      onPress={openShift}
+      link={{ label: `View ${name}’s public profile`, onPress: openVenue }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
-        <Pressable onPress={openVenue} accessibilityRole="link" accessibilityLabel={`View ${name}’s public profile`}>
-          <Photo uri={v?.photo} name={name} width={photoW} radius={t.radius.sm} accessibilityLabel="" />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0, gap: t.space.xxs }}>
-          <TextLink onPress={openVenue} accessibilityLabel={`View ${name}’s public profile`}>
-            <Text variant="footnote" color="muted" numberOfLines={1}>
-              {name}
+      <Ticket lit={lit} onPress={openShift}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
+          <Pressable onPress={openVenue} hitSlop={8}>
+            <Photo uri={v?.photo} name={name} width={photoW} radius={t.radius.sm} accessibilityLabel="" />
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0, gap: t.space.xxs }}>
+            <TextLink label={name} onPress={openVenue} variant="footnote" color="muted" underline={false} />
+            <Text variant="headline" numberOfLines={2}>
+              {shiftLabel(s)}
             </Text>
-          </TextLink>
-          <Text variant="headline" numberOfLines={2}>
-            {shiftLabel(s)}
-          </Text>
-          <Text variant="footnote" color="muted" tabular>
-            {when}
-          </Text>
-          <Badge label={status} tone={tone} icon={icon} style={{ marginTop: t.space.xs }} />
+            <Text variant="footnote" color="muted" tabular>
+              {when}
+            </Text>
+            <Badge label={status} tone={tone} icon={icon} style={{ marginTop: t.space.xs }} />
+          </View>
+          <Icon name="forward" size={14} color="faint" weight="semibold" />
         </View>
-        <Icon name="forward" size={14} color="faint" weight="semibold" />
-      </View>
-    </Ticket>
+      </Ticket>
+    </TicketWithLink>
   );
 }
 
@@ -282,32 +239,6 @@ function Venues({ venues }: { venues: { v: Member; open: number }[] }) {
         ))}
       </ScrollView>
     </View>
-  );
-}
-
-function HistoryToggle({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
-  const t = useTheme();
-  const chevron = useAnimatedStyle(() => ({
-    transform: [{ rotate: withTiming(open ? '90deg' : '0deg', { duration: t.reduceMotion ? 0 : t.motion.fast }) }],
-  }));
-  const title = `Past and closed (${count})`;
-  return (
-    <Pressable
-      onPress={onToggle}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ expanded: open }}
-      style={({ pressed }) => ({ minHeight: t.hit, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}
-    >
-      <GroupHeading
-        title={title}
-        trailing={
-          <Animated.View style={chevron}>
-            <Icon name="forward" size={14} color="muted" weight="semibold" />
-          </Animated.View>
-        }
-      />
-    </Pressable>
   );
 }
 

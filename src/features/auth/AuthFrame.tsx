@@ -4,7 +4,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/useTheme';
-import { Button, Headline, Notice, Screen, Text, type HeadlinePart } from '@/ui';
+import { Headline, Notice, Screen, Text, TextLink, type HeadlinePart } from '@/ui';
 
 type Props = {
   eyebrow: string;
@@ -67,17 +67,48 @@ export function AuthError({ error }: { error: string | null }) {
   );
 }
 
-/** "New here? Create an account": a muted lead-in, then a quiet link button. */
+/** "New here? Create an account": a muted lead-in, then a text link. */
 export function AuthLink({ lead, label, onPress }: { lead?: string; label: string; onPress: () => void }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: t.space.xxs }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: t.space.xs, minHeight: t.hit }}>
       {lead ? (
         <Text variant="callout" color="muted">
           {lead}
         </Text>
       ) : null}
-      <Button label={label} variant="quiet" onPress={onPress} />
+      <TextLink label={label} onPress={onPress} />
+    </View>
+  );
+}
+
+/** Under the code: "Use a different email", then the timer or "Send a new code". */
+export function ResendRow({
+  seconds,
+  sending,
+  onResend,
+  onDifferentEmail,
+}: {
+  seconds: number;
+  sending: boolean;
+  onResend: () => void;
+  onDifferentEmail: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <View style={{ alignItems: 'center', gap: t.space.md }}>
+      <TextLink label="Use a different email" onPress={onDifferentEmail} center />
+      {seconds > 0 ? (
+        <View style={{ minHeight: t.hit, justifyContent: 'center' }} accessible accessibilityLabel={`New code in ${seconds} seconds`}>
+          <Text variant="callout" color="muted" tabular>
+            {`New code in ${seconds}s`}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ minHeight: t.hit, justifyContent: 'center' }}>
+          <TextLink label="Send a new code" onPress={onResend} disabled={sending} center />
+        </View>
+      )}
     </View>
   );
 }

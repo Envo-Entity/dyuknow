@@ -32,7 +32,7 @@ import { CheckRow, Chip, DateRow, Loading, Notice, PickerRow, Section, SwitchRow
 
 import { CompleteStep, useSubmitOnce } from './CompleteStep';
 import { DatedAvailabilityField, EmployerRepeater, PhotoStep, UploadRows } from './fields';
-import { AddRow, ChipField, CustomChips, Field } from './parts';
+import { AddRow, ChipField, CustomChips } from './parts';
 import { StepFlow, useJoinDraft, type StepDef } from './StepFlow';
 
 function toggle(list: string[], value: string) {
@@ -84,13 +84,13 @@ export function TalentOnboarding() {
         <>
           <Section>
             <TextRow label="Full name" value={id.name} onChangeText={(v) => patch({ name: v })} placeholder="e.g. Camille Aubert" autoCapitalize="words" autoComplete="name" textContentType="name" returnKeyType="done" />
-            <Field label="Mobile number" value={id.mobile} onChangeText={(v) => patch({ mobile: v })} placeholder="e.g. 07700 900123" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
+            <TextRow label="Mobile number" value={id.mobile} onChangeText={(v) => patch({ mobile: v })} placeholder="e.g. 07700 900123" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" returnKeyType="done" />
           </Section>
           <Section footer="This is the email you sign in with.">
-            <Field label="Email address" value={id.email} onChangeText={() => {}} editable={false} />
+            <TextRow label="Email address" value={id.email} onChangeText={() => {}} editable={false} returnKeyType="done" />
           </Section>
           <Section>
-            <Field label="Home postcode" value={id.postcode} onChangeText={(v) => patch({ postcode: v })} placeholder="e.g. W1J 8HA" autoCapitalize="characters" autoComplete="postal-code" textContentType="postalCode" />
+            <TextRow label="Home postcode" value={id.postcode} onChangeText={(v) => patch({ postcode: v })} placeholder="e.g. W1J 8HA" autoCapitalize="characters" autoComplete="postal-code" textContentType="postalCode" returnKeyType="done" />
             <DateRow label="Date of birth" value={id.dob || null} onChange={(v) => patch({ dob: v })} maximumDate={londonToday()} />
           </Section>
         </>
@@ -190,13 +190,13 @@ export function TalentOnboarding() {
           </Section>
           <ChipField label="Preferred hourly rate" options={HOURLY_RATE_OPTIONS} value={id.preferredRate} onChange={(v) => patch({ preferredRate: v })} />
           <Section>
-            <Field
+            <TextRow stacked
               label="Minimum same-day rate"
               prefix="£"
               value={id.minSameDayRate.replace(/^£/, '')}
               onChangeText={(v) => patch({ minSameDayRate: v })}
               placeholder="e.g. 25"
-              keyboardType="decimal-pad"
+              keyboardType="decimal-pad" returnKeyType="done"
             />
           </Section>
           <DatedAvailabilityField

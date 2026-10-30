@@ -10,8 +10,10 @@ import {
   clockLabel,
   datesLabel,
   firstName,
+  hoursLabel,
   hoursOf,
   member,
+  money,
   offeredDates,
   responseLabel,
   shiftLabel,
@@ -20,8 +22,6 @@ import {
 } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, Button, KeyValue, Text, Ticket, type BadgeTone } from '@/ui';
-
-import { hours as hoursText, money } from './format';
 
 type Props = {
   data: Data;
@@ -77,10 +77,10 @@ export function ShiftCard({ data, m, talent, conversationId, side, latest }: Pro
   const totalHours = perDay * dates.length;
   const when = `${datesLabel(dates)} · ${s.days[0].start}–${s.days[0].end}`;
   const pay = `${money(s.rate)}/hour`;
-  const payMore = `About £${Math.round(s.rate * totalHours)} in all · ${hoursText(totalHours)} hours`;
+  const payMore = `About ${money(Math.round(s.rate * totalHours))} in all · ${hoursLabel(totalHours)}`;
 
   // The first action that applies (§7.3.1).
-  let action: { label: string; onPress: () => void; kind: 'button' | 'link' };
+  let action: { label: string; onPress: () => void; kind: 'button' | 'secondary' | 'link' };
   if (latest && canBook) {
     action = {
       kind: 'button',
@@ -92,8 +92,9 @@ export function ShiftCard({ data, m, talent, conversationId, side, latest }: Pro
   } else if (latest && side === 'talent' && r?.status === 'invited' && open) {
     action = { kind: 'button', label: 'Answer', onPress: () => router.push(`/shift/${s.id}`) };
   } else if (latest && side === 'venue' && s.mode === 'request' && r?.status === 'declined') {
+    // Not waiting on anyone: a secondary button, never a second ink one.
     action = {
-      kind: 'button',
+      kind: 'secondary',
       label: 'Send new request',
       onPress: () =>
         router.push({ pathname: '/compose', params: { again: s.id, to: talent, from: 'chat', chat: conversationId } }),
@@ -109,7 +110,7 @@ export function ShiftCard({ data, m, talent, conversationId, side, latest }: Pro
   return (
     <Ticket lit={latest && attention} spiked={r?.status === 'booked'} gap={t.space.md}>
       <View style={{ gap: t.space.sm }}>
-        <Text variant="footnote" color="muted" tabular numberOfLines={2}>
+        <Text variant="footnote" color="muted" tabular>
           {head} · {clockLabel(m.time)}
         </Text>
         <Badge label={status} tone={tone} />
@@ -123,8 +124,8 @@ export function ShiftCard({ data, m, talent, conversationId, side, latest }: Pro
       <Button
         label={action.label}
         onPress={action.onPress}
-        variant={action.kind === 'button' ? 'primary' : 'quiet'}
-        fullWidth={action.kind === 'button'}
+        variant={action.kind === 'button' ? 'primary' : action.kind === 'secondary' ? 'secondary' : 'quiet'}
+        fullWidth={action.kind !== 'link'}
         style={action.kind === 'link' ? { alignSelf: 'flex-start' } : undefined}
       />
     </Ticket>

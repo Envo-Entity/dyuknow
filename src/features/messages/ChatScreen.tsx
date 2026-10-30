@@ -1,19 +1,19 @@
 // One conversation between a venue and a talent member (FEATURES.md §7.3,
 // web Thread + Conversation).
 import { router, Stack } from 'expo-router';
-import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { readDraft, sendMessage, useLive, writeDraft } from '@/data';
+import { LiveGate, readDraft, sendMessage, useLive, writeDraft } from '@/data';
 import {
   areaOf,
   clockLabel,
   firstName,
   londonDate,
-  londonTime,
   member,
+  money,
   relativeDay,
   teamOf,
   type Data,
@@ -22,9 +22,9 @@ import {
 } from '@/domain';
 import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { Avatar, Button, Empty, Icon, Loading, LitContext, Text } from '@/ui';
+import { Avatar, Button, Empty, IconButton, KeyboardFooter, LitContext, Screen, Text, useKeyboardOverlap } from '@/ui';
 
-import { money, thousands } from './format';
+import { thousands } from './format';
 import { ShiftCard } from './ShiftCard';
 
 /** The server refuses longer messages (`Keep messages under 2,000 characters.`). */
@@ -39,33 +39,31 @@ type Item =
   | { kind: 'pending'; key: string; p: Pending; joined: boolean };
 
 export function ChatScreen({ id }: { id: string }) {
-  const { data, me, side } = useLive();
-  if (!data || !me || !side) {
-    return (
-      <View style={{ flex: 1, paddingHorizontal: gutter, paddingTop: 16 }}>
-        <Loading count={2} />
-      </View>
-    );
-  }
-  const thread = data.threads.find((t) => t.id === id);
-  const otherId = thread && (thread.venue === me.id ? thread.talent : thread.talent === me.id ? thread.venue : undefined);
-  const other = otherId ? member(data, otherId) : undefined;
-  if (!thread || !other) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Empty
-          icon="messages"
-          title="Conversation not found"
-          action={{
-            label: 'Back to messages',
-            onPress: () => (router.canGoBack() ? router.back() : router.replace(side === 'venue' ? '/v/messages' : '/t/messages')),
-          }}
-        />
-      </>
-    );
-  }
-  return <Conversation key={id} id={id} data={data} me={me} side={side} other={other} talent={thread.talent} />;
+  return (
+    <LiveGate approval={false} header={<Stack.Screen options={{ title: '' }} />} loading={{ count: 2 }}>
+      {({ data, me, side }) => {
+        const thread = data.threads.find((t) => t.id === id);
+        const otherId = thread && (thread.venue === me.id ? thread.talent : thread.talent === me.id ? thread.venue : undefined);
+        const other = otherId ? member(data, otherId) : undefined;
+        if (!thread || !other) {
+          return (
+            <Screen scroll={false}>
+              <Stack.Screen options={{ title: '' }} />
+              <Empty
+                icon="messages"
+                title="Conversation not found"
+                action={{
+                  label: 'Back to messages',
+                  onPress: () => (router.canGoBack() ? router.back() : router.navigate(side === 'venue' ? '/v/messages' : '/t/messages')),
+                }}
+              />
+            </Screen>
+          );
+        }
+        return <Conversation key={id} id={id} data={data} me={me} side={side} other={other} talent={thread.talent} />;
+      }}
+    </LiveGate>
+  );
 }
 
 function Conversation({
@@ -84,9 +82,7 @@ function Conversation({
   talent: string;
 }) {
   const t = useTheme();
-  const { run, readChat } = useLive();
-  const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const { runResult, readChat } = useLive();
   const [text, setText] = useState(() => readDraft(me.id, id));
   const [pending, setPending] = useState<Pending[]>([]);
   const textRef = useRef(text);
@@ -114,9 +110,12 @@ function Conversation({
     change('');
     setPending((list) => [...list, p]);
     // The same text retried reuses its client_ref, so a lost reply never sends twice.
-    const result = await run(`send:${id}:${body}`, (ref) => sendMessage(me.id, id, body, ref));
+    // No toast on success (§7.3); a refusal still toasts.
+    const result = await runResult(`send:${id}:${body}`, (ref) => sendMessage(me.id, id, body, ref), { args: body, quiet: true });
     setPending((list) => list.filter((x) => x.id !== p.id));
-    if (result === undefined) {
+    if (!result.ok) {
+      // A second tap on text already being sent: the first is still going.
+      if (result.skipped) return;
       change(textRef.current ? `${body}\n${textRef.current}` : body);
     } else if (textRef.current) {
       // sendMessage cleared the stored draft; keep what was typed since.
@@ -126,8 +125,6 @@ function Conversation({
 
   const openProfile = () => router.push(side === 'venue' ? `/talent/${other.id}` : `/venue/${other.id}`);
   const canSend = text.trim().length > 0;
-  const lineHeight = t.text('body').lineHeight ?? 23;
-  const inputPadV = t.space.sm + 1;
 
   return (
     <>
@@ -151,11 +148,7 @@ function Conversation({
           ),
         }}
       />
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: t.c.page }}
-        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={headerHeight - insets.bottom}
-      >
+      <View style={{ flex: 1, backgroundColor: t.c.page }}>
         <Pinned other={other} side={side} conversationId={id} />
 
         {items.length ? (
@@ -165,12 +158,15 @@ function Conversation({
             keyExtractor={(item) => item.key}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingHorizontal: gutter, paddingVertical: t.space.lg }}
+            // Inverted: the header sits at the bottom, under the newest message.
+            ListHeaderComponent={<KeyboardGap />}
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             accessibilityLabel="Conversation messages"
             renderItem={({ item }) => {
               if (item.kind === 'day') return <DayLine label={item.label} />;
-              if (item.kind === 'pending') return <Bubble mine text={item.p.text} time="Sending…" joined={item.joined} sending />;
+              if (item.kind === 'pending')
+                return <Bubble mine name="You" text={item.p.text} time="Sending…" joined={item.joined} sending />;
               const m = item.m;
               if (m.shift)
                 return (
@@ -180,15 +176,8 @@ function Conversation({
                 );
               if (m.system) return <EventLine text={m.text} />;
               const mine = m.from === me.id;
-              return (
-                <Bubble
-                  mine={mine}
-                  text={m.text}
-                  time={londonTime(m.time)}
-                  spoken={`${mine ? 'You' : (member(data, m.from)?.name ?? other.name)}: ${m.text}, ${clockLabel(m.time)}`}
-                  joined={item.joined}
-                />
-              );
+              const name = mine ? 'You' : (member(data, m.from)?.name ?? other.name);
+              return <Bubble mine={mine} name={name} text={m.text} time={clockLabel(m.time)} joined={item.joined} />;
             }}
           />
         ) : (
@@ -199,61 +188,10 @@ function Conversation({
           </View>
         )}
 
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            gap: t.space.sm,
-            paddingHorizontal: t.space.md,
-            paddingTop: t.space.sm,
-            paddingBottom: insets.bottom + t.space.sm,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: t.c.border,
-            backgroundColor: t.c.page,
-          }}
-        >
-          <View style={{ flex: 1, gap: t.space.xxs }}>
-            <TextInput
-              value={text}
-              onChangeText={change}
-              placeholder="Write a message…"
-              placeholderTextColor={t.c.faint}
-              accessibilityLabel="Your message"
-              multiline
-              maxLength={MAX_LENGTH}
-              textAlignVertical="top"
-              selectionColor={t.c.ink}
-              style={[
-                t.text('body'),
-                {
-                  color: t.c.text,
-                  backgroundColor: t.c.card,
-                  borderColor: t.c.border,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderRadius: t.radius.lg,
-                  paddingHorizontal: t.space.md + 2,
-                  paddingTop: inputPadV,
-                  paddingBottom: inputPadV,
-                  minHeight: t.hit,
-                  maxHeight: lineHeight * 5 + inputPadV * 2,
-                },
-              ]}
-            />
-            {text.length >= COUNT_FROM ? (
-              <Text
-                variant="caption"
-                color={text.length >= MAX_LENGTH ? 'dangerText' : 'muted'}
-                tabular
-                style={{ alignSelf: 'flex-end', paddingRight: t.space.sm }}
-                accessibilityLiveRegion="polite"
-              >
-                {thousands(text.length)} / {thousands(MAX_LENGTH)}
-              </Text>
-            ) : null}
-          </View>
-          <SendButton disabled={!canSend} onPress={() => void send()} />
-        </View>
-      </KeyboardAvoidingView>
+        <KeyboardFooter>
+          <Composer text={text} onChange={change} canSend={canSend} onSend={() => void send()} />
+        </KeyboardFooter>
+      </View>
     </>
   );
 }
@@ -302,9 +240,10 @@ function Pinned({ other, side, conversationId }: { other: Member; side: 'talent'
       ? other.roles.length
         ? other.roles.join(' · ')
         : other.bio
-      : other.venue?.types.length
+      : // Talent view: the venue's kinds of place, else its bio (§7.3).
+        other.venue?.types.length
         ? other.venue.types.join(' · ')
-        : other.bio;
+        : other.bio.trim();
   return (
     <View
       style={{
@@ -317,11 +256,11 @@ function Pinned({ other, side, conversationId }: { other: Member; side: 'talent'
       }}
     >
       <View accessible style={{ gap: 2 }}>
-        <Text variant="subhead" weight="600" tabular numberOfLines={1}>
+        <Text variant="subhead" weight="600" tabular>
           {head}
         </Text>
         {sub ? (
-          <Text variant="footnote" color="muted" numberOfLines={2}>
+          <Text variant="footnote" color="muted" numberOfLines={3}>
             {sub}
           </Text>
         ) : null}
@@ -366,28 +305,30 @@ function EventLine({ text }: { text: string }) {
   );
 }
 
+/** A text bubble: sender name (first of a run), text, `clockLabel(time)` (§7.3). */
 function Bubble({
   mine,
+  name,
   text,
   time,
-  spoken,
   joined,
   sending,
 }: {
   mine: boolean;
+  name: string;
   text: string;
   time: string;
-  spoken?: string;
   joined: boolean;
   sending?: boolean;
 }) {
   const t = useTheme();
+  const spoken = `${name}: ${text}, ${sending ? 'sending' : time}`;
   const r = t.radius.lg;
   const tail = 6;
   return (
     <View
       accessible
-      accessibilityLabel={spoken ?? (sending ? `You: ${text}, sending` : text)}
+      accessibilityLabel={spoken}
       style={{
         alignSelf: mine ? 'flex-end' : 'flex-start',
         maxWidth: '82%',
@@ -406,6 +347,11 @@ function Bubble({
       }}
     >
       <LitContext.Provider value={mine}>
+        {joined ? null : (
+          <Text variant="caption" weight="600" color="muted">
+            {name}
+          </Text>
+        )}
         <Text variant="body" selectable={!sending}>
           {text}
         </Text>
@@ -417,30 +363,95 @@ function Bubble({
   );
 }
 
-function SendButton({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+/** The composer bar, inside a kit KeyboardFooter so it rides the keyboard on both platforms. */
+function Composer({
+  text,
+  onChange,
+  canSend,
+  onSend,
+}: {
+  text: string;
+  onChange: (value: string) => void;
+  canSend: boolean;
+  onSend: () => void;
+}) {
   const t = useTheme();
-  const size = t.hit;
+  const insets = useSafeAreaInsets();
+  // The home-indicator padding may hide behind the keyboard.
+  useKeyboardOverlap(insets.bottom);
+  const lineHeight = t.text('body').lineHeight ?? 23;
+  const inputPadV = t.space.sm + 1;
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel="Send message"
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => ({
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: disabled ? t.c.borderStrong : t.c.ink,
-        opacity: pressed ? 0.8 : 1,
-        transform: [{ scale: pressed && !t.reduceMotion ? 0.94 : 1 }],
-      })}
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: t.space.sm,
+        paddingHorizontal: t.space.md,
+        paddingTop: t.space.sm,
+        paddingBottom: insets.bottom + t.space.sm,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: t.c.border,
+        backgroundColor: t.c.page,
+      }}
     >
-      <Icon name="send" size={20} color={disabled ? 'faint' : 'onInk'} weight="bold" />
-    </Pressable>
+      <View style={{ flex: 1, gap: t.space.xxs }}>
+        <TextInput
+          value={text}
+          onChangeText={onChange}
+          placeholder="Write a message…"
+          placeholderTextColor={t.c.faint}
+          accessibilityLabel="Your message"
+          multiline
+          maxLength={MAX_LENGTH}
+          textAlignVertical="top"
+          selectionColor={t.c.ink}
+          style={[
+            t.text('body'),
+            {
+              color: t.c.text,
+              backgroundColor: t.c.card,
+              borderColor: t.c.border,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderRadius: t.radius.lg,
+              paddingHorizontal: t.space.md + 2,
+              paddingTop: inputPadV,
+              paddingBottom: inputPadV,
+              minHeight: t.hit,
+              maxHeight: lineHeight * 5 + inputPadV * 2,
+            },
+          ]}
+        />
+        {text.length >= COUNT_FROM ? (
+          <Text
+            variant="caption"
+            color={text.length >= MAX_LENGTH ? 'dangerText' : 'muted'}
+            tabular
+            style={{ alignSelf: 'flex-end', paddingRight: t.space.sm }}
+            accessibilityLiveRegion="polite"
+          >
+            {thousands(text.length)} / {thousands(MAX_LENGTH)}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ minHeight: t.hit, justifyContent: 'center' }}>
+        <IconButton icon="send" variant="ink" size={36} onPress={onSend} disabled={!canSend} accessibilityLabel="Send message" />
+      </View>
+    </View>
   );
+}
+
+/**
+ * Kit candidate (KeyboardSpacer minus the safe-area inset): as tall as the
+ * composer is lifted, so the newest message stays in view above it while the
+ * keyboard is up. Lives at the bottom of the inverted list.
+ */
+function KeyboardGap() {
+  const insets = useSafeAreaInsets();
+  const keyboard = useAnimatedKeyboard();
+  const bottom = insets.bottom;
+  const style = useAnimatedStyle(() => ({ height: Math.max(0, keyboard.height.value - bottom) }));
+  return <Animated.View style={style} pointerEvents="none" />;
 }
 
 const styles = StyleSheet.create({

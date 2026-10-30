@@ -1,46 +1,44 @@
 // Notifications (FEATURES.md §7.6, web Notifications). The server writes the
 // wording of every notice; this screen lists them and opens their targets.
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { useLive } from '@/data';
-import { clockLabel, londonDate, type Notice } from '@/domain';
+import { LiveGate, useLive, useRefresh } from '@/data';
+import { clockLabel, londonDate, type Data, type Member, type Notice } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Button, Empty, ErrorState, Icon, Loading, Screen, Section, Text } from '@/ui';
+import { Button, Empty, Icon, Screen, Section, Text } from '@/ui';
 
 import { noticeRoute } from './format';
 
+const header = <Stack.Screen options={{ title: 'Notifications' }} />;
+
 export function NotificationsScreen() {
-  const { status, data, me, side, error, reload, readNotice } = useLive();
-  const [refreshing, setRefreshing] = useState(false);
+  return (
+    <LiveGate approval={false} header={header} loading={{ variant: 'rows', count: 6 }}>
+      {({ data, me, side }) => <NotificationsList data={data} me={me} side={side} />}
+    </LiveGate>
+  );
+}
 
-  const groups = useMemo(() => {
-    if (!data || !me) return [];
-    const mine = data.notices.filter((n) => n.to === me.id).sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0));
-    const today = londonDate(data.now);
-    const now = mine.filter((n) => londonDate(n.time) === today);
-    const earlier = mine.filter((n) => londonDate(n.time) !== today);
-    return [
-      { label: 'Today', list: now },
-      { label: 'Earlier', list: earlier },
-    ].filter((g) => g.list.length);
-  }, [data, me]);
-  const anyUnread = groups.some((g) => g.list.some((n) => !n.read));
+function NotificationsList({ data, me, side }: { data: Data; me: Member; side: 'talent' | 'venue' }) {
+  const { readNotice } = useLive();
+  const refresh = useRefresh();
 
-  const refresh = async () => {
-    setRefreshing(true);
-    try {
-      await reload();
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  const mine = data.notices.filter((n) => n.to === me.id).sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0));
+  const today = londonDate(data.now);
+  const groups = [
+    { label: 'Today', list: mine.filter((n) => londonDate(n.time) === today) },
+    { label: 'Earlier', list: mine.filter((n) => londonDate(n.time) !== today) },
+  ].filter((g) => g.list.length);
+  const anyUnread = mine.some((n) => !n.read);
 
   const open = (n: Notice) => {
     void readNotice(n.id);
     const to = noticeRoute(n.target, side);
-    if (to) router.push(to);
+    if (!to) return;
+    // Tab roots: go back to the tabs already underneath and switch tab.
+    if (to.tab) router.navigate(to.href);
+    else router.push(to.href);
   };
 
   const markAll = () => void readNotice();
@@ -60,33 +58,40 @@ export function NotificationsScreen() {
       </Stack.Toolbar>
     );
 
-  let body;
-  if (!data || !me) {
-    body = status === 'error' ? <ErrorState message={error ?? undefined} onRetry={() => void reload()} /> : <Loading variant="rows" count={6} />;
-  } else if (!groups.length) {
-    body = <Empty icon="bell" title="You’re all caught up" />;
-  } else {
-    body = groups.map((g) => (
-      <Section key={g.label} label={g.label} separatorInset={36}>
-        {g.list.map((n) => (
-          <NoticeRow key={n.id} n={n} onPress={() => open(n)} />
-        ))}
-      </Section>
-    ));
-  }
-
   return (
     <>
-      <Stack.Screen options={{ title: 'Notifications' }} />
+      {header}
       {toolbar}
-      <Screen onRefresh={refresh} refreshing={refreshing}>
-        {body}
+      <Screen {...refresh}>
+        {groups.length ? (
+          groups.map((g) => (
+            <Section key={g.label} label={g.label} separatorInset={36}>
+              {g.list.map((n) => (
+                <NoticeRow key={n.id} n={n} onPress={() => open(n)} />
+              ))}
+            </Section>
+          ))
+        ) : (
+          <Empty
+            icon="bell"
+            title="You’re all caught up"
+            action={
+              side === 'venue'
+                ? { label: 'Find people', onPress: () => router.navigate('/v/book') }
+                : { label: 'See open jobs', onPress: () => router.navigate('/t/shifts') }
+            }
+          />
+        )}
       </Screen>
     </>
   );
 }
 
-/** One notice: unread dot, title, body, "{time} · London". Tapping reads it and opens its target. */
+/**
+ * One notice: unread dot, title, body, "{time} · London". Tapping reads it and
+ * opens its target. Not a kit Row: the title and body must wrap in full at
+ * larger text sizes, and an unread title is bold.
+ */
 function NoticeRow({ n, onPress }: { n: Notice; onPress: () => void }) {
   const t = useTheme();
   const dot = Math.round(8 * t.scale);

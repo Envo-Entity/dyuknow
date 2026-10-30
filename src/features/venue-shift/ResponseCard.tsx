@@ -1,13 +1,11 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { useLive } from '@/data';
-import { areaOf, bookableDates, firstName, offeredDates, shortDay, workedWith, type Response, type Shift } from '@/domain';
+import { useLive, useMessage } from '@/data';
+import { areaOf, bookableDates, daysPhrase, firstName, offeredDates, shortDay, workedWith, type Response, type Shift } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, Button, Photo, Text, Ticket } from '@/ui';
 
-import { daysPhrase } from './format';
-import { useMessage } from './useMessage';
 
 /**
  * One person who said yes (spec §6.2 item 8): photo and name (→ their card),
@@ -59,7 +57,7 @@ export function ResponseCard({ s, r }: { s: Shift; r: Response }) {
 
       {workedWith(data, s.venue, person.id) || dayTag || person.skills.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.space.xs }}>
-          {workedWith(data, s.venue, person.id) ? <Badge label="Worked with you" tone="good" /> : null}
+          {workedWith(data, s.venue, person.id) ? <Badge label="Worked with you" tone="good" icon="worked" /> : null}
           {dayTag ? <Badge label={dayTag} tone={offered.length === n ? 'good' : 'neutral'} /> : null}
           {person.skills.slice(0, 3).map((skill) => (
             <Badge key={skill} label={skill} icon={null} />

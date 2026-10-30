@@ -2,10 +2,9 @@ import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 
 import { CODE_LENGTH, resendSignupCode, verifySignupCode } from '@/data';
-import { Button } from '@/ui';
+import { Button, CodeField } from '@/ui';
 
-import { AuthError, AuthFrame } from './AuthFrame';
-import { CodeField, ResendRow } from './CodeField';
+import { AuthError, AuthFrame, ResendRow } from './AuthFrame';
 import { startResendTimer, useAuthDraft, useResendSeconds, useRouteOn } from './state';
 
 export function ConfirmCode() {
@@ -17,8 +16,8 @@ export function ConfirmCode() {
   const seconds = useResendSeconds(sentAt);
   const { routing, routeOn } = useRouteOn();
 
-  // Opened without an email (a cold start on this route): start again.
-  if (!email) return <Redirect href="/create" />;
+  // Opened without an email (a cold start on this route): back to sign-in.
+  if (!email) return <Redirect href="/sign-in" />;
 
   const submit = async (value = code) => {
     if (busy || value.length !== CODE_LENGTH) return;
@@ -54,6 +53,8 @@ export function ConfirmCode() {
           setError(null);
         }}
         onComplete={(v) => void submit(v)}
+        length={CODE_LENGTH}
+        editable={!busy}
         autoFocus
       />
       <AuthError error={error} />

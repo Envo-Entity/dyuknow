@@ -12,6 +12,8 @@ import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { Button, Headline, Icon, Text, Ticket, type IconName } from '@/ui';
 
+import { clearKeptFiles } from './parts';
+
 export function JoinPicker() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -91,6 +93,8 @@ export function JoinPicker() {
         loading={leaving}
         onPress={async () => {
           setLeaving(true);
+          // Log out clears the drafts; the files they kept go with them.
+          clearKeptFiles();
           await logout();
           setLeaving(false);
         }}

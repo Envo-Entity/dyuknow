@@ -41,6 +41,8 @@ export function StickyAction({ primary, secondary, tertiary, note, safeArea, sty
   // The inset may hide behind the keyboard; the buttons sit right on it.
   useKeyboardOverlap(bottomInset);
   const { variant: primaryVariant = 'primary', ...primaryRest } = primary;
+  // Side by side only while both labels fit at this text size.
+  const stacked = !!secondary && (secondary.label.length + primary.label.length) * t.scale > 30;
 
   const content = (
     <View style={{ paddingHorizontal: t.space.lg, paddingTop: t.space.md, paddingBottom: bottomInset + (tertiary ? t.space.xs : t.space.md), gap: t.space.sm }}>
@@ -49,10 +51,18 @@ export function StickyAction({ primary, secondary, tertiary, note, safeArea, sty
           {note}
         </Text>
       ) : null}
-      <View style={[styles.buttons, { gap: t.space.sm }]}>
-        {secondary ? <Button {...secondary} variant="secondary" size="large" style={{ flex: 1 }} fullWidth /> : null}
-        <Button {...primaryRest} variant={primaryVariant} size="large" fullWidth style={{ flex: secondary ? 1.6 : 1 }} />
-      </View>
+      {stacked ? (
+        // Long labels never truncate: the primary goes on top, full width.
+        <View style={{ gap: t.space.sm }}>
+          <Button {...primaryRest} variant={primaryVariant} size="large" fullWidth />
+          <Button {...secondary!} variant="secondary" size="large" fullWidth />
+        </View>
+      ) : (
+        <View style={[styles.buttons, { gap: t.space.sm }]}>
+          {secondary ? <Button {...secondary} variant="secondary" size="large" style={{ flex: 1 }} fullWidth /> : null}
+          <Button {...primaryRest} variant={primaryVariant} size="large" fullWidth style={{ flex: secondary ? 1.6 : 1 }} />
+        </View>
+      )}
       {tertiary ? <Button {...tertiary} variant="quiet" style={{ alignSelf: 'center' }} /> : null}
     </View>
   );

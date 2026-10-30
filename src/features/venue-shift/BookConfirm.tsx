@@ -2,18 +2,16 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { bookTalent, useLive } from '@/data';
-import { bookableDates, firstName, serviceLabel, shiftLabel } from '@/domain';
+import { bookableDates, daysPhrase, firstName, money, serviceLabel, shiftLabel } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
 import { CheckRow, Empty, Notice, Row, Section, SheetScreen, StickyAction } from '@/ui';
-
-import { daysPhrase, money } from './format';
 
 /**
  * Book someone who said yes (spec §6.2 `sheet/book-confirm`). Opened from the
  * response cards, the day tracker (one day preselected) and chat cards.
  */
 export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string; talentId: string; preselect?: string[] }) {
-  const { data, run } = useLive();
+  const { data, runResult } = useLive();
   const t = useTheme();
   const s = data?.shifts.find((x) => x.id === shiftId);
   const person = data?.members.find((m) => m.id === talentId);
@@ -26,8 +24,10 @@ export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string;
   });
   const [booked, setBooked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!data || !s || !person || !r) {
+    // (After booking the snapshot still holds them, so this never flashes on the way out.)
     return (
       <SheetScreen title="Book" onClose={() => router.back()}>
         <Empty title="Shift not found" action={{ label: 'Close', onPress: () => router.back() }} />
@@ -43,12 +43,18 @@ export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string;
   const label = `Book ${first}${multi && dates.length ? ` · ${daysPhrase(dates, s.days.length)}` : ''}`;
 
   const confirm = async () => {
+    if (booked) return;
+    const sorted = [...dates].sort();
     setBusy(true);
-    const result = await run(`book:${s.id}:${talentId}:${dates.join(',')}`, (ref) => bookTalent(s.id, talentId, dates, ref), {
+    setError(null);
+    const res = await runResult(`book:${s.id}:${talentId}`, (ref) => bookTalent(s.id, talentId, sorted, ref), {
+      args: { shift: s.id, talent: talentId, dates: sorted },
       success: `${first} is booked.`,
+      onError: setError,
     });
     setBusy(false);
-    if (!result) return;
+    if (!res.ok) return;
+    const result = res.value;
     setBooked(true);
     // Let the button settle into "Booked", then open the booking.
     setTimeout(() => {
@@ -73,7 +79,14 @@ export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string;
         />
       }>
       <Section>
-        <Row photo={{ uri: person.photo, name: person.name }} title={person.name} subtitle={`${shiftLabel(s)} · ${money(s.rate)}/h`} />
+        <Row
+          photo={{ uri: person.photo, name: person.name }}
+          title={person.name}
+          titleSerif
+          subtitle={`${shiftLabel(s)} · ${money(s.rate)}/h`}
+          subtitleLines={2}
+          subtitleTabular
+        />
       </Section>
 
       {!bookable.length && !booked ? <Notice tone="warning" text={`${first} can’t be booked any more.`} /> : null}
@@ -88,7 +101,10 @@ export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string;
                 title={serviceLabel(d)}
                 checked={picked.includes(date)}
                 disabled={booked}
-                onToggle={(on) => setPicked((p) => (on ? [...p, date].sort() : p.filter((x) => x !== date)))}
+                onToggle={(on) => {
+                  setError(null);
+                  setPicked((p) => (on ? [...p, date].sort() : p.filter((x) => x !== date)));
+                }}
               />
             );
           })}
@@ -104,6 +120,7 @@ export function BookConfirm({ shiftId, talentId, preselect }: { shiftId: string;
       ) : null}
 
       {extending && !booked ? <Notice text={`Adds to ${first}’s booking.`} /> : null}
+      {error ? <Notice tone="danger" text={error} /> : null}
     </SheetScreen>
   );
 }

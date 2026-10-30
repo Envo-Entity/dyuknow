@@ -60,7 +60,7 @@ function Navigator() {
     sheetGrabberVisible: true,
     sheetCornerRadius: 28,
     headerShown: false,
-    contentStyle: { backgroundColor: c.card },
+    contentStyle: { backgroundColor: c.page },
   };
 
   return (

@@ -1,11 +1,11 @@
 // The one step engine for both onboarding flows (talent 9 steps, venue 8).
 // A flow hands over an array of step definitions; this file owns the chrome:
 // back, progress, the step header, the slide between steps, the keyboard and
-// the single Continue button with its reason underneath. `useJoinDraft`
+// the single Continue button with its reason as the footer's note. `useJoinDraft`
 // keeps the answers and the step reached on this device after every change.
 import { Stack, router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInLeft, FadeInRight, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,9 +13,9 @@ import { loadJoinDraft, updateJoinDraft, useLive } from '@/data';
 import type { JoinDraft, JoinSide } from '@/domain';
 import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { Text } from '@/ui';
+import { IconButton, KeyboardFooter, KeyboardSpacer, StickyAction, Text } from '@/ui';
 
-import { RoundButton, StepFooter, type StepAction } from './parts';
+import type { StepAction } from './parts';
 
 export type StepDef = {
   /** Stable key for the step (used for the slide). */
@@ -51,6 +51,7 @@ export function StepFlow({ steps, step, onStep }: StepFlowProps) {
   const last = step === steps.length - 1;
   // Which way the steps are moving, for the slide.
   const [forward, setForward] = useState(true);
+  const [footerH, setFooterH] = useState(0);
 
   const go = (next: number) => {
     setForward(next > step);
@@ -110,17 +111,21 @@ export function StepFlow({ steps, step, onStep }: StepFlowProps) {
       {/* The swipe back leaves onboarding, so it only works on the first step. */}
       <Stack.Screen options={{ gestureEnabled: step === 0 }} />
       <View style={[styles.top, { paddingTop: insets.top + t.space.sm, paddingHorizontal: gutter, paddingBottom: t.space.sm, gap: t.space.md }]}>
-        <RoundButton icon="back" label={step === 0 ? 'Back to Who are you?' : 'Previous step'} onPress={back} hidden={!canBack} />
+        <View style={[styles.side, { width: t.hit, height: t.hit }]}>
+          {canBack ? (
+            <IconButton icon="back" size={40} iconSize={16} accessibilityLabel={step === 0 ? 'Back to Who are you?' : 'Previous step'} onPress={back} />
+          ) : null}
+        </View>
         <Progress count={steps.length} index={step} complete={last} />
-        <View style={{ width: t.hit }} />
+        <View style={[styles.side, { width: t.hit, height: t.hit }]} />
       </View>
-      {/* The keyboard: iOS insets the scroll view and scrolls to the field; Android resizes the window. */}
-      <View style={{ flex: 1 }}>
+      {/* The keyboard: iOS insets the scroll view; Android gets a keyboard-height spacer. The footer rises above it. */}
+      <View style={{ flex: 1 }} collapsable={false}>
         <View style={{ flex: 1, overflow: 'hidden' }}>
           <Animated.View key={current.key} entering={entering} exiting={exiting} style={{ flex: 1 }}>
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: t.space.lg, paddingBottom: t.space.xxxl, gap: t.space.xxl }}
+              contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: t.space.lg, paddingBottom: footerH + t.space.xxxl, gap: t.space.xxl }}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
               automaticallyAdjustKeyboardInsets
@@ -145,10 +150,13 @@ export function StepFlow({ steps, step, onStep }: StepFlowProps) {
                 </View>
               ) : null}
               {current.render()}
+              {Platform.OS === 'android' ? <KeyboardSpacer /> : null}
             </ScrollView>
           </Animated.View>
         </View>
-        <StepFooter primary={primary} reason={reason} />
+        <KeyboardFooter style={styles.footer} onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}>
+          <StickyAction primary={{ ...primary, accessibilityHint: reason ?? primary.accessibilityHint }} note={reason ?? undefined} />
+        </KeyboardFooter>
       </View>
     </View>
   );
@@ -256,5 +264,7 @@ export function useJoinDraft<T extends object>(
 
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center' },
+  side: { alignItems: 'center', justifyContent: 'center' },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   dots: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
 });

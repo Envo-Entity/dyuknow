@@ -1,7 +1,7 @@
 // The last step of both flows: the member pass. It submits the moment it
 // opens; the seal turns from a spinner to a tick (or a cross), and the one
 // button reads Saving… / Try again / Enter Dyuknow.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
@@ -10,7 +10,7 @@ import type { HeadlinePart } from '@/ui';
 import { useTheme } from '@/theme/useTheme';
 import { Headline, Notice, Pass, Text, haptics } from '@/ui';
 
-import type { StepAction } from './parts';
+import { clearKeptFiles, type StepAction } from './parts';
 
 type Status = 'pending' | 'success' | 'error';
 
@@ -21,6 +21,16 @@ export function useSubmitOnce(submit: () => Promise<SelfServeResult>, onSaved: (
   const [error, setError] = useState<string | null>(null);
   const [entering, setEntering] = useState(false);
   const busy = useRef(false);
+  const saved = useRef(false);
+
+  // Once submitted, the copies of the picked photo and documents have done
+  // their job: delete them when the flow closes (the pass still shows the photo until then).
+  useEffect(
+    () => () => {
+      if (saved.current) clearKeptFiles();
+    },
+    [],
+  );
 
   const save = async () => {
     // One submit at a time (the step opening twice, or a quick double tap).
@@ -31,6 +41,7 @@ export function useSubmitOnce(submit: () => Promise<SelfServeResult>, onSaved: (
     const r = await submit();
     busy.current = false;
     if (r.ok) {
+      saved.current = true;
       onSaved();
       setStatus('success');
       haptics.commit();

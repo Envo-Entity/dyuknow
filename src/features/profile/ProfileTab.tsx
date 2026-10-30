@@ -1,44 +1,36 @@
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Linking, View } from 'react-native';
+import { Linking, View } from 'react-native';
 
-import { useLive } from '@/data';
-import { contactLine, fullAddress, verifiedDocs, type Member } from '@/domain';
+import { LiveGate, useLive, useRefresh } from '@/data';
+import { contactLine, fullAddress, money, verifiedDocs, type Member } from '@/domain';
 import { HeaderActions } from '@/features/shell/HeaderActions';
 import { useTheme } from '@/theme/useTheme';
-import { alpha, Badge, Button, Chip, ErrorState, Icon, Loading, Photo, Row, Screen, Section, Text, Ticket } from '@/ui';
+import { Badge, Button, Chip, Icon, Postcard, Row, Screen, Section, Text } from '@/ui';
 
 import { usePhotoChange } from './PhotoChange';
-import { pounds } from './format';
+
+const header = (
+  <>
+    <Stack.Screen options={{ title: 'Profile' }} />
+    <HeaderActions />
+  </>
+);
 
 /** The Profile tab, both sides: the member pass, then the details and the way to Account. */
 export function ProfileTab() {
-  const t = useTheme();
-  const { me, approved, reload, error, badges, logout } = useLive();
-  const photo = usePhotoChange();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const refresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
-
-  const header = (
-    <>
-      <Stack.Screen options={{ title: 'Profile' }} />
-      <HeaderActions />
-    </>
+  // Allowed while waiting for approval (§4 Profile).
+  return (
+    <LiveGate approval={false} header={header} title="Profile" loading={{ count: 2 }}>
+      {({ me }) => <ProfileView me={me} />}
+    </LiveGate>
   );
+}
 
-  if (!me) {
-    return (
-      <Screen>
-        {header}
-        {error ? <ErrorState message={error} onRetry={reload} /> : <Loading count={2} />}
-      </Screen>
-    );
-  }
+function ProfileView({ me }: { me: Member }) {
+  const t = useTheme();
+  const { approved, badges, logout } = useLive();
+  const refresh = useRefresh();
+  const photo = usePhotoChange();
 
   const talent = me.side === 'talent';
   const verified = verifiedDocs(me);
@@ -46,45 +38,14 @@ export function ProfileTab() {
   const kind = v ? [...v.types, ...v.cuisines].join(' · ') : '';
 
   return (
-    <Screen onRefresh={refresh} refreshing={refreshing}>
+    <Screen title="Profile" {...refresh}>
       {header}
 
       {/* The member pass */}
-      <Ticket padding={12} gap={12}>
-        <View>
-          <Photo uri={me.photo} name={me.name} radius={t.radius.md} />
-          {photo.saving ? (
-            <View
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: t.radius.md,
-                backgroundColor: alpha(t.c.card, 0.55),
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              accessible
-              accessibilityLabel="Saving photo"
-            >
-              <ActivityIndicator color={t.c.text} />
-            </View>
-          ) : null}
-        </View>
-        <View style={{ paddingHorizontal: t.space.xs, paddingBottom: t.space.xs, gap: t.space.sm }}>
-          <View style={{ gap: t.space.xxs }}>
-            <Text variant="largeTitle" accessibilityRole="header">
-              {me.name}
-            </Text>
-            {talent && me.roles.length ? (
-              <Text variant="callout" color="muted">
-                {me.roles.join(' · ')}
-              </Text>
-            ) : null}
-          </View>
-          {!approved ? <Badge label="Waiting for approval" icon="waiting" style={{ alignSelf: 'flex-start' }} /> : null}
-          {verified.length ? <VerifiedLine docs={verified} /> : null}
-        </View>
-      </Ticket>
+      <Postcard uri={me.photo} name={me.name} detail={talent && me.roles.length ? me.roles.join(' · ') : undefined} saving={photo.saving}>
+        {!approved ? <Badge label="Waiting for approval" icon="waiting" style={{ alignSelf: 'flex-start' }} /> : null}
+        {verified.length ? <VerifiedLine docs={verified} /> : null}
+      </Postcard>
 
       <View style={{ flexDirection: 'row', gap: t.space.sm }}>
         <Button label="Edit profile" icon="edit" fullWidth style={{ flex: 1 }} onPress={() => router.push('/profile-edit')} />
@@ -167,7 +128,7 @@ function Info({ me }: { me: Member }) {
     return (
       <Section>
         <Row title="Postcode" value={me.postcode || 'Not set'} />
-        <Row title="Minimum pay" value={me.minRate ? `${pounds(me.minRate)} per hour` : 'Not set'} valueTabular />
+        <Row title="Minimum pay" value={me.minRate ? `${money(me.minRate)} per hour` : 'Not set'} valueTabular />
       </Section>
     );
   }

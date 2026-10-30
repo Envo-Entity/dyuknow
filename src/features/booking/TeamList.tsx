@@ -1,15 +1,16 @@
 // Book › a team (web `TeamList`): the people in it, free ones first. Add
 // people, then send them one booking request.
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { useLive } from '@/data/store';
+import { LiveGate, useMessage, useRefresh } from '@/data';
 import {
   FAMILIES,
   areaOf,
   firstName,
   joinNames,
+  money,
   openAnswer,
   rankTalent,
   standing,
@@ -28,17 +29,14 @@ import {
   ChipGroup,
   Empty,
   Icon,
-  Loading,
   Photo,
   Screen,
   StickyAction,
   Text,
   Ticket,
-  WaitingForApproval,
   type IconName,
 } from '@/ui';
 
-import { money, useMessage } from './parts';
 import { parseWhen, savedWhen, setWhen as keepWhen, whenDays, whenParams, type When } from './when';
 import { WhenBar } from './WhenBar';
 
@@ -46,13 +44,7 @@ const ANY = '__any';
 
 export function TeamList({ team, dates, time }: { team: string; dates?: string; time?: string }) {
   const t = useTheme();
-  const live = useLive();
-  const { data, me, approved } = live;
-  const [when, setWhenState] = useState<When>(() => parseWhen(dates, time) ?? savedWhen());
-  const [role, setRole] = useState<string | undefined>();
-  const [picked, setPicked] = useState<string[]>([]);
   const family = FAMILIES[team];
-
   const header = (
     <Stack.Screen
       options={{
@@ -64,33 +56,49 @@ export function TeamList({ team, dates, time }: { team: string; dates?: string; 
       }}
     />
   );
-  if (!data || !me)
-    return (
-      <Screen>
-        {header}
-        <Loading count={2} />
-      </Screen>
-    );
-  if (!approved)
-    return (
-      <Screen>
-        {header}
-        <WaitingForApproval />
-      </Screen>
-    );
-  if (!family)
-    return (
-      <Screen>
-        {header}
-        <Empty
-          title="Team not found"
-          action={{ label: 'Back to Book', onPress: () => (router.canGoBack() ? router.back() : router.replace('/v/book')) }}
-        />
-      </Screen>
-    );
+  return (
+    <LiveGate header={header} loading={{ count: 3 }}>
+      {({ data, me }) =>
+        family ? (
+          <TeamListBody data={data} venue={me.id} team={team} dates={dates} time={time} header={header} />
+        ) : (
+          <Screen>
+            {header}
+            <Empty
+              title="Team not found"
+              action={{ label: 'Back to Book', onPress: () => (router.canGoBack() ? router.back() : router.navigate('/v/book')) }}
+            />
+          </Screen>
+        )
+      }
+    </LiveGate>
+  );
+}
+
+function TeamListBody({
+  data,
+  venue,
+  team,
+  dates,
+  time,
+  header,
+}: {
+  data: Data;
+  venue: string;
+  team: string;
+  dates?: string;
+  time?: string;
+  header: ReactNode;
+}) {
+  const t = useTheme();
+  const refresh = useRefresh();
+  const [when, setWhenState] = useState<When>(() => parseWhen(dates, time) ?? savedWhen());
+  const [role, setRole] = useState<string | undefined>();
+  const [picked, setPicked] = useState<string[]>([]);
+  const family = FAMILIES[team];
 
   const days = whenDays(when);
-  const { free, unavailable } = rankTalent(data, me.id, team, role, days);
+  const { free, unavailable } = rankTalent(data, venue, team, role, days);
   const people = [...free, ...unavailable];
   const names = picked.map((id) => {
     const m = data.members.find((x) => x.id === id);
@@ -107,7 +115,7 @@ export function TeamList({ team, dates, time }: { team: string; dates?: string; 
 
   return (
     <Screen
-      onRefresh={() => void live.reload()}
+      {...refresh}
       gap="lg"
       footer={
         picked.length > 0 ? (
@@ -143,7 +151,7 @@ export function TeamList({ team, dates, time }: { team: string; dates?: string; 
           <TalentCard
             key={p.id}
             data={data}
-            venue={me.id}
+            venue={venue}
             talent={p}
             days={days}
             picked={picked.includes(p.id)}
@@ -177,7 +185,12 @@ const STATUS_ICON: Record<Standing, IconName> = {
   'not-set': 'help',
 };
 
-/** The large profile card on a team list (web `TalentCard` in a `ProfileCard`). */
+/**
+ * One person on a team list, compact so a screen shows several: a 4:5 photo
+ * on the left, the serif name, where they stand and positions · area on the
+ * right; pay and top skills, then the actions in one row. The big photo
+ * lives on their profile.
+ */
 function TalentCard({
   data,
   venue,
@@ -203,70 +216,86 @@ function TalentCard({
   // Already answering one of this venue's asks for these hours: go there
   // instead of sending a second one.
   const open = valid ? openAnswer(data, venue, p.id, days) : undefined;
-  const inset = t.space.sm;
   const first = firstName(p);
+  const facts = `${p.roles.length ? `${p.roles.join(' · ')} · ` : ''}${areaOf(p)}`;
+  const pay = p.minRate ? `From ${money(p.minRate)} / hour` : 'No minimum pay set';
+  const skills = p.skills.slice(0, 3).join(' · ');
+  const photoWidth = Math.round(112 * Math.min(t.scale, 1.15));
 
   return (
-    <Ticket padding={inset} gap={0}>
+    <Ticket padding={t.space.md} gap={t.space.md}>
       <Pressable
         onPress={() => router.push(`/talent/${p.id}`)}
         accessibilityRole="button"
-        accessibilityLabel={`${p.name}, ${status}${worked ? ', Worked with you' : ''}`}
+        accessibilityLabel={`${p.name}, ${status}${worked ? ', Worked with you' : ''}, ${facts}`}
         accessibilityHint="Opens their profile"
-        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+        style={({ pressed }) => [styles.top, { gap: t.space.md, opacity: pressed ? 0.8 : 1 }]}
       >
-        <Photo uri={p.photo} name={p.name} radius={t.radius.card - inset} accessibilityLabel="" />
-        <View style={[styles.badges, { top: t.space.md, left: t.space.md, right: t.space.md, gap: t.space.xs }]}>
-          <Badge label={status} tone={free ? 'good' : 'neutral'} icon={free ? undefined : valid ? STATUS_ICON[where] : 'clock'} />
-          {worked ? <Badge label="Worked with you" tone="good" icon="worked" /> : null}
+        <Photo uri={p.photo} name={p.name} width={photoWidth} radius={t.radius.md} accessibilityLabel="" />
+        <View style={{ flex: 1, minWidth: 0, gap: t.space.xs }}>
+          <Text variant="title2" numberOfLines={2}>
+            {p.name}
+          </Text>
+          <View style={[styles.wrap, { gap: t.space.xs }]}>
+            <Badge label={status} tone={free ? 'good' : 'neutral'} icon={free ? undefined : valid ? STATUS_ICON[where] : 'clock'} />
+            {worked ? <Badge label="Worked with you" tone="good" icon="worked" /> : null}
+          </View>
+          <Text variant="subhead" color="muted" numberOfLines={3}>
+            {facts}
+          </Text>
         </View>
       </Pressable>
-      <View style={{ paddingHorizontal: t.space.sm, paddingTop: t.space.md, paddingBottom: t.space.sm, gap: t.space.xs }}>
-        <Text variant="title2" numberOfLines={1}>
-          {p.name}
+      <View style={{ gap: t.space.xxs }}>
+        <Text variant="callout" tabular>
+          {pay}
         </Text>
-        <Text variant="subhead" color="muted" numberOfLines={2}>
-          {`${p.roles.length ? `${p.roles.join(' · ')} · ` : ''}${areaOf(p)}`}
-        </Text>
-        <Text variant="callout" tabular style={{ marginTop: t.space.xs }}>
-          {p.minRate ? `From ${money(p.minRate)} / hour` : 'No minimum pay set'}
-        </Text>
-        {p.skills.length > 0 ? (
-          <Text variant="footnote" color="muted" numberOfLines={2}>
-            {p.skills.slice(0, 3).join(' · ')}
+        {skills ? (
+          <Text variant="footnote" color="muted">
+            {skills}
           </Text>
         ) : null}
-        <View style={[styles.row, { gap: t.space.sm, marginTop: t.space.md }]}>
-          {open ? (
-            <Button
-              label={open.status === 'booked' ? 'Booked' : open.status === 'invited' ? 'Request sent' : 'Said yes · Book'}
-              variant={open.status === 'can-cover' ? 'primary' : 'secondary'}
-              icon={open.status === 'booked' ? 'check' : open.status === 'invited' ? 'waiting' : undefined}
-              onPress={() => router.push(`/shift/${open.shift}`)}
-              style={{ flex: 1 }}
-              fullWidth
-            />
-          ) : (
+      </View>
+      <View style={[styles.row, { gap: t.space.sm }]}>
+        {open ? (
+          <Button
+            label={open.status === 'booked' ? 'Booked' : open.status === 'invited' ? 'Request sent' : 'Said yes · Book'}
+            variant="secondary"
+            icon={open.status === 'booked' ? 'check' : open.status === 'invited' ? 'waiting' : undefined}
+            accessibilityHint="Opens that shift"
+            onPress={() => router.push(`/shift/${open.shift}`)}
+            style={{ flex: 1 }}
+            fullWidth
+          />
+        ) : (
+          // The toggle reads as a checkbox with its state (the kit Button has no selected state).
+          <View
+            style={{ flex: 1 }}
+            accessible
+            accessibilityRole="checkbox"
+            accessibilityLabel={`Choose ${p.name}`}
+            accessibilityValue={{ text: picked ? 'Added' : 'Add to request' }}
+            accessibilityState={{ checked: picked }}
+            accessibilityActions={[{ name: 'activate' }]}
+            onAccessibilityAction={() => onPick(!picked)}
+          >
             <Button
               label={picked ? 'Added' : 'Add to request'}
               icon={picked ? 'check' : 'add'}
               variant="secondary"
-              accessibilityLabel={`Choose ${p.name}${picked ? ', added' : ''}`}
               onPress={() => onPick(!picked)}
-              style={{ flex: 1 }}
               fullWidth
             />
-          )}
-          <Button
-            label="Message"
-            icon="message"
-            variant="secondary"
-            accessibilityLabel={`Message ${first}`}
-            onPress={() => void message(p.id)}
-            style={{ flex: 1 }}
-            fullWidth
-          />
-        </View>
+          </View>
+        )}
+        <Button
+          label="Message"
+          icon="message"
+          variant="secondary"
+          accessibilityLabel={`Message ${first}`}
+          onPress={() => void message(p.id)}
+          style={{ flex: 1 }}
+          fullWidth
+        />
       </View>
     </Ticket>
   );
@@ -274,5 +303,6 @@ function TalentCard({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  badges: { position: 'absolute', flexDirection: 'row', flexWrap: 'wrap' },
+  top: { flexDirection: 'row', alignItems: 'flex-start' },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
 });

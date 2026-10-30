@@ -13,6 +13,8 @@ export function TabStack() {
     <Stack
       screenOptions={{
         headerLargeTitleEnabled: false,
+        // Tab roots show their serif title in the content (Screen title), so the bar stays clear.
+        headerTitle: '',
         headerLargeTitleShadowVisible: false,
         headerShadowVisible: false,
         headerStyle: { backgroundColor: c.page },

@@ -65,3 +65,4 @@ export {
   type PickPhotoResult,
 } from './PhotoCropper';
 export { Pass, type PassProps, type PassStatus } from './Pass';
+export { Postcard, type PostcardProps } from './Postcard';

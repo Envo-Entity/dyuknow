@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 
-import { setAvailability, useLive } from '@/data';
+import { LiveGate, setAvailability, useLive, useRefresh } from '@/data';
 import {
   bookingServices,
   datePlus,
@@ -23,9 +23,8 @@ import { useTheme } from '@/theme/useTheme';
 import {
   Badge,
   DayPager,
-  ErrorState,
+  GroupHeading,
   Icon,
-  Loading,
   Screen,
   Section,
   Segmented,
@@ -61,66 +60,58 @@ function bookedServices(data: Data, me: string): BookedService[] {
 }
 
 export function AvailabilityScreen() {
-  const live = useLive();
-  const { status, data, me, error, reload } = live;
-  const [refreshing, setRefreshing] = useState(false);
-
-  const refresh = async () => {
-    setRefreshing(true);
-    try {
-      await reload();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const header = (
     <>
       <Stack.Screen options={{ title: 'Availability' }} />
       <HeaderActions />
     </>
   );
-
-  if (!data || !me) {
-    return (
-      <>
-        {header}
-        <Screen>
-          {status === 'error' ? (
-            <ErrorState message={error ?? "Couldn't load this."} onRetry={() => void reload()} />
-          ) : (
-            <Loading count={2} />
-          )}
-        </Screen>
-      </>
-    );
-  }
-
+  // Talent set availability whether approved or not.
   return (
-    <>
-      {header}
-      <Editor data={data} meId={me.id} refreshing={refreshing} onRefresh={refresh} />
-    </>
+    <LiveGate header={header} title="Availability" approval={false} loading={{ count: 2 }}>
+      {({ data, me }) => (
+        <>
+          {header}
+          <Editor data={data} meId={me.id} />
+        </>
+      )}
+    </LiveGate>
   );
 }
 
-function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: string; refreshing: boolean; onRefresh: () => void }) {
+/** The form's kind and hours for a saved mark. */
+function formFor(a: Availability): { kind: Kind; start: string; end: string } {
+  return {
+    kind: a.kind === 'not-free' ? 'Not free' : a.start === '00:00' && a.end === '00:00' ? 'All day' : 'Hours',
+    start: a.start,
+    end: a.end,
+  };
+}
+
+function Editor({ data, meId }: { data: Data; meId: string }) {
   const t = useTheme();
   const { run } = useLive();
   const today = londonDate(data.now);
   const days = useMemo(() => upcomingDates(today, WEEKS * 7), [today]);
 
-  const [selected, setSelected] = useState<string[]>([today]);
-  const [kind, setKind] = useState<Kind>('Hours');
-  const [start, setStart] = useState('16:00');
-  const [end, setEnd] = useState('23:59');
-  const [saving, setSaving] = useState(false);
+  const refresh = useRefresh();
 
   const marks = useMemo(() => {
     const m = new Map<string, Availability>();
     for (const a of data.availability) if (a.member === meId) m.set(a.date, a);
     return m;
   }, [data.availability, meId]);
+
+  // Starts with today selected, its saved setting preloaded (§4 availability).
+  const [initial] = useState(() => {
+    const a = marks.get(today);
+    return a ? formFor(a) : { kind: 'Hours' as Kind, start: '16:00', end: '23:59' };
+  });
+  const [selected, setSelected] = useState<string[]>([today]);
+  const [kind, setKind] = useState<Kind>(initial.kind);
+  const [start, setStart] = useState(initial.start);
+  const [end, setEnd] = useState(initial.end);
+  const [saving, setSaving] = useState(false);
 
   const booked = useMemo(() => bookedServices(data, meId), [data, meId]);
   const bookedOn = (d: string) => booked.find((b) => b.date === d || (b.end < b.start && datePlus(b.date, 1) === d));
@@ -141,9 +132,10 @@ function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: strin
     const a = added && !selected.length ? marks.get(added) : undefined;
     setSelected(dates);
     if (a) {
-      setKind(a.kind === 'not-free' ? 'Not free' : a.start === '00:00' && a.end === '00:00' ? 'All day' : 'Hours');
-      setStart(a.start);
-      setEnd(a.end);
+      const f = formFor(a);
+      setKind(f.kind);
+      setStart(f.start);
+      setEnd(f.end);
     }
   };
 
@@ -164,11 +156,16 @@ function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: strin
     setSaving(true);
     const dates = [...new Set(selected)].sort();
     const allDay = kind === 'All day';
-    const r = await run(
-      'availability',
-      () => setAvailability(dates, kind === 'Not free' ? 'not-free' : 'free', allDay ? '00:00' : start, allDay ? '00:00' : end),
-      { success: 'Availability saved.' },
-    );
+    const p = {
+      dates,
+      kind: kind === 'Not free' ? ('not-free' as const) : ('free' as const),
+      start: allDay ? '00:00' : start,
+      end: allDay ? '00:00' : end,
+    };
+    const r = await run('availability', () => setAvailability(p.dates, p.kind, p.start, p.end), {
+      success: 'Availability saved.',
+      args: p,
+    });
     setSaving(false);
     if (r) {
       setSelected([]);
@@ -182,11 +179,12 @@ function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: strin
 
   return (
     <Screen
-      onRefresh={onRefresh}
-      refreshing={refreshing}
+      title="Availability"
+      subtitle="When are you free?"
+      {...refresh}
+      insideTabs
       footer={
         <StickyAction
-          safeArea={false}
           note={n ? undefined : 'Choose at least one date.'}
           primary={{
             label: n > 1 ? `Save ${n} days` : 'Save availability',
@@ -197,10 +195,6 @@ function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: strin
         />
       }
     >
-      <Text variant="title2" accessibilityRole="header">
-        When are you free?
-      </Text>
-
       <Animated.View style={settleStyle}>
         <DayPager days={days} value={selected} onChange={choose} describe={describe} />
       </Animated.View>
@@ -224,9 +218,7 @@ function Editor({ data, meId, refreshing, onRefresh }: { data: Data; meId: strin
       </Section>
 
       <View style={{ gap: t.space.sm }}>
-        <Text variant="label" color="muted" accessibilityRole="header" style={{ paddingHorizontal: t.space.lg, textTransform: 'uppercase' }}>
-          Your bookings
-        </Text>
+        <GroupHeading title="Your bookings" />
         {upcoming.length ? (
           upcoming.map((b) => {
             const venue = member(data, b.venue)?.name ?? '';

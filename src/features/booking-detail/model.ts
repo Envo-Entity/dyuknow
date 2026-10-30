@@ -10,12 +10,13 @@ import {
   dayRecords,
   firstName,
   fullAddress,
+  hoursLabel,
+  money,
   openDates,
   relativeDay,
   serviceLabel,
   shiftLabel,
   teamOf,
-  threadBetween,
   type Booking,
   type Data,
   type DayStatus,
@@ -24,14 +25,6 @@ import {
 } from '@/domain';
 import type { BadgeTone, HeadlinePart, IconName } from '@/ui';
 
-/** §10.8: whole pounds as `£18`, otherwise two decimals `£18.50`. */
-export function money(n: number) {
-  return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
-}
-/** Hours as the web prints them (`6`, `6.5`), without float noise. */
-export function hoursText(n: number) {
-  return String(Math.round(n * 100) / 100);
-}
 /** Who did something: a member's name, or Dyuknow for the system. */
 export function nameOf(data: Data, id: string | undefined) {
   const m = id ? data.members.find((x) => x.id === id) : undefined;
@@ -114,7 +107,7 @@ export function bookingView(data: Data, found: Found) {
   const days: DayLine[] = records.map((r) => {
     const detail =
       r.status === 'worked'
-        ? `${r.start}–${r.end} · ${hoursText(r.hours)} hours · ${money(r.pay)}${r.log?.auto ? ' · confirmed automatically' : ''}`
+        ? `${r.start}–${r.end} · ${hoursLabel(r.hours)} · ${money(r.pay)}${r.log?.auto ? ' · confirmed automatically' : ''}`
         : r.status === 'cancelled'
           ? r.log?.reason
             ? `${nameOf(data, r.log.by)}: ${r.log.reason}`
@@ -125,7 +118,7 @@ export function bookingView(data: Data, found: Found) {
               : `${v.name} has 48 hours to confirm`
             : r.status === 'no-show'
               ? 'Not paid'
-              : `${hoursText(r.hours)} hours · about ${money(r.pay)}`;
+              : `${hoursLabel(r.hours)} · about ${money(r.pay)}`;
     const badge: DayLine['badge'] =
       r.status === 'booked'
         ? { label: 'Booked', tone: 'good' }
@@ -154,7 +147,7 @@ export function bookingView(data: Data, found: Found) {
   const workedHours = worked.reduce((n, r) => n + r.hours, 0);
   const stillOn = records.some((r) => r.status === 'booked' || r.status === 'to-confirm');
   const footer = `${money(s.rate)}/h · ${shiftLabel(s)} · paid by ${v.name}${
-    worked.length ? ` · ${hoursText(workedHours)} hours worked${stillOn ? ' so far' : ''}` : ''
+    worked.length ? ` · ${hoursLabel(workedHours)} worked${stillOn ? ' so far' : ''}` : ''
   }`;
 
   const open = venueView && s.status === 'open' ? openDates(data, s) : [];
@@ -165,7 +158,6 @@ export function bookingView(data: Data, found: Found) {
 
   const address = fullAddress(v);
   const showArrival = !b.cancelled && !past;
-  const thread = threadBetween(data, s.venue, b.talent);
 
   return {
     title,
@@ -189,7 +181,6 @@ export function bookingView(data: Data, found: Found) {
     note: s.note || 'No note.',
     // The number to call: the talent's mobile for the venue, the venue's for talent.
     phone: (venueView ? t.phone : v.phone).trim(),
-    threadId: thread?.id ?? null,
     bookAgain: venueView && (past || b.cancelled) ? { team: teamOf(s.roles), to: t.id } : null,
     cancelLabel: future.length > 1 ? 'Cancel days' : 'Cancel booking',
     canCancel: future.length > 0,

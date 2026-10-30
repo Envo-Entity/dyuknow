@@ -11,7 +11,6 @@ import {
   hoursOf,
   offeredDates,
   openDates,
-  relativeDay,
   shiftLabel,
   type Booking,
   type Data,
@@ -20,11 +19,6 @@ import {
   type Shift,
 } from '@/domain';
 
-/** §10.8: whole pounds as `£18`, otherwise two decimals `£18.50`. */
-export function pounds(n: number) {
-  return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
-}
-
 /** A member by id, or undefined (the domain's `member()` assumes it exists). */
 export function findMember(data: Data, id: string): Member | undefined {
   return data.members.find((m) => m.id === id);
@@ -32,14 +26,6 @@ export function findMember(data: Data, id: string): Member | undefined {
 
 export function venueName(data: Data, s: Shift) {
   return findMember(data, s.venue)?.name ?? 'Another venue';
-}
-
-/** `Thu 8–Sat 10 Oct · 17:00–23:00`, or `Tomorrow · 17:00–23:00` for one day. */
-export function whenLine(data: Data, s: Shift, dates?: string[]) {
-  const span = dates && dates.length ? dates : s.days.map((d) => d.date);
-  const first = s.days.find((d) => d.date === [...span].sort()[0]) ?? s.days[0];
-  if (!first) return '';
-  return `${span.length > 1 ? datesLabel(span) : relativeDay(first.date, data.now)} · ${first.start}–${first.end}`;
 }
 
 /** Venue types plus cuisines, joined with ` · `. */

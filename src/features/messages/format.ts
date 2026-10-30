@@ -1,40 +1,33 @@
 // Small formatting and routing helpers for Messages, Chat and Notifications.
+// Money and hours come from `@/domain` (money, hoursLabel).
 import type { Href } from 'expo-router';
-
-/** §10.8: whole pounds as "£18", otherwise two decimals "£18.50". */
-export function money(n: number) {
-  return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
-}
 
 /** "1,850": thousands with a comma, without relying on Intl. */
 export function thousands(n: number) {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-/** Hours as the web shows them: 6, 6.5, 6.25. */
-export function hours(n: number) {
-  return String(Math.round(n * 100) / 100);
-}
-
 /**
  * A notice's stored target ("shift/<id>", "booking/<id>", "availability",
- * "profile", "account", "bookings") → the app route. Null when unknown.
+ * "profile", "account", "bookings") → the app route. `tab` targets are tab
+ * roots: navigate to them (back to the existing tabs), never push a second
+ * tab navigator. Null when unknown.
  */
-export function noticeRoute(target: string, side: 'talent' | 'venue' | null): Href | null {
+export function noticeRoute(target: string, side: 'talent' | 'venue' | null): { href: Href; tab: boolean } | null {
   const [kind, id] = target.split('/');
   switch (kind) {
     case 'shift':
-      return id ? (`/shift/${id}` as Href) : null;
+      return id ? { href: `/shift/${id}` as Href, tab: false } : null;
     case 'booking':
-      return id ? (`/booking/${id}` as Href) : null;
+      return id ? { href: `/booking/${id}` as Href, tab: false } : null;
     case 'availability':
-      return side === 'talent' ? '/t/availability' : '/v/bookings';
+      return { href: side === 'talent' ? '/t/availability' : '/v/bookings', tab: true };
     case 'bookings':
-      return side === 'venue' ? '/v/bookings' : '/t/availability';
+      return { href: side === 'venue' ? '/v/bookings' : '/t/availability', tab: true };
     case 'profile':
-      return side === 'venue' ? '/v/profile' : '/t/profile';
+      return { href: side === 'venue' ? '/v/profile' : '/t/profile', tab: true };
     case 'account':
-      return '/account';
+      return { href: '/account', tab: false };
     default:
       return null;
   }

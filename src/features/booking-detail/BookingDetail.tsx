@@ -5,19 +5,18 @@ import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform } from 'react-native';
 
-import { openConversation } from '@/data/actions';
-import { useLive } from '@/data/store';
+import { LiveGate, useLive, useMessage, useRefresh } from '@/data';
+import type { Data, Member } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Button, Empty, haptics, Headline, Loading, Row, Screen, Section, Text, Ticket, useToast } from '@/ui';
+import { Badge, Button, DetailRow, Empty, haptics, Headline, Row, Screen, Section, Text, Ticket, useToast } from '@/ui';
 
-import { addToCalendar, CALENDAR_COPY } from './calendar';
-import { DetailRow } from './DetailRow';
+import { addToCalendar, alreadyAdded, CALENDAR_COPY } from './calendar';
 import { bookingView, findBooking } from './model';
 
 /** Back to where the person came from, else their side's home tab (§10.12). */
 export function goBack(side: 'talent' | 'venue' | null) {
   if (router.canGoBack()) router.back();
-  else router.replace(side === 'venue' ? '/v/book' : '/t/shifts');
+  else router.navigate(side === 'venue' ? '/v/book' : '/t/shifts');
 }
 
 function openUrl(url: string) {
@@ -32,28 +31,31 @@ function directions(address: string) {
 }
 
 export function BookingDetail({ id }: { id: string }) {
-  const { data, me, side, run, reload, readTarget } = useLive();
-  const t = useTheme();
-  const toast = useToast();
-  const [refreshing, setRefreshing] = useState(false);
-  const [calendar, setCalendar] = useState<'idle' | 'busy' | 'added'>('idle');
+  const { readTarget } = useLive();
 
   // Opening a booking reads the notices that point at it, quietly.
   useEffect(() => {
     void readTarget(`booking/${id}`);
   }, [id, readTarget]);
 
-  if (!data) {
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: '' }} />
-        <Loading count={2} />
-      </Screen>
-    );
-  }
+  return (
+    <LiveGate approval={false} header={<Stack.Screen options={{ title: '' }} />} loading={{ count: 2 }}>
+      {({ data, me, side }) => <BookingBody id={id} data={data} me={me} side={side} />}
+    </LiveGate>
+  );
+}
 
-  const found = findBooking(data, me?.id, id);
+function BookingBody({ id, data, me, side }: { id: string; data: Data; me: Member; side: 'talent' | 'venue' }) {
+  const t = useTheme();
+  const toast = useToast();
+  const refresh = useRefresh();
+  const message = useMessage();
+  const found = findBooking(data, me.id, id);
   const view = found ? bookingView(data, found) : null;
+  const [calendar, setCalendar] = useState<'idle' | 'busy' | 'added'>(() =>
+    view && alreadyAdded(view.calendarEvents) ? 'added' : 'idle',
+  );
+
   if (!found || !view) {
     return (
       <Screen scroll={false}>
@@ -64,33 +66,32 @@ export function BookingDetail({ id }: { id: string }) {
   }
   const { b, s, venueView } = found;
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
   const openPerson = () =>
     router.push({ pathname: venueView ? '/talent/[id]' : '/venue/[id]', params: { id: view.person.id } });
-  const message = async () => {
-    if (view.threadId) {
-      router.push({ pathname: '/chat/[id]', params: { id: view.threadId } });
-      return;
-    }
-    const r = await run(`open:${view.person.id}`, () => openConversation(view.person.id));
-    if (r?.conversation_id) router.push({ pathname: '/chat/[id]', params: { id: r.conversation_id } });
-  };
   const toCalendar = async () => {
     if (calendar !== 'idle') return;
     setCalendar('busy');
     const result = await addToCalendar(view.calendarEvents);
-    setCalendar(result === 'added' ? 'added' : 'idle');
-    if (result === 'added') haptics.commit();
+    const ok = result === 'added' || result === 'already';
+    setCalendar(ok ? 'added' : 'idle');
+    if (ok) haptics.commit();
     else haptics.warn();
-    toast.show(CALENDAR_COPY[result], { tone: result === 'added' ? 'good' : 'error' });
+    toast.show(CALENDAR_COPY[result], { tone: ok ? 'good' : 'error' });
   };
+  const callRow = view.phone ? (
+    <Row
+      icon="call"
+      title="Call"
+      value={view.phone}
+      valueTabular
+      chevron={false}
+      onPress={() => call(view.phone)}
+      accessibilityLabel={`Call ${view.first}, ${view.phone}`}
+    />
+  ) : null;
 
   return (
-    <Screen onRefresh={refresh} refreshing={refreshing}>
+    <Screen {...refresh}>
       <Stack.Screen options={{ title: view.headerTitle }} />
 
       <Ticket lit={view.lit} spiked={view.settled} gap={t.space.sm} accessibilityLabel={`${view.title}. ${view.whenLine}`}>
@@ -104,13 +105,13 @@ export function BookingDetail({ id }: { id: string }) {
         <Row
           photo={{ uri: view.person.photo, name: view.person.name }}
           title={view.person.name}
+          titleSerif
           subtitle={view.personLine || undefined}
+          subtitleLines={3}
           onPress={openPerson}
           accessibilityHint="Opens their profile"
         />
-        {venueView && view.phone ? (
-          <Row icon="call" title="Call" value={view.phone} valueTabular chevron={false} onPress={() => call(view.phone)} accessibilityLabel={`Call ${view.first}, ${view.phone}`} />
-        ) : null}
+        {venueView ? callRow : null}
       </Section>
 
       {view.cancelledBy ? (
@@ -129,8 +130,8 @@ export function BookingDetail({ id }: { id: string }) {
         {view.days.map((d) => (
           <DetailRow
             key={d.date}
-            title={d.title}
-            detail={d.detail}
+            label={d.title}
+            value={d.detail}
             tabular
             trailing={<Badge label={d.badge.label} tone={d.badge.tone} icon={d.badge.icon} />}
             onPress={
@@ -147,26 +148,28 @@ export function BookingDetail({ id }: { id: string }) {
       {view.reopened ? (
         <Ticket lit gap={t.space.md}>
           <Text variant="headline">{view.reopened}</Text>
-          <Button label="Find someone" onPress={() => router.push({ pathname: '/shift/[id]', params: { id: s.id } })} style={{ alignSelf: 'flex-start' }} />
+          <Button
+            label="Find someone"
+            onPress={() => router.push({ pathname: '/shift/[id]', params: { id: s.id } })}
+            style={{ alignSelf: 'flex-start' }}
+          />
         </Ticket>
       ) : null}
 
       {view.showArrival ? (
         <Section label={view.arrivalTitle}>
-          {view.address ? <DetailRow labelled title="Address" detail={view.address} /> : null}
+          {view.address ? <DetailRow label="Address" value={view.address} /> : null}
           {!venueView && view.address ? (
             <Row icon="directions" title="Directions" chevron={false} onPress={() => directions(view.address)} accessibilityHint="Opens Maps" />
           ) : null}
-          {view.contact ? <DetailRow labelled title="On-site contact" detail={view.contact} tabular /> : null}
-          {!venueView && view.phone ? (
-            <Row icon="call" title="Call" value={view.phone} valueTabular chevron={false} onPress={() => call(view.phone)} accessibilityLabel={`Call ${view.first}, ${view.phone}`} />
-          ) : null}
-          <DetailRow labelled title="Note" detail={view.note} />
+          {view.contact ? <DetailRow label="On-site contact" value={view.contact} tabular /> : null}
+          {!venueView ? callRow : null}
+          <DetailRow label="Note" value={view.note} />
         </Section>
       ) : null}
 
       <Section>
-        <Row icon="message" title={`Message ${view.first}`} onPress={message} />
+        <Row icon="message" title={`Message ${view.first}`} onPress={() => void message(view.person.id)} />
         {view.showArrival ? (
           <Row
             icon="calendarAdd"

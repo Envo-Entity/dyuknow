@@ -1,8 +1,7 @@
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
 import { View } from 'react-native';
 
-import { sendToMore, useLive } from '@/data';
+import { LiveGate, sendToMore, useLive, useMessage, useRefresh } from '@/data';
 import {
   activeDays,
   areaOf,
@@ -10,75 +9,66 @@ import {
   bookableDates,
   coverage,
   datesLabel,
+  daysPhrase,
   declinedByAll,
   endedLabel,
+  firstName,
   joinNames,
+  money,
   offeredDates,
   openDates,
+  people,
   serviceLabel,
   shiftLabel,
   shortDay,
   venueSummary,
+  whenLine,
   type Data,
   type Member,
   type Response,
   type Shift,
 } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Button, Empty, ErrorState, Loading, Row, Screen, Section, Text, Ticket, type BadgeTone } from '@/ui';
+import { Badge, Button, Empty, GroupHeading, Row, Screen, Section, Text, Ticket, type BadgeTone } from '@/ui';
 
-import { money, nameOf, people, whenLine } from './format';
 import { ResponseCard } from './ResponseCard';
 import { ShiftMenu } from './ShiftMenu';
-import { useMessage } from './useMessage';
 
 const ENDED = ['declined', 'withdrawn', 'lapsed', 'not-selected'];
 
-/** The venue's view of a shift (spec §6.2). Read-only when the shift isn't theirs. */
-export function VenueShift({ id }: { id: string }) {
-  const { data, me, status, error, reload } = useLive();
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
-
-  if (!data || !me) {
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: '' }} />
-        {status === 'error' ? <ErrorState message={error ?? 'Couldn’t load Dyuknow.'} onRetry={() => void reload()} /> : <Loading count={2} />}
-      </Screen>
-    );
-  }
-  const s = data.shifts.find((x) => x.id === id);
-  if (!s) {
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: '' }} />
-        <Empty title="Shift not found" action={{ label: 'Go home', onPress: () => router.replace('/v/book') }} />
-      </Screen>
-    );
-  }
-  return <VenueShiftBody data={data} s={s} readOnly={s.venue !== me.id} refreshing={refreshing} onRefresh={refresh} />;
+/** First name of anyone in the snapshot, or "Someone". */
+function nameOf(data: Data, id: string) {
+  const m = data.members.find((x) => x.id === id);
+  return m ? firstName(m) : 'Someone';
 }
 
-function VenueShiftBody({
-  data,
-  s,
-  readOnly,
-  refreshing,
-  onRefresh,
-}: {
-  data: Data;
-  s: Shift;
-  readOnly: boolean;
-  refreshing: boolean;
-  onRefresh: () => void;
-}) {
+/** The venue's view of a shift (spec §6.2). Read-only when the shift isn't theirs. */
+export function VenueShift({ id }: { id: string }) {
+  return (
+    <LiveGate header={<Stack.Screen options={{ title: '' }} />} approval={false} loading={{ count: 2 }}>
+      {({ data, me, side }) => {
+        const s = data.shifts.find((x) => x.id === id);
+        if (!s) {
+          return (
+            <Screen>
+              <Stack.Screen options={{ title: '' }} />
+              <Empty
+                title="Shift not found"
+                action={{ label: 'Go home', onPress: () => router.dismissTo(side === 'venue' ? '/v/book' : '/t/shifts') }}
+              />
+            </Screen>
+          );
+        }
+        return <VenueShiftBody data={data} s={s} readOnly={s.venue !== me.id} />;
+      }}
+    </LiveGate>
+  );
+}
+
+function VenueShiftBody({ data, s, readOnly }: { data: Data; s: Shift; readOnly: boolean }) {
   const t = useTheme();
   const { run } = useLive();
+  const refresh = useRefresh();
   const message = useMessage();
   const person = (tid: string) => data.members.find((m) => m.id === tid);
 
@@ -110,7 +100,10 @@ function VenueShiftBody({
   const allDeclined = declinedByAll(data, s);
 
   const askAgain = (tid: string) =>
-    run(`ask-again:${s.id}:${tid}`, (ref) => sendToMore(s.id, [tid], ref), { success: `Sent to ${nameOf(data, tid)}.` });
+    run(`ask-again:${s.id}:${tid}`, (ref) => sendToMore(s.id, [tid], ref), {
+      args: { shift: s.id, to: [tid] },
+      success: `Sent to ${nameOf(data, tid)}.`,
+    });
   const book = (tid: string, dates?: string[]) =>
     router.push({
       pathname: '/sheet/book-confirm',
@@ -152,7 +145,7 @@ function VenueShiftBody({
   const othersTitle = canCover.length || bookings.length ? 'Others' : s.mode === 'request' ? 'Sent to' : 'Others';
 
   return (
-    <Screen onRefresh={onRefresh} refreshing={refreshing}>
+    <Screen {...refresh}>
       {/* The eyebrow and title live in the content; the bar stays clear. */}
       <Stack.Screen options={{ title: '' }} />
       {owned && open ? (
@@ -201,7 +194,7 @@ function VenueShiftBody({
             const canLine = can
               .map((r) => {
                 const o = offeredDates(s, r);
-                const which = o.length === s.days.length ? `all ${s.days.length} days` : o.length === 1 ? `${shortDay(o[0])} only` : o.map(shortDay).join(', ');
+                const which = o.length === s.days.length || o.length === 1 ? daysPhrase(o, s.days.length) : o.map(shortDay).join(', ');
                 return `${nameOf(data, r.talent)} (${which})`;
               })
               .join(', ');
@@ -211,7 +204,7 @@ function VenueShiftBody({
                   {serviceLabel(d)}
                 </Text>
                 <View style={{ alignItems: 'flex-start' }}>
-                  <Badge label={label} tone={left <= 0 ? 'good' : 'neutral'} icon={left <= 0 ? 'check' : null} />
+                  <Badge label={label} tone={left <= 0 ? 'good' : 'neutral'} icon={left <= 0 ? 'check' : undefined} />
                 </View>
                 {left > 0 ? (
                   can.length ? (
@@ -257,7 +250,10 @@ function VenueShiftBody({
                 key={b.id}
                 photo={{ uri: m?.photo, name: m?.name }}
                 title={m?.name ?? 'Someone'}
+                titleSerif
                 subtitle={`${whenLine(data, s, b.cancelled ? b.days : activeDays(b))}${more.length ? ` · can also do ${more.map(shortDay).join(', ')}` : ''}`}
+                subtitleLines={2}
+                subtitleTabular
                 trailing={<Badge label={b.cancelled ? 'Cancelled' : 'Booked'} tone={b.cancelled ? 'neutral' : 'good'} icon={b.cancelled ? 'cancelled' : undefined} />}
                 onPress={() => router.push({ pathname: '/booking/[id]', params: { id: b.id } })}
               />
@@ -271,12 +267,12 @@ function VenueShiftBody({
         readOnly ? (
           <Section label={saidYesTitle}>
             {firstList.map((r) => (
-              <Row key={r.id} title={person(r.talent)?.name ?? 'Someone'} />
+              <Row key={r.id} title={person(r.talent)?.name ?? 'Someone'} titleSerif />
             ))}
           </Section>
         ) : (
           <View style={{ gap: t.space.md }}>
-            <SectionLabel text={saidYesTitle} />
+            <GroupHeading title={saidYesTitle} />
             {firstList.map((r) => (
               <ResponseCard key={r.id} s={s} r={r} />
             ))}
@@ -287,12 +283,12 @@ function VenueShiftBody({
         readOnly ? (
           <Section label="Can do some days">
             {someDays.map((r) => (
-              <Row key={r.id} title={person(r.talent)?.name ?? 'Someone'} />
+              <Row key={r.id} title={person(r.talent)?.name ?? 'Someone'} titleSerif />
             ))}
           </Section>
         ) : (
           <View style={{ gap: t.space.md }}>
-            <SectionLabel text="Can do some days" />
+            <GroupHeading title="Can do some days" />
             {someDays.map((r) => (
               <ResponseCard key={r.id} s={s} r={r} />
             ))}
@@ -307,7 +303,7 @@ function VenueShiftBody({
             {invited.length + ended.length > 1 || !ended[0] ? 'Everyone declined.' : `${nameOf(data, ended[0].talent)} declined.`}
           </Text>
           <View style={{ alignItems: 'flex-start' }}>
-            <Button label="Send new request" onPress={() => router.push({ pathname: '/compose', params: { again: s.id } })} />
+            <Button label="Send new request" variant="secondary" onPress={() => router.push({ pathname: '/compose', params: { again: s.id } })} />
           </View>
         </Ticket>
       ) : null}
@@ -325,7 +321,7 @@ function VenueShiftBody({
           ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.space.sm }}>
             {earlier.map((r) => (
-              <Button key={r.talent} label={`Ask ${nameOf(data, r.talent)} again`} onPress={() => void askAgain(r.talent)} />
+              <Button key={r.talent} label={`Ask ${nameOf(data, r.talent)} again`} variant="secondary" onPress={() => void askAgain(r.talent)} />
             ))}
             <Button label="Send to more people" variant="secondary" onPress={sendMore} />
           </View>
@@ -335,7 +331,7 @@ function VenueShiftBody({
       {/* Others / Sent to */}
       {others.length > 0 ? (
         <View style={{ gap: t.space.md }}>
-          <SectionLabel text={othersTitle} />
+          <GroupHeading title={othersTitle} />
           {others.map(({ r, status }) => {
             const m = person(r.talent);
             const newRequest = owned && status === 'Declined' && s.mode === 'request' && !allDeclined;
@@ -346,9 +342,9 @@ function VenueShiftBody({
                 {owned ? (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.space.sm, paddingHorizontal: t.space.lg, paddingBottom: t.space.lg }}>
                     {newRequest ? (
-                      <Button label="New request" onPress={() => router.push({ pathname: '/compose', params: { again: s.id, to: r.talent } })} />
+                      <Button label="New request" variant="secondary" onPress={() => router.push({ pathname: '/compose', params: { again: s.id, to: r.talent } })} />
                     ) : null}
-                    {again ? <Button label="Ask again" onPress={() => void askAgain(r.talent)} /> : null}
+                    {again ? <Button label="Ask again" variant="secondary" onPress={() => void askAgain(r.talent)} /> : null}
                     <Button
                       label="Message"
                       variant="secondary"
@@ -375,16 +371,6 @@ function VenueShiftBody({
   );
 }
 
-/** The same small label `Section` draws, for groups of tickets. */
-function SectionLabel({ text }: { text: string }) {
-  const t = useTheme();
-  return (
-    <Text variant="label" color="muted" accessibilityRole="header" style={{ paddingHorizontal: t.space.lg, textTransform: 'uppercase' }}>
-      {text}
-    </Text>
-  );
-}
-
 /** Photo, name, positions · area and where their answer stands. */
 function PersonHead({ m, status, onPress }: { m: Member | undefined; status: string; onPress?: () => void }) {
   const facts = m ? [m.roles.join(' · '), areaOf(m)].filter(Boolean).join(' · ') : '';
@@ -393,7 +379,9 @@ function PersonHead({ m, status, onPress }: { m: Member | undefined; status: str
     <Row
       photo={{ uri: m?.photo, name: m?.name }}
       title={m?.name ?? 'Someone'}
+      titleSerif
       subtitle={facts || undefined}
+      subtitleLines={2}
       trailing={<Badge label={status} tone={tone} icon={status === 'No reply yet' ? 'waiting' : undefined} />}
       onPress={onPress}
       chevron={false}

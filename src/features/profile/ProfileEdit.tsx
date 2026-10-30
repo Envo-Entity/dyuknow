@@ -2,24 +2,21 @@ import { router, Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { profileChanges, updateMyProfile, useLive } from '@/data';
+import { LiveGate, profileChanges, updateMyProfile, useLive } from '@/data';
 import { CUISINES, SKILL_GROUPS, TEAM_NAMES, TEAMS, VENUE_TYPES, type Member, type VenueDetails } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Button, ChipGroup, haptics, Loading, Screen, Section, Text, TextRow, useToast } from '@/ui';
+import { Button, ChipGroup, haptics, Screen, Section, StickyAction, Text, TextRow, useToast } from '@/ui';
 
 /** Edit profile: a modal of Settings-style rows; Save sends only what changed (§4 Profile, edit mode). */
 export function ProfileEdit() {
-  const { me } = useLive();
-  if (!me) {
-    return (
-      <Screen>
-        <Loading variant="rows" count={4} />
-      </Screen>
-    );
-  }
-  return <EditForm me={me} />;
+  return (
+    <LiveGate approval={false} loading={{ variant: 'rows', count: 4 }}>
+      {({ me }) => <EditForm me={me} />}
+    </LiveGate>
+  );
 }
 
+const BIO_MAX = 250;
 const asOptions = (list: readonly string[]) => list.map((value) => ({ value, label: value }));
 
 function EditForm({ me }: { me: Member }) {
@@ -61,7 +58,7 @@ function EditForm({ me }: { me: Member }) {
     if (rateBad) return refuse('Check your answers and try again.');
     if (!dirty) return router.back();
     setSaving(true);
-    const done = await run('profile', () => updateMyProfile(changes), { success: 'Profile saved.' });
+    const done = await run('profile', () => updateMyProfile(changes), { success: 'Profile saved.', args: changes });
     setSaving(false);
     if (done !== undefined) router.back();
   };
@@ -69,23 +66,24 @@ function EditForm({ me }: { me: Member }) {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Edit profile', gestureEnabled: !dirty, ...androidHeader(cancel, save, saving) }} />
+      <Stack.Screen options={{ title: 'Edit profile', gestureEnabled: !dirty, ...androidHeader(cancel) }} />
       {process.env.EXPO_OS === 'ios' ? (
-        <>
-          <Stack.Toolbar placement="left">
-            <Stack.Toolbar.Button onPress={cancel} accessibilityLabel="Cancel">
-              Cancel
-            </Stack.Toolbar.Button>
-          </Stack.Toolbar>
-          <Stack.Toolbar placement="right">
-            <Stack.Toolbar.Button variant="done" onPress={() => void save()} disabled={saving} accessibilityLabel="Save profile">
-              Save
-            </Stack.Toolbar.Button>
-          </Stack.Toolbar>
-        </>
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button onPress={cancel} accessibilityLabel="Cancel">
+            Cancel
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
       ) : null}
 
-      <Screen gap="xxl">
+      <Screen
+        gap="xxl"
+        footer={
+          <StickyAction
+            primary={{ label: 'Save profile', accessibilityLabel: 'Save profile', onPress: () => void save(), loading: saving, disabled: saving }}
+            secondary={{ label: 'Cancel', onPress: cancel, disabled: saving }}
+          />
+        }
+      >
         <Section>
           <TextRow
             label={talent ? 'Name' : 'Venue name'}
@@ -117,12 +115,12 @@ function EditForm({ me }: { me: Member }) {
         </Section>
 
         <Section>
+          {/* The count lives in the label, as the spec words it ("Bio · 12/250"). */}
           <TextRow
-            label="Bio"
+            label={`Bio · ${bio.length}/${BIO_MAX}`}
             value={bio}
-            onChangeText={setBio}
+            onChangeText={(v) => setBio(v.slice(0, BIO_MAX))}
             multiline
-            maxLength={250}
             placeholder={talent ? 'e.g. 8 years on grill. Ex-Core by Clare Smyth. Calm on a busy pass.' : 'What it’s like to work here.'}
           />
         </Section>
@@ -154,9 +152,11 @@ function EditForm({ me }: { me: Member }) {
                 </ChipBlock>
               ))}
             </Section>
-            <Section label="Minimum pay">
+            <Section>
               <TextRow
-                label="£ per hour"
+                stacked
+                label="Minimum pay · £ per hour"
+                prefix="£"
                 value={minRate}
                 onChangeText={setMinRate}
                 placeholder="Not set"
@@ -198,15 +198,10 @@ function EditForm({ me }: { me: Member }) {
   );
 }
 
-/** Android has no header toolbar text buttons: Cancel and Save as header views. */
-function androidHeader(cancel: () => void, save: () => Promise<void>, saving: boolean) {
+/** Android has no header toolbar text buttons: Cancel as a header view. */
+function androidHeader(cancel: () => void) {
   if (process.env.EXPO_OS === 'ios') return {};
-  return {
-    headerLeft: () => <Button label="Cancel" variant="quiet" onPress={cancel} />,
-    headerRight: () => (
-      <Button label="Save" variant="quiet" onPress={() => void save()} loading={saving} disabled={saving} accessibilityLabel="Save profile" />
-    ),
-  };
+  return { headerLeft: () => <Button label="Cancel" variant="quiet" onPress={cancel} /> };
 }
 
 /** A padded block of chips inside a Section, with an optional sub-heading. */

@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { CODE_LENGTH, cleanEmail, requestPasswordReset, resendSignupCode, verifyResetAndSetPassword } from '@/data';
-import { Button, Section, TextRow } from '@/ui';
+import { CODE_LENGTH, cleanEmail, holdAuth, requestPasswordReset, resendSignupCode, verifyResetAndSetPassword } from '@/data';
+import { Button, CodeField, Section, TextRow } from '@/ui';
 
-import { AuthError, AuthFrame, AuthLink } from './AuthFrame';
-import { CodeField, ResendRow } from './CodeField';
+import { AuthError, AuthFrame, AuthLink, ResendRow } from './AuthFrame';
 import { setAuthDraft, startResendTimer, useAuthDraft, useResendSeconds, useRouteOn } from './state';
 
 /** Forgot password: the email, then the code and a new password. */
@@ -21,6 +20,11 @@ export function ResetPassword() {
   const [sending, setSending] = useState(false);
   const seconds = useResendSeconds(draft.sentAt);
   const { routing, routeOn } = useRouteOn();
+
+  // Saving the new password holds auth so this screen stays mounted mid-save
+  // (verifyResetAndSetPassword holds and releases it). Leaving without
+  // succeeding releases it, so a verified-but-unsaved reset doesn't stay held.
+  useEffect(() => () => holdAuth(false), []);
 
   const typing = (set: (v: string) => void) => (v: string) => {
     set(v);
@@ -100,7 +104,7 @@ export function ResetPassword() {
       description={`If ${cleanEmail(email)} has an account, we’ve sent it a 6-digit code.`}
       routing={routing}
     >
-      <CodeField value={code} onChange={typing(setCode)} autoFocus />
+      <CodeField value={code} onChange={typing(setCode)} length={CODE_LENGTH} editable={!busy} autoFocus />
       <Section>
         <TextRow
           label="New password"

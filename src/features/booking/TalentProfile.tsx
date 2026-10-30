@@ -3,59 +3,55 @@
 import { router, Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { useLive } from '@/data/store';
-import { areaOf, displayDate, firstName, freeLabel, londonDate, verifiedDocs, workedWith } from '@/domain';
+import { LiveGate, useMessage, useRefresh } from '@/data';
+import { areaOf, displayDate, firstName, freeLabel, londonDate, money, verifiedDocs, workedWith, type Data, type Member } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Chip, Empty, Icon, KeyValue, Loading, Photo, Row, Screen, Section, StickyAction, Text, WaitingForApproval } from '@/ui';
+import { Badge, Chip, Empty, Icon, KeyValue, Postcard, Row, Screen, Section, StickyAction, Text } from '@/ui';
 
-import { familyOf, money, useMessage } from './parts';
+import { familyOf } from './parts';
 
 export function TalentProfile({ id }: { id: string }) {
-  const t = useTheme();
-  const live = useLive();
-  const { data, me, side, approved } = live;
-  const message = useMessage();
-  const p = data?.members.find((m) => m.id === id);
-  const found = !!p && p.side === 'talent';
+  return (
+    <LiveGate header={<Stack.Screen options={{ title: '' }} />} loading={{ count: 1 }}>
+      {({ data, me, side }) => {
+        const p = data.members.find((m) => m.id === id);
+        if (!p || p.side !== 'talent')
+          return (
+            <Screen>
+              <Stack.Screen options={{ title: '' }} />
+              <Empty
+                icon="person"
+                title="Profile not found"
+                action={{
+                  label: 'Back',
+                  onPress: () => (router.canGoBack() ? router.back() : router.navigate(side === 'venue' ? '/v/book' : '/t/shifts')),
+                }}
+              />
+            </Screen>
+          );
+        return <Profile data={data} viewer={me} venue={side === 'venue'} p={p} />;
+      }}
+    </LiveGate>
+  );
+}
 
-  const header = <Stack.Screen options={{ title: found ? p.name : '' }} />;
-  if (!data || !me)
-    return (
-      <Screen>
-        {header}
-        <Loading count={1} />
-      </Screen>
-    );
-  if (!approved)
-    return (
-      <Screen>
-        {header}
-        <WaitingForApproval />
-      </Screen>
-    );
-  if (!found)
-    return (
-      <Screen>
-        {header}
-        <Empty
-          icon="person"
-          title="Profile not found"
-          action={{ label: 'Back', onPress: () => (router.canGoBack() ? router.back() : router.replace(side === 'venue' ? '/v/book' : '/t/shifts')) }}
-        />
-      </Screen>
-    );
+function Profile({ data, viewer, venue, p }: { data: Data; viewer: Member; venue: boolean; p: Member }) {
+  const t = useTheme();
+  const refresh = useRefresh();
+  const message = useMessage();
 
   const today = londonDate(data.now);
-  const worked = side === 'venue' && workedWith(data, me.id, p.id);
+  const worked = venue && workedWith(data, viewer.id, p.id);
   const docs = verifiedDocs(p);
-  const freeOn = data.availability.filter((a) => a.member === id && a.kind === 'free' && a.date >= today).slice(0, 7);
-  const anyFree = data.availability.some((a) => a.member === id && a.kind === 'free');
-  const venue = side === 'venue';
+  const freeOn = data.availability.filter((a) => a.member === p.id && a.kind === 'free' && a.date >= today).slice(0, 7);
+  const anyFree = data.availability.some((a) => a.member === p.id && a.kind === 'free');
   const first = firstName(p);
+  const area = areaOf(p);
+  const detail = [p.roles.join(' · '), area].filter(Boolean).join(' · ');
 
   return (
     <Screen
-      onRefresh={() => void live.reload()}
+      {...refresh}
       footer={
         venue ? (
           <StickyAction
@@ -68,18 +64,13 @@ export function TalentProfile({ id }: { id: string }) {
         ) : undefined
       }
     >
-      {header}
-      <View style={{ gap: t.space.lg }}>
-        <Photo uri={p.photo} name={p.name} radius={t.radius.card} />
-        <View style={{ gap: t.space.xs }}>
-          <Text variant="largeTitle" accessibilityRole="header">
-            {p.name}
-          </Text>
-          <Text variant="callout" color="muted">
-            {`${p.roles.join(' · ')}${p.roles.length && areaOf(p) ? ' · ' : ''}${areaOf(p)}`}
-          </Text>
-        </View>
-        {worked ? <Badge label="Worked with you" tone="good" icon="worked" /> : null}
+      <Stack.Screen options={{ title: p.name }} />
+      <Postcard uri={p.photo} name={p.name} detail={detail || undefined}>
+        {worked ? (
+          <View style={{ alignItems: 'flex-start' }}>
+            <Badge label="Worked with you" tone="good" icon="worked" />
+          </View>
+        ) : null}
         {docs.length ? (
           <View style={[styles.row, { gap: t.space.xs }]} accessible accessibilityLabel={`Verified by Dyuknow · ${docs.join(' · ')}`}>
             <Icon name="verified" size={14} color="sageText" />
@@ -88,16 +79,16 @@ export function TalentProfile({ id }: { id: string }) {
             </Text>
           </View>
         ) : null}
-        {p.bio ? <Text variant="body">{p.bio}</Text> : null}
-        {p.skills.length ? (
-          <View style={[styles.wrap, { gap: t.space.sm }]} accessibilityLabel="Skills">
-            {p.skills.map((s) => (
-              <Chip key={s} label={s} />
-            ))}
-          </View>
-        ) : null}
-        <KeyValue label="Minimum pay" labelWidth={110} tabular value={p.minRate ? `${money(p.minRate)} per hour` : 'Not set'} />
-      </View>
+      </Postcard>
+      {p.bio ? <Text variant="body">{p.bio}</Text> : null}
+      {p.skills.length ? (
+        <View style={[styles.wrap, { gap: t.space.sm }]} accessibilityLabel="Skills">
+          {p.skills.map((s) => (
+            <Chip key={s} label={s} />
+          ))}
+        </View>
+      ) : null}
+      <KeyValue label="Minimum pay" labelWidth={110} tabular value={p.minRate ? `${money(p.minRate)} per hour` : 'Not set'} />
       {freeOn.length || !anyFree ? (
         <Section label="Free on">
           {freeOn.length ? (

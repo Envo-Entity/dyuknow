@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { sayYes, sayYesMessage, useLive } from '@/data';
 import { serviceLabel, type Data, type Member, type Shift } from '@/domain';
-import { CheckRow, Empty, Section, SheetScreen, StickyAction } from '@/ui';
+import { CheckRow, Empty, Loading, Notice, Section, SheetScreen, StickyAction } from '@/ui';
 
 import { talentShiftState, whichDaysLabel, type TalentShiftState } from './logic';
 
@@ -17,7 +17,7 @@ export function WhichDaysSheet({ shiftId }: { shiftId: string }) {
   if (!data || !me || !s) {
     return (
       <SheetScreen title="Which days can you do?" onClose={() => router.back()}>
-        <Empty title="Shift not found" />
+        {!data ? <Loading variant="rows" count={3} /> : <Empty icon="shifts" title="Shift not found" />}
       </SheetScreen>
     );
   }
@@ -35,16 +35,22 @@ function Picker({ data, me, s }: { data: Data; me: Member; s: Shift }) {
   const [picked, setPicked] = useState<string[]>(st.suggested);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggle = (date: string, on: boolean) =>
+  const toggle = (date: string, on: boolean) => {
+    setError(null);
     setPicked((p) => (on ? [...new Set([...p, date])].sort() : p.filter((d) => d !== date)));
+  };
   const chosen = picked.filter((d) => st.free.includes(d));
 
   async function send() {
     setSending(true);
+    setError(null);
     setFrozen(live);
     const result = await run(`say-yes:${s.id}`, (ref) => sayYes(s.id, chosen, ref), {
       success: (x) => sayYesMessage(x, st.name),
+      args: chosen,
+      onError: setError,
     });
     setSending(false);
     if (!result) {
@@ -75,6 +81,7 @@ function Picker({ data, me, s }: { data: Data; me: Member; s: Shift }) {
         />
       }
     >
+      {error ? <Notice text={error} tone="danger" icon="alert" /> : null}
       <Section>
         {s.days.map((d) => {
           const can = st.free.includes(d.date);

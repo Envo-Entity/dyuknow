@@ -1,58 +1,40 @@
-// Small pieces the talent screens share: the shift and venue cards, section
-// headings, the verified line and opening a conversation.
+// Small pieces the talent screens share: the shift and venue cards, a group of
+// tickets, the verified line and the screen-reader actions for a ticket that
+// holds a second link.
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { View, type AccessibilityActionEvent } from 'react-native';
 
-import { openConversation, useLive } from '@/data';
 import {
   areaOf,
   datesSummary,
+  money,
   relativeDay,
   shiftLabel,
   teamOf,
   teamPhoto,
-  threadBetween,
   verifiedDocs,
   type Data,
   type Member,
   type Shift,
 } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Icon, Photo, Text, Ticket } from '@/ui';
+import { Badge, GroupHeading, Icon, Photo, Text, Ticket } from '@/ui';
 
-import { findMember, pounds, venueKinds } from './logic';
-
-/** The bundled team tile as a uri the kit's Photo can show. */
-export function teamPhotoUri(roles: string[]) {
-  return Image.resolveAssetSource(teamPhoto(teamOf(roles)))?.uri ?? null;
-}
-
-/** A serif heading over a group of tickets. */
-export function GroupHeading({ title, trailing }: { title: string; trailing?: ReactNode }) {
-  const t = useTheme();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: t.space.md, paddingHorizontal: t.space.xxs }}>
-      <Text variant="title3" accessibilityRole="header" style={{ flex: 1 }}>
-        {title}
-      </Text>
-      {trailing}
-    </View>
-  );
-}
+import { findMember, venueKinds } from './logic';
 
 /** A heading and its tickets. */
-export function Group({ title, children }: { title: string; children: ReactNode }) {
+export function Group({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   const t = useTheme();
   return (
     <View style={{ gap: t.space.md }}>
-      <GroupHeading title={title} />
+      <GroupHeading title={title} count={count} />
       {children}
     </View>
   );
 }
 
-/** `Verified by Dyuknow · Business registration · Premises licence`. */
+/** `Verified by Dyuknow · Business registration · Premises licence`. Kit candidate. */
 export function VerifiedLine({ m }: { m: Member }) {
   const t = useTheme();
   const docs = verifiedDocs(m);
@@ -67,9 +49,52 @@ export function VerifiedLine({ m }: { m: Member }) {
   );
 }
 
+/**
+ * A tappable ticket that also holds a second link (the venue). Touch keeps
+ * both targets; a screen reader gets one element whose activation is the
+ * ticket's own action and whose extra action opens the venue. Kit candidate
+ * (`Ticket accessibilityActions`).
+ */
+export function TicketWithLink({
+  label,
+  hint,
+  onPress,
+  link,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  onPress: () => void;
+  link: { label: string; onPress: () => void };
+  children: ReactNode;
+}) {
+  const onAction = (e: AccessibilityActionEvent) => {
+    if (e.nativeEvent.actionName === 'activate') onPress();
+    else if (e.nativeEvent.actionName === 'link') link.onPress();
+  };
+  return (
+    <View
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityActions={[
+        { name: 'activate', label: hint },
+        { name: 'link', label: link.label },
+      ]}
+      onAccessibilityAction={onAction}
+    >
+      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 /** The when line on a shift card: `{main} · {sub}` or `Tomorrow`, then the hours. */
 function cardWhen(data: Data, s: Shift) {
   const first = s.days[0];
+  if (!first) return '';
   const head =
     s.days.length > 1
       ? (({ main, sub }) => (sub ? `${main} · ${sub}` : main))(datesSummary(s.days.map((d) => d.date)))
@@ -90,18 +115,26 @@ export function ShiftCard({ data, shift, label }: { data: Data; shift: Shift; la
     <Ticket
       onPress={() => router.push({ pathname: '/shift/[id]', params: { id: shift.id } })}
       padding={t.space.md}
-      accessibilityLabel={[name, shiftLabel(shift), when, multi ? `${shift.days.length} days needed` : '', `${pounds(shift.rate)} per hour`, label ?? '']
+      accessibilityLabel={[area, label ?? '', name, shiftLabel(shift), when, multi ? `${shift.days.length} days needed` : '', `${money(shift.rate)} per hour`]
         .filter(Boolean)
         .join(', ')}
     >
       <View style={{ flexDirection: 'row', gap: t.space.md }}>
-        <Photo uri={venue?.photo || teamPhotoUri(shift.roles)} name={name} width={photoW} radius={t.radius.md} accessibilityLabel="" />
+        <Photo
+          uri={venue?.photo}
+          source={teamPhoto(teamOf(shift.roles))}
+          name={name}
+          width={photoW}
+          radius={t.radius.md}
+          accessibilityLabel=""
+        />
         <View style={{ flex: 1, minWidth: 0, gap: t.space.xxs }}>
           {area ? (
             <Text variant="footnote" color="muted" numberOfLines={1}>
               {area}
             </Text>
           ) : null}
+          {label ? <Badge label={label} icon="info" style={{ marginBottom: t.space.xxs }} /> : null}
           <Text variant="title3" numberOfLines={2}>
             {name}
           </Text>
@@ -116,10 +149,9 @@ export function ShiftCard({ data, shift, label }: { data: Data; shift: Shift; la
               {shift.days.length} days needed
             </Text>
           ) : null}
-          {label ? <Badge label={label} icon="info" style={{ marginTop: t.space.xs }} /> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 'auto', paddingTop: t.space.xs }}>
             <Text variant="headline" tabular style={{ flex: 1 }}>
-              {pounds(shift.rate)}
+              {money(shift.rate)}
               <Text variant="subhead" color="muted">
                 {' / hour'}
               </Text>
@@ -169,55 +201,4 @@ export function VenueCard({ venue, openJobs, width }: { venue: Member; openJobs:
       </Ticket>
     </View>
   );
-}
-
-/** A plain text link with a 44pt target. */
-export function TextLink({
-  label,
-  onPress,
-  variant = 'footnote',
-  color = 'muted',
-  accessibilityLabel,
-  children,
-}: {
-  label?: string;
-  onPress: () => void;
-  variant?: 'footnote' | 'subhead' | 'largeTitle';
-  color?: 'muted' | 'text';
-  accessibilityLabel?: string;
-  children?: ReactNode;
-}) {
-  const t = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="link"
-      accessibilityLabel={accessibilityLabel ?? label}
-      hitSlop={{ top: 8, bottom: 8 }}
-      style={({ pressed }) => ({ minHeight: variant === 'largeTitle' ? undefined : t.hit * 0.6, justifyContent: 'center', opacity: pressed ? 0.55 : 1 })}
-    >
-      {children ?? (
-        <Text variant={variant} color={color}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
-
-/**
- * Message a venue: push the conversation that exists, or open one first
- * (route contract: open_conversation, then chat/[id]).
- */
-export function useMessageVenue() {
-  const { data, me, run } = useLive();
-  return async (venueId: string) => {
-    const existing = data && me ? threadBetween(data, venueId, me.id) : undefined;
-    if (existing) {
-      router.push({ pathname: '/chat/[id]', params: { id: existing.id } });
-      return;
-    }
-    const r = await run(`open:${venueId}`, () => openConversation(venueId));
-    if (r?.conversation_id) router.push({ pathname: '/chat/[id]', params: { id: r.conversation_id } });
-  };
 }

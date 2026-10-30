@@ -3,15 +3,15 @@ import { useState } from 'react';
 
 import { sendToMore, useLive } from '@/data';
 import { availableDates } from '@/domain';
-import { Empty, Section, SheetScreen, StickyAction } from '@/ui';
-
-import { PersonCheckRow } from './PersonCheckRow';
+import { CheckRow, Empty, Notice, Section, SheetScreen, StickyAction } from '@/ui';
 
 /** Send an open shift to more talent (spec §6.2 `sheet/send-more`). */
 export function SendMore({ shiftId }: { shiftId: string }) {
-  const { data, run } = useLive();
+  const { data, runResult } = useLive();
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
   const s = data?.shifts.find((x) => x.id === shiftId);
 
   if (!data || !s) {
@@ -30,7 +30,7 @@ export function SendMore({ shiftId }: { shiftId: string }) {
   const rows = talent.map((m) => {
     const existing = responses.find((r) => r.talent === m.id && ['invited', 'can-cover', 'booked'].includes(r.status));
     const blocked = !availableDates(data, m.id, s).length;
-    const sub = existing
+    const reason = existing
       ? existing.status === 'booked'
         ? 'Booked'
         : existing.status === 'invited'
@@ -38,15 +38,23 @@ export function SendMore({ shiftId }: { shiftId: string }) {
           : 'Already said yes'
       : blocked
         ? 'Booked elsewhere then'
-        : m.roles.join(' · ');
-    return { m, sub, disabled: !!existing || blocked };
+        : undefined;
+    return { m, roles: m.roles.join(' · '), reason, disabled: !!reason };
   });
 
   const send = async () => {
+    if (done) return;
+    const ids = [...picked].sort();
     setBusy(true);
-    const ok = await run(`send-more:${s.id}:${[...picked].sort().join(',')}`, (ref) => sendToMore(s.id, picked, ref), { success: 'Sent.' });
+    setError(null);
+    const r = await runResult(`send-more:${s.id}`, (ref) => sendToMore(s.id, ids, ref), {
+      args: { shift: s.id, to: ids },
+      success: 'Sent.',
+      onError: setError,
+    });
     setBusy(false);
-    if (ok !== undefined) {
+    if (r.ok) {
+      setDone(true);
       setPicked([]);
       router.back();
     }
@@ -62,21 +70,26 @@ export function SendMore({ shiftId }: { shiftId: string }) {
             label: picked.length > 1 ? `Send to ${picked.length} people` : 'Send',
             onPress: () => void send(),
             loading: busy,
-            disabled: !picked.length,
+            disabled: !picked.length || done,
           }}
         />
       }>
+      {error ? <Notice tone="danger" text={error} /> : null}
       {rows.length ? (
         <Section separatorInset={102}>
-          {rows.map(({ m, sub, disabled }) => (
-            <PersonCheckRow
+          {rows.map(({ m, roles, reason, disabled }) => (
+            <CheckRow
               key={m.id}
-              name={m.name}
-              photo={m.photo}
-              subtitle={sub}
+              title={m.name}
+              subtitle={roles || undefined}
+              photo={{ uri: m.photo, name: m.name }}
               disabled={disabled}
+              disabledReason={reason}
               checked={picked.includes(m.id)}
-              onToggle={(on) => setPicked((p) => (on ? [...p, m.id] : p.filter((x) => x !== m.id)))}
+              onToggle={(on) => {
+                setError(null);
+                setPicked((p) => (on ? [...p, m.id] : p.filter((x) => x !== m.id)));
+              }}
             />
           ))}
         </Section>

@@ -26,7 +26,7 @@ import { CheckRow, Loading, Section, SwitchRow, TextRow } from '@/ui';
 
 import { CompleteStep, useSubmitOnce } from './CompleteStep';
 import { PhotoStep } from './fields';
-import { ChipField, Field } from './parts';
+import { ChipField } from './parts';
 import { StepFlow, useJoinDraft, type StepDef } from './StepFlow';
 
 function toggle(list: string[], value: string) {
@@ -67,23 +67,23 @@ export function VenueOnboarding() {
       render: () => (
         <>
           <Section>
-            <Field label="Business name" value={id.name} onChangeText={(v) => patch({ name: v })} placeholder="e.g. The Larkspur" autoCapitalize="words" autoComplete="organization" textContentType="organizationName" />
-            <Field label="Trading name" value={id.tradingName} onChangeText={(v) => patch({ tradingName: v })} placeholder="e.g. Larkspur Mayfair" autoCapitalize="words" />
-            <Field label="Registered company (optional)" value={id.registeredCompany} onChangeText={(v) => patch({ registeredCompany: v })} placeholder="e.g. Larkspur Hospitality Ltd" autoCapitalize="words" />
+            <TextRow label="Business name" value={id.name} onChangeText={(v) => patch({ name: v })} placeholder="e.g. The Larkspur" autoCapitalize="words" autoComplete="organization" textContentType="organizationName" returnKeyType="done" />
+            <TextRow label="Trading name" value={id.tradingName} onChangeText={(v) => patch({ tradingName: v })} placeholder="e.g. Larkspur Mayfair" autoCapitalize="words" returnKeyType="done" />
+            <TextRow stacked label="Registered company (optional)" value={id.registeredCompany} onChangeText={(v) => patch({ registeredCompany: v })} placeholder="e.g. Larkspur Hospitality Ltd" autoCapitalize="words" returnKeyType="done" />
           </Section>
           <Section footer="Talent see your area before booking. The full address is shared once booked.">
-            <Field label="Street address" value={id.address} onChangeText={(v) => patch({ address: v })} placeholder="e.g. 14 Church Road, Richmond, London" autoCapitalize="words" autoComplete="street-address" textContentType="fullStreetAddress" />
-            <Field label="Venue postcode" value={id.postcode} onChangeText={(v) => patch({ postcode: v })} placeholder="e.g. TW9 1UA" autoCapitalize="characters" autoComplete="postal-code" textContentType="postalCode" />
+            <TextRow label="Street address" value={id.address} onChangeText={(v) => patch({ address: v })} placeholder="e.g. 14 Church Road, Richmond, London" autoCapitalize="words" autoComplete="street-address" textContentType="fullStreetAddress" returnKeyType="done" />
+            <TextRow label="Venue postcode" value={id.postcode} onChangeText={(v) => patch({ postcode: v })} placeholder="e.g. TW9 1UA" autoCapitalize="characters" autoComplete="postal-code" textContentType="postalCode" returnKeyType="done" />
           </Section>
           <Section>
             <TextRow label="Website" value={id.website} onChangeText={(v) => patch({ website: v })} placeholder="e.g. thelarkspur.co.uk" keyboardType="url" autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
             <TextRow label="Instagram" value={id.instagram} onChangeText={(v) => patch({ instagram: v })} placeholder="e.g. @thelarkspur" autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
           </Section>
           <Section>
-            <Field label="Contact person" value={id.contactName} onChangeText={(v) => patch({ contactName: v })} placeholder="e.g. Jonathan Reeve" autoCapitalize="words" autoComplete="name" textContentType="name" />
+            <TextRow label="Contact person" value={id.contactName} onChangeText={(v) => patch({ contactName: v })} placeholder="e.g. Jonathan Reeve" autoCapitalize="words" autoComplete="name" textContentType="name" returnKeyType="done" />
             <TextRow label="Position" value={id.contactPosition} onChangeText={(v) => patch({ contactPosition: v })} placeholder="e.g. General Manager" autoCapitalize="words" returnKeyType="done" />
             <TextRow label="Phone" value={id.contactPhone} onChangeText={(v) => patch({ contactPhone: v })} placeholder="e.g. 020 7946 0958" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" returnKeyType="done" />
-            <Field label="Email" value={id.contactEmail} onChangeText={(v) => patch({ contactEmail: v })} placeholder="e.g. jonathan@thelarkspur.co.uk" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
+            <TextRow label="Email" value={id.contactEmail} onChangeText={(v) => patch({ contactEmail: v })} placeholder="e.g. jonathan@thelarkspur.co.uk" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" returnKeyType="done" />
           </Section>
         </>
       ),
@@ -106,8 +106,8 @@ export function VenueOnboarding() {
           <ChipField label="Cuisine" options={CUISINES} multiple value={id.cuisine} onChange={(v) => patch({ cuisine: v })} />
           <ChipField label="Number of covers" options={COVERS_BANDS} value={id.covers} onChange={(v) => patch({ covers: v })} />
           <Section>
-            <Field label="Average team size" value={id.teamSize} onChangeText={(v) => patch({ teamSize: v })} placeholder="e.g. 18" keyboardType="number-pad" />
-            <Field label="Average team vacancies per week" value={id.teamVacanciesPerWeek} onChangeText={(v) => patch({ teamVacanciesPerWeek: v })} placeholder="e.g. 2" keyboardType="number-pad" />
+            <TextRow stacked label="Average team size" value={id.teamSize} onChangeText={(v) => patch({ teamSize: v })} placeholder="e.g. 18" keyboardType="number-pad" returnKeyType="done" />
+            <TextRow stacked label="Average team vacancies per week" value={id.teamVacanciesPerWeek} onChangeText={(v) => patch({ teamVacanciesPerWeek: v })} placeholder="e.g. 2" keyboardType="number-pad" returnKeyType="done" />
           </Section>
         </>
       ),
@@ -143,8 +143,8 @@ export function VenueOnboarding() {
             <SwitchRow label="Staff meal?" value={!!id.staffMeal} onValueChange={(v) => patch({ staffMeal: v })} />
           </Section>
           <Section>
-            <Field label="Typical hourly rate — Chef" prefix="£" value={id.rateChef.replace(/^£/, '')} onChangeText={(v) => patch({ rateChef: v })} placeholder="e.g. 20" keyboardType="decimal-pad" />
-            <Field label="Typical hourly rate — FOH" prefix="£" value={id.rateFoh.replace(/^£/, '')} onChangeText={(v) => patch({ rateFoh: v })} placeholder="e.g. 18" keyboardType="decimal-pad" />
+            <TextRow stacked label="Typical hourly rate — Chef" prefix="£" value={id.rateChef.replace(/^£/, '')} onChangeText={(v) => patch({ rateChef: v })} placeholder="e.g. 20" keyboardType="decimal-pad" returnKeyType="done" />
+            <TextRow stacked label="Typical hourly rate — FOH" prefix="£" value={id.rateFoh.replace(/^£/, '')} onChangeText={(v) => patch({ rateFoh: v })} placeholder="e.g. 18" keyboardType="decimal-pad" returnKeyType="done" />
           </Section>
         </>
       ),

@@ -82,3 +82,6 @@ Colours are `ColorName` tokens, type `TypeName`, icons `IconName` (`src/ui/icons
 ## Shell (`@/features/shell`)
 - `HeaderActions` — put `<HeaderActions />` in every tab-root screen (the notifications bell).
 - Tab-root titles: `<Stack.Screen options={{ title: 'Shifts' }} />` for the header/back title, AND `<Screen title="Shifts">` for the visible serif page title (native large titles are off on tab roots).
+
+## Postcard (every profile's hero)
+- `Postcard {uri?, source?, name, detail?, children?, saving?, style?}` — 4:5 photo inside a white card, serif name and one detail line inside the card, badges/verified line as children. Use it for your own Profile tab, `/talent/[id]` and `/venue/[id]` so every profile looks the same.

@@ -5,8 +5,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { postShift, postShiftMessage, sendToMore } from '@/data/actions';
-import { useLive } from '@/data/store';
+import { LiveGate, postShift, postShiftMessage, sendToMore, useLive } from '@/data';
 import {
   FAMILIES,
   alreadyAsked,
@@ -17,6 +16,7 @@ import {
   lastAsk,
   londonDate,
   makeDays,
+  money,
   openAnswer,
   openDates,
   serviceLabel,
@@ -33,7 +33,7 @@ import {
   Button,
   ChipGroup,
   Empty,
-  Loading,
+  IconButton,
   Notice,
   Row,
   Screen,
@@ -41,11 +41,11 @@ import {
   StepperRow,
   StickyAction,
   Text,
+  TextLink,
   TextRow,
-  WaitingForApproval,
 } from '@/ui';
 
-import { IconButton, SectionBody, money } from './parts';
+import { SectionBody } from './parts';
 import { savedWhen, setWhen as keepWhen, type When } from './when';
 import { WhenSection } from './WhenBar';
 
@@ -62,28 +62,19 @@ export type ComposeParams = {
 };
 
 export function Compose(params: ComposeParams) {
-  const live = useLive();
-  const { data, me, approved, side } = live;
+  return (
+    <LiveGate header={<Stack.Screen options={{ title: '' }} />} loading={{ count: 2, variant: 'rows' }}>
+      {({ data, me, side }) => <ComposeReady params={params} data={data} me={me} side={side} />}
+    </LiveGate>
+  );
+}
+
+function ComposeReady({ params, data, me, side }: { params: ComposeParams; data: Data; me: Member; side: 'talent' | 'venue' }) {
   const againId = one(params.again);
   const toParam = one(params.to);
   const fromChat = one(params.from) === 'chat';
 
-  if (!data || !me)
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: '' }} />
-        <Loading count={2} variant="rows" />
-      </Screen>
-    );
-  if (!approved)
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: '' }} />
-        <WaitingForApproval />
-      </Screen>
-    );
-
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/v/book'));
+  const back = () => (router.canGoBack() ? router.back() : router.navigate('/v/book'));
   let family: string | undefined;
   let source: Shift | undefined;
   let to: string[];
@@ -114,7 +105,8 @@ export function Compose(params: ComposeParams) {
   const position = one(params.position);
   return (
     <ComposerForm
-      key={[againId, family, to.join(','), position, fromChat].join('/')}
+      // From the params only: `to` for "again" is read from the snapshot, and a reload must not reset the form.
+      key={[againId, family, toParam, position, fromChat].join('/')}
       data={data}
       venue={me.id}
       family={family}
@@ -256,7 +248,8 @@ function ComposerForm({
         : `Sent to ${names}. Book whoever says yes.`
       : 'Job posted.';
     setSending(true);
-    const r = await run(`post:${JSON.stringify(shiftDraft)}`, (ref) => postShift(shiftDraft, ref), {
+    const r = await run('post-shift', (ref) => postShift(shiftDraft, ref), {
+      args: shiftDraft,
       success: (res) => postShiftMessage(res) ?? fallback,
     });
     setSending(false);
@@ -267,7 +260,9 @@ function ComposerForm({
   }
 
   async function sendThatJob(dup: Shift) {
-    const ok = await run(`send-more:${dup.id}:${draft.to.join(',')}`, (ref) => sendToMore(dup.id, draft.to, ref), {
+    const to = [...draft.to];
+    const ok = await run(`send-more:${dup.id}`, (ref) => sendToMore(dup.id, to, ref), {
+      args: { shift: dup.id, to: [...to].sort() },
       success: `Sent to ${names}.`,
     });
     if (ok !== undefined) router.replace(`/shift/${dup.id}`);
@@ -369,10 +364,12 @@ function ComposerForm({
       <View style={{ gap: t.space.md }}>
         <Section label="Pay">
           <TextRow
-            label="Pay per hour"
-            value={draft.rate ? `£${draft.rate}` : ''}
+            label="Pay"
+            prefix="£"
+            suffix="/ hour"
+            value={draft.rate}
             onChangeText={(text) => update({ rate: cleanRate(text) })}
-            placeholder="£0"
+            placeholder="0"
             keyboardType="decimal-pad"
             returnKeyType="done"
           />
@@ -414,7 +411,7 @@ function ComposerForm({
             <Text variant="body" color={draft.note ? 'text' : 'muted'} style={{ flex: 1 }}>
               {draft.note || 'No note'}
             </Text>
-            <Button label="Edit" variant="quiet" accessibilityLabel="Edit note" onPress={() => setEditingNote(true)} />
+            <TextLink label="Edit" underline={false} accessibilityLabel="Edit note" onPress={() => setEditingNote(true)} />
           </View>
         )}
       </Section>
@@ -431,8 +428,15 @@ function Warning({ text, actions }: { text: string; actions: { label: string; on
     <View style={{ gap: t.space.xxs }}>
       <Notice tone="warning" text={text} />
       <View style={[styles.links, { gap: t.space.xs, paddingHorizontal: t.space.xs }]}>
-        {actions.map((a) => (
-          <Button key={a.label} label={a.label} variant="quiet" onPress={a.onPress} />
+        {actions.map((a, i) => (
+          <View key={a.label} style={[styles.links, { gap: t.space.xs }]}>
+            {i > 0 ? (
+              <Text variant="subhead" color="muted" accessibilityElementsHidden importantForAccessibility="no">
+                ·
+              </Text>
+            ) : null}
+            <TextLink label={a.label} variant="subhead" onPress={a.onPress} />
+          </View>
         ))}
       </View>
     </View>

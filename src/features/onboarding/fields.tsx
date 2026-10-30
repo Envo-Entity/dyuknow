@@ -2,10 +2,8 @@
 // employer repeater and dated availability. Each is arranged from kit parts.
 import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   displayDate,
@@ -17,7 +15,6 @@ import {
   type EmployerEntry,
   type UploadedFile,
 } from '@/domain';
-import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import {
   Badge,
@@ -25,8 +22,9 @@ import {
   DateRow,
   DayPager,
   Notice,
+  GroupHeading,
   Photo,
-  PhotoCropper,
+  PhotoCropModal,
   Row,
   Section,
   Segmented,
@@ -38,7 +36,7 @@ import {
   type PickedPhoto,
 } from '@/ui';
 
-import { GroupHeading, keepFile } from './parts';
+import { keepFile } from './parts';
 
 /* ------------------------------------------------------------------ PhotoStep */
 
@@ -47,7 +45,6 @@ const READ_IMAGE_ERROR = "Couldn't read that image — try another, or take a ne
 /** A 4:5 tile and two buttons; picking opens the cropper full screen. */
 export function PhotoStep({ photo, name, onPhoto }: { photo: string | null; name: string; onPhoto: (uri: string) => void }) {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
   const [picked, setPicked] = useState<PickedPhoto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,30 +97,16 @@ export function PhotoStep({ photo, name, onPhoto }: { photo: string | null; name
       </View>
       {error ? <Notice tone="danger" text={error} style={{ alignSelf: 'stretch' }} /> : null}
 
-      <Modal visible={!!picked} presentationStyle="fullScreen" animationType="slide" onRequestClose={() => setPicked(null)}>
-        {/* Gestures inside a Modal need their own root on Android. */}
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.c.page, paddingTop: insets.top + t.space.lg, paddingBottom: insets.bottom }}>
-          <View style={{ paddingHorizontal: gutter, gap: t.space.xs }}>
-            <Text variant="title" accessibilityRole="header">
-              Position your photo
-            </Text>
-          </View>
-          {picked ? (
-            <PhotoCropper
-              uri={picked.uri}
-              width={picked.width}
-              height={picked.height}
-              hint="Drag to move it. This is how it will look everywhere on Dyuknow."
-              quality={0.92}
-              onCancel={() => setPicked(null)}
-              onDone={(out) => {
-                setPicked(null);
-                onPhoto(keepFile(out.uri, 'jpg'));
-              }}
-            />
-          ) : null}
-        </GestureHandlerRootView>
-      </Modal>
+      <PhotoCropModal
+        photo={picked}
+        hint="Drag to move it. This is how it will look everywhere on Dyuknow."
+        quality={0.92}
+        onCancel={() => setPicked(null)}
+        onDone={(out) => {
+          setPicked(null);
+          onPhoto(keepFile(out.uri, 'jpg'));
+        }}
+      />
     </View>
   );
 }
@@ -318,11 +301,15 @@ export function DatedAvailabilityField({ value, onChange }: { value: DatedAvaila
 
   return (
     <View style={{ gap: t.space.lg }}>
-      <GroupHeading title="When are you free?" tag={<Badge label="Optional" icon={null} />}>
+      <View style={{ gap: t.space.sm }}>
+        <View style={[styles.trail, { gap: t.space.sm }]}>
+          <GroupHeading title="When are you free?" style={{ flexShrink: 1, marginBottom: 0 }} />
+          <Badge label="Optional" icon={null} />
+        </View>
         <Text variant="subhead" color="muted">
           Add specific dates and hours in London time. Your general availability preferences above stay as they are.
         </Text>
-      </GroupHeading>
+      </View>
 
       <Section>
         <View style={{ padding: t.space.lg }}>

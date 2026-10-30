@@ -1,56 +1,42 @@
 // venue/[id] (§7.5, web VenueDetail in Discovery.tsx): a venue's public page.
 import { router, Stack } from 'expo-router';
-import { Linking, View } from 'react-native';
+import { Linking } from 'react-native';
 
-import { useLive } from '@/data';
+import { LiveGate, useRefresh } from '@/data';
 import { areaOf, contactLine, fullAddress, type Data, type Member } from '@/domain';
-import { fonts } from '@/theme/tokens';
-import { useTheme } from '@/theme/useTheme';
-import { Button, Empty, ErrorState, KeyValue, Loading, Photo, Row, Screen, Section, Text, Ticket, WaitingForApproval } from '@/ui';
+import { Button, DetailRow, Empty, Postcard, Row, Screen, Section, Text, Ticket } from '@/ui';
 
 import { findMember, openJobs, venueKinds } from './logic';
 import { Group, ShiftCard, VerifiedLine } from './parts';
 
 export function VenuePage({ id }: { id: string }) {
-  const { status, data, me, side, approved, error, reload } = useLive();
-  const v = data ? findMember(data, id) : undefined;
-
-  if (!data || !me) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Screen>
-          {status === 'error' ? <ErrorState message={error ?? 'Couldn’t load Dyuknow.'} onRetry={() => void reload()} /> : <Loading count={2} />}
-        </Screen>
-      </>
-    );
-  }
-  if (!approved) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Screen>
-          <WaitingForApproval />
-        </Screen>
-      </>
-    );
-  }
-  if (!v || v.side !== 'venue') {
-    return (
-      <>
-        <Stack.Screen options={{ title: '' }} />
-        <Screen>
-          <Empty icon="location" title="Venue not found" />
-        </Screen>
-      </>
-    );
-  }
-  return <Page data={data} me={me} v={v} isTalent={side === 'talent'} />;
+  const header = <Stack.Screen options={{ title: '' }} />;
+  return (
+    <LiveGate header={header} loading={{ count: 2 }}>
+      {({ data, me, side }) => {
+        const v = findMember(data, id);
+        if (!v || v.side !== 'venue') {
+          return (
+            <>
+              {header}
+              <Screen>
+                <Empty
+                  icon="location"
+                  title="Venue not found"
+                  action={{ label: 'Go home', onPress: () => router.navigate(side === 'talent' ? '/t/shifts' : '/v/book') }}
+                />
+              </Screen>
+            </>
+          );
+        }
+        return <Page data={data} me={me} v={v} isTalent={side === 'talent'} />;
+      }}
+    </LiveGate>
+  );
 }
 
 function Page({ data, me, v, isTalent }: { data: Data; me: Member; v: Member; isTalent: boolean }) {
-  const t = useTheme();
-  const { c } = t;
+  const refresh = useRefresh();
   const jobs = openJobs(data, v.id);
   const kinds = venueKinds(v);
   const instagram = v.venue?.instagram?.trim() ?? '';
@@ -68,37 +54,17 @@ function Page({ data, me, v, isTalent }: { data: Data; me: Member; v: Member; is
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: v.name,
-          headerLargeTitleEnabled: true,
-          headerLargeTitleShadowVisible: false,
-          headerLargeStyle: { backgroundColor: c.page },
-          headerLargeTitleStyle: { fontFamily: fonts.serif, color: c.text },
-        }}
-      />
-      <Screen gap="xl">
-        {area ? (
-          <Text variant="subhead" color="muted" style={{ marginTop: -t.space.sm }}>
-            {area}
+      <Stack.Screen options={{ title: v.name }} />
+      <Screen gap="xl" {...refresh}>
+        <Postcard uri={v.photo} name={v.name} detail={[area, kinds].filter(Boolean).join(' · ') || undefined}>
+          <VerifiedLine m={v} />
+        </Postcard>
+
+        {v.bio ? (
+          <Text variant="body" selectable>
+            {v.bio}
           </Text>
         ) : null}
-
-        <Photo uri={v.photo} name={v.name} radius={t.radius.card} />
-
-        <View style={{ gap: t.space.md }}>
-          <VerifiedLine m={v} />
-          {v.bio ? (
-            <Text variant="body" selectable>
-              {v.bio}
-            </Text>
-          ) : null}
-          {kinds ? (
-            <Text variant="subhead" weight="600">
-              {kinds}
-            </Text>
-          ) : null}
-        </View>
 
         {instagram ? (
           <Section>
@@ -129,17 +95,17 @@ function Page({ data, me, v, isTalent }: { data: Data; me: Member; v: Member; is
         ) : null}
 
         {v.venue && bookedHere && (address || contact) ? (
-          <Ticket gap={t.space.md}>
-            {address ? <KeyValue label="Address" value={address} icon="location" labelWidth={96} /> : null}
-            {contact ? <KeyValue label="On-site contact" value={contact} icon="person" labelWidth={96} /> : null}
-          </Ticket>
+          <Section>
+            {address ? <DetailRow label="Address" value={address} /> : null}
+            {contact ? <DetailRow label="On-site contact" value={contact} tabular /> : null}
+          </Section>
         ) : null}
 
         <Group title="Open jobs">
           {jobs.length ? (
             jobs.map((s) => <ShiftCard key={s.id} data={data} shift={s} />)
           ) : (
-            <Ticket spiked padding={0}>
+            <Ticket padding={0}>
               <Empty
                 icon="shifts"
                 title="No open jobs here"

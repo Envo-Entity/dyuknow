@@ -1,50 +1,38 @@
 import { router, Stack } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { useLive } from '@/data';
-import { activeDays, bookingServices, shiftLabel, teamOf, venueSummary, type Booking, type Data, type Shift } from '@/domain';
+import { LiveGate, useRefresh } from '@/data';
+import { activeDays, bookingServices, sentTo, shiftLabel, teamOf, venueSummary, whenLine, type Booking, type Data, type Shift } from '@/domain';
 import { HeaderActions } from '@/features/shell/HeaderActions';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Empty, ErrorState, Icon, Loading, Photo, Row, Screen, Section, Text, Ticket, WaitingForApproval, type IconName } from '@/ui';
-
-import { sentTo, whenLine } from './format';
+import { Badge, Disclosure, Empty, GroupHeading, Icon, Photo, Row, Screen, Section, Text, Ticket, WaitingForApproval, type IconName } from '@/ui';
 
 const TEAM_ICON: Record<string, IconName> = { Kitchen: 'kitchen', Pastry: 'pastry', Bar: 'bar', Sommelier: 'sommelier', Floor: 'floor' };
 
+const head = (
+  <>
+    <Stack.Screen options={{ title: 'Bookings' }} />
+    <HeaderActions />
+  </>
+);
+
 /** The venue's Bookings tab (web WorkHub, spec §5). */
 export function WorkHub() {
-  const { data, me, status, error, approved, reload } = useLive();
-  const t = useTheme();
-  const [refreshing, setRefreshing] = useState(false);
-  const [showPast, setShowPast] = useState(false);
-  const refresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
-
-  const head = (
-    <>
-      <Stack.Screen options={{ title: 'Bookings' }} />
-      <HeaderActions />
-    </>
+  return (
+    // Under the gate only when the venue has no shifts of its own yet.
+    <LiveGate header={head} title="Bookings" approval={false}>
+      {({ data, me, live }) => <Hub data={data} actor={me.id} approved={live.approved} />}
+    </LiveGate>
   );
+}
 
-  if (!data || !me) {
-    return (
-      <Screen>
-        {head}
-        {status === 'error' ? <ErrorState message={error ?? 'Couldn’t load Dyuknow.'} onRetry={() => void reload()} /> : <Loading />}
-      </Screen>
-    );
-  }
-
-  const actor = me.id;
+function Hub({ data, actor, approved }: { data: Data; actor: string; approved: boolean }) {
+  const refresh = useRefresh();
   const mine = data.shifts.filter((s) => s.venue === actor);
   if (!approved && !mine.length) {
     return (
-      <Screen>
+      <Screen title="Bookings">
         {head}
         <WaitingForApproval />
       </Screen>
@@ -70,7 +58,7 @@ export function WorkHub() {
   const nothing = !open.length && !coming.length && !toConfirm.length;
 
   return (
-    <Screen onRefresh={refresh} refreshing={refreshing}>
+    <Screen title="Bookings" {...refresh}>
       {head}
 
       {nothing ? (
@@ -78,7 +66,7 @@ export function WorkHub() {
       ) : null}
 
       {decide.length || toConfirm.length ? (
-        <Group label="Needs you">
+        <Group label="Needs you" count={decide.length + toConfirm.length}>
           {decide.map((s) => (
             <ShiftTicket key={s.id} data={data} s={s} lit />
           ))}
@@ -89,7 +77,7 @@ export function WorkHub() {
       ) : null}
 
       {coming.length ? (
-        <Group label="Upcoming">
+        <Group label="Upcoming" count={coming.length}>
           {coming.map((b) => (
             <BookingTicket key={b.id} data={data} b={b} />
           ))}
@@ -97,7 +85,7 @@ export function WorkHub() {
       ) : null}
 
       {waiting.length ? (
-        <Group label="Waiting for replies">
+        <Group label="Waiting for replies" count={waiting.length}>
           {waiting.map((s) => (
             <ShiftTicket key={s.id} data={data} s={s} />
           ))}
@@ -105,29 +93,26 @@ export function WorkHub() {
       ) : null}
 
       {history > 0 ? (
-        <Section separatorInset={68}>
-          <Row
-            title={`Past and cancelled (${history})`}
-            onPress={() => setShowPast((v) => !v)}
-            chevron={false}
-            trailing={<Icon name="forward" size={13} color="faint" weight="semibold" style={{ transform: [{ rotate: showPast ? '90deg' : '0deg' }] }} />}
-            accessibilityHint={showPast ? 'Hides them' : 'Shows them'}
-          />
-          {showPast ? pastBookings.map((b) => <BookingHistoryRow key={b.id} data={data} b={b} />) : null}
-          {showPast ? closed.map((s) => <ShiftHistoryRow key={s.id} data={data} s={s} />) : null}
-        </Section>
+        <Disclosure title="Past and cancelled" count={history}>
+          <Section separatorInset={68}>
+            {pastBookings.map((b) => (
+              <BookingHistoryRow key={b.id} data={data} b={b} />
+            ))}
+            {closed.map((s) => (
+              <ShiftHistoryRow key={s.id} data={data} s={s} />
+            ))}
+          </Section>
+        </Disclosure>
       ) : null}
     </Screen>
   );
 }
 
-function Group({ label, children }: { label: string; children: ReactNode }) {
+function Group({ label, count, children }: { label: string; count?: number; children: ReactNode }) {
   const t = useTheme();
   return (
     <View style={{ gap: t.space.md }}>
-      <Text variant="label" color="muted" accessibilityRole="header" style={{ paddingHorizontal: t.space.lg, textTransform: 'uppercase' }}>
-        {label}
-      </Text>
+      <GroupHeading title={label} count={count} />
       {children}
     </View>
   );
@@ -224,6 +209,8 @@ function BookingHistoryRow({ data, b }: { data: Data; b: Booking }) {
       photo={{ uri: person?.photo, name: person?.name }}
       title={shiftLabel(s)}
       subtitle={`${person?.name ?? 'Someone'} · ${whenLine(data, s, b.cancelled ? b.days : activeDays(b))}`}
+      subtitleLines={2}
+      subtitleTabular
       trailing={<Badge label={st.label} tone={st.tone} icon={st.icon} />}
       onPress={() => router.push({ pathname: '/booking/[id]', params: { id: b.id } })}
     />
@@ -237,6 +224,8 @@ function ShiftHistoryRow({ data, s }: { data: Data; s: Shift }) {
       icon={TEAM_ICON[teamOf(s.roles)] ?? 'kitchen'}
       title={shiftLabel(s)}
       subtitle={`${sentTo(data, s)} · ${whenLine(data, s)}`}
+      subtitleLines={2}
+      subtitleTabular
       trailing={<Badge label={summary.text} tone="neutral" icon={s.status === 'closed' ? 'cancelled' : 'clock'} />}
       onPress={() => router.push({ pathname: '/shift/[id]', params: { id: s.id } })}
     />

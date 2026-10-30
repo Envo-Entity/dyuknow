@@ -1,44 +1,34 @@
 // Venue › Post a job (web `JobPostStart`): choose a team, then the composer.
 import { router, Stack } from 'expo-router';
 
-import { useLive } from '@/data/store';
+import { LiveGate, useRefresh } from '@/data';
 import { HeaderActions } from '@/features/shell/HeaderActions';
-import { ErrorState, Loading, Screen, WaitingForApproval } from '@/ui';
+import { Screen } from '@/ui';
 
 import { TeamMosaic } from './TeamMosaic';
 
+const header = (
+  <>
+    <Stack.Screen options={{ title: 'Post a job' }} />
+    <HeaderActions />
+  </>
+);
+
 export function PostJob() {
-  const live = useLive();
-  const { data, me, approved, status } = live;
-  const header = (
-    <>
-      <Stack.Screen options={{ title: 'Post a job' }} />
-      <HeaderActions />
-    </>
-  );
-  if (!data || !me)
-    return (
-      <Screen>
-        {header}
-        {status === 'error' ? <ErrorState message={live.error ?? undefined} onRetry={() => void live.reload()} /> : <Loading count={2} />}
-      </Screen>
-    );
-  if (!approved)
-    return (
-      <Screen>
-        {header}
-        <WaitingForApproval />
-      </Screen>
-    );
+  const refresh = useRefresh();
   return (
-    <Screen onRefresh={() => void live.reload()}>
-      {header}
-      <TeamMosaic
-        data={data}
-        venue={me.id}
-        caption={(team) => (team.length ? 'Post to this team' : 'Nobody in this team yet')}
-        onPick={(team) => router.push({ pathname: '/compose', params: { team } })}
-      />
-    </Screen>
+    <LiveGate header={header} title="Post a job" loading={{ count: 2 }}>
+      {({ data, me }) => (
+        <Screen title="Post a job" {...refresh}>
+          {header}
+          <TeamMosaic
+            data={data}
+            venue={me.id}
+            caption={(team) => (team.length ? 'Post to this team' : 'Nobody in this team yet')}
+            onPick={(team) => router.push({ pathname: '/compose', params: { team } })}
+          />
+        </Screen>
+      )}
+    </LiveGate>
   );
 }

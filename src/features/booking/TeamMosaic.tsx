@@ -7,9 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { FAMILIES, TEAM_NAMES, teamOf, teamPhoto, type Data, type Member } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
-import { Icon, Text } from '@/ui';
-
-import { OnPhoto, Scrim } from './parts';
+import { Icon, OnPhoto, Scrim, Text } from '@/ui';
 
 /** Approved talent who hold a position in this team. */
 export function teamMembers(data: Data, team: string): Member[] {
