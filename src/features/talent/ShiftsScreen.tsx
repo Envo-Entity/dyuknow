@@ -129,7 +129,7 @@ function Home({ data, me }: { data: Data; me: Member }) {
   );
 }
 
-/** A booking that's coming up: the lit ticket with the venue and the first day. */
+/** A booking that's coming up: settled, so a plain ticket with the sage "You’re booked". Ink is only for what waits on you. */
 function UpcomingTicket({ data, b }: { data: Data; b: Booking }) {
   const t = useTheme();
   const s = data.shifts.find((x) => x.id === b.shift)!;
@@ -145,7 +145,7 @@ function UpcomingTicket({ data, b }: { data: Data; b: Booking }) {
   const photoW = Math.round(64 * Math.min(t.scale, 1.15));
   return (
     <TicketWithLink label={`You’re booked, ${name}, ${line}`} hint="View booking details" onPress={openBooking} link={{ label: venueLink, onPress: openVenue }}>
-      <Ticket lit onPress={openBooking}>
+      <Ticket onPress={openBooking}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}>
           <Pressable onPress={openVenue} hitSlop={8}>
             <Photo uri={v?.photo} name={name} width={photoW} radius={t.radius.sm} accessibilityLabel="" />

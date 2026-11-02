@@ -1,3 +1,4 @@
+import { confirmLogout } from '@/features/shell/confirmLogout';
 import { router, Stack } from 'expo-router';
 import { Linking, View } from 'react-native';
 
@@ -61,7 +62,7 @@ function ProfileView({ me }: { me: Member }) {
         />
       </View>
 
-      <View style={{ gap: t.space.md }}>
+      <View style={{ gap: t.space.lg }}>
         {me.bio ? (
           <Text variant="body">{me.bio}</Text>
         ) : (
@@ -115,7 +116,7 @@ function ProfileView({ me }: { me: Member }) {
           trailing={badges.accountAttention ? <Icon name="dot" size={10} color="danger" /> : undefined}
           onPress={() => router.push('/account')}
         />
-        <Row icon="logout" title="Log out" chevron={false} onPress={() => void logout()} />
+        <Row icon="logout" title="Log out" chevron={false} onPress={() => confirmLogout(logout)} />
       </Section>
 
       {photo.modal}
@@ -127,7 +128,7 @@ function Info({ me }: { me: Member }) {
   if (me.side === 'talent') {
     return (
       <Section>
-        <Row title="Postcode" value={me.postcode || 'Not set'} />
+        <Row title="Postcode" value={me.postcode ? me.postcode.toUpperCase() : 'Not set'} />
         <Row title="Minimum pay" value={me.minRate ? `${money(me.minRate)} per hour` : 'Not set'} valueTabular />
       </Section>
     );

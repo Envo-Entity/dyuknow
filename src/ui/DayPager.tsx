@@ -15,6 +15,8 @@ export type DayTone = 'free' | 'notFree' | 'booked' | 'none';
 export type DayInfo = {
   /** One short word under the number ("Free", "Booked", "3"). */
   note?: string;
+  /** What a screen reader says instead of the short note ("Booked at Spruce"). */
+  spoken?: string;
   tone?: DayTone;
   /** Can't be picked. */
   disabled?: boolean;
@@ -148,7 +150,7 @@ export function DayPager({ days, value, onChange, max, onMaxReached, describe, p
                   const border = on ? c.ink : tone === 'notFree' ? c.border : tone === 'free' ? c.sageSoft : c.border;
                   const numColor = on ? 'onInk' : tone === 'notFree' ? 'faint' : tone === 'free' ? 'sageText' : 'text';
                   const noteColor = on ? 'onInk' : tone === 'free' || tone === 'booked' ? 'sageText' : 'faint';
-                  const spoken = [formatDayLong(d), info.note, on ? 'picked' : null].filter(Boolean).join(', ');
+                  const spoken = [formatDayLong(d), info.spoken ?? info.note, on ? 'picked' : null].filter(Boolean).join(', ');
                   return (
                     <Pressable
                       key={d}

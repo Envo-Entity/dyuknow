@@ -120,7 +120,7 @@ function Editor({ data, meId }: { data: Data; meId: string }) {
   const describe = (d: string): DayInfo => {
     const a = marks.get(d);
     const b = bookedOn(d);
-    if (b) return { note: `Booked · ${member(data, b.venue)?.name ?? ''}`, tone: 'booked' };
+    if (b) return { note: 'Booked', spoken: `Booked at ${member(data, b.venue)?.name ?? 'a venue'}`, tone: 'booked' };
     if (a?.kind === 'not-free') return { note: 'Not free', tone: 'notFree' };
     if (a) return { note: freeLabel(a), tone: 'free' };
     return { note: 'Not set', tone: 'none' };

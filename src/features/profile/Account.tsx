@@ -1,3 +1,4 @@
+import { confirmLogout } from '@/features/shell/confirmLogout';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRef, useState, type ReactNode } from 'react';
 import { ActionSheetIOS, Alert, Linking, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
@@ -316,7 +317,7 @@ function AccountDetails({ me }: { me: Member }) {
       footer={deletion ? `Deletion requested ${clockLabel(deletion)}. Dyuknow will be in touch to confirm.` : undefined}
     >
       <Row icon="mail" title="Email" value={email ?? ''} />
-      <Row icon="logout" title="Log out" chevron={false} onPress={() => void logout()} />
+      <Row icon="logout" title="Log out" chevron={false} onPress={() => confirmLogout(logout)} />
       {deletion ? (
         <Row icon="refresh" title="Keep my account" chevron={false} onPress={keep} />
       ) : (
