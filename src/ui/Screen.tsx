@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as ScreensSafeAreaView } from 'react-native-screens/experimental';
 
@@ -151,6 +151,7 @@ export type SheetScreenProps = {
 
 export function SheetScreen({ title, subtitle, onClose, children, footer, scroll = true, gap = 'lg' }: SheetScreenProps) {
   const t = useTheme();
+  const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const header = (
     <View style={[styles.sheetHeader, { paddingTop: t.space.xxl, paddingBottom: t.space.md, gap: t.space.md }]}>
@@ -187,10 +188,17 @@ export function SheetScreen({ title, subtitle, onClose, children, footer, scroll
   );
   const content: ViewStyle = { paddingHorizontal: gutter, paddingBottom: footer ? t.space.lg : insets.bottom + t.space.xl, gap: t.space[gap] };
 
+  // Sheets size to their content ('fitToContents'), so nothing here may use flex: 1.
+  // Long content scrolls inside a capped area; the footer sits right under it, so
+  // the primary action is always visible without dragging the sheet up.
   return (
-    <View style={{ flex: scroll ? 1 : undefined, backgroundColor: t.c.page }} collapsable={false}>
+    <View style={{ backgroundColor: t.c.page }} collapsable={false}>
       {scroll ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+        <ScrollView
+          style={{ flexGrow: 0, maxHeight: Math.round(windowHeight * 0.62) }}
+          contentContainerStyle={content}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets>
           {header}
           {children}
         </ScrollView>
@@ -200,9 +208,7 @@ export function SheetScreen({ title, subtitle, onClose, children, footer, scroll
           <View style={content}>{children}</View>
         </View>
       )}
-      {/* iOS sheets stay pinned to the bottom edge, so the footer rises with the
-          keyboard; Android sheets move themselves above it (react-native-screens). */}
-      {footer ? Platform.OS === 'ios' ? <KeyboardFooter anchored>{footer}</KeyboardFooter> : <View>{footer}</View> : null}
+      {footer ? <View>{footer}</View> : null}
     </View>
   );
 }

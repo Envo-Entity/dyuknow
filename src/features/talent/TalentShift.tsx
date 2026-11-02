@@ -33,7 +33,6 @@ import {
   Section,
   StickyAction,
   Text,
-  TextLink,
   Ticket,
   type BadgeProps,
   type ButtonProps,
@@ -154,37 +153,27 @@ function Detail({ data, me, s }: { data: Data; me: Member; s: Shift }) {
     <>
       <Stack.Screen options={{ title: s.mode === 'request' ? 'Booking request' : 'Job post' }} />
       <Screen footer={footer} gap="xl">
-        <Pressable onPress={openVenue} accessibilityRole="link" accessibilityLabel={`View ${name}’s public profile`}>
+        {/* The venue stays compact so When and Pay sit above the action bar; the full photo is on the venue page. */}
+        <Pressable onPress={openVenue} accessibilityRole="link" accessibilityLabel={`${eyebrow}. ${name}. View public profile`}>
           {({ pressed }) => (
-            <Photo uri={venue?.photo} name={name} radius={t.radius.card} accessibilityLabel="" style={{ opacity: pressed ? 0.85 : 1 }} />
+            <View style={{ flexDirection: 'row', gap: t.space.lg, alignItems: 'center', opacity: pressed ? 0.85 : 1 }}>
+              <Photo uri={venue?.photo} name={name} width={88} radius={t.radius.md} accessibilityLabel="" />
+              <View style={{ flex: 1, gap: t.space.xxs }}>
+                <Text variant="footnote" color="muted">
+                  {eyebrow}
+                </Text>
+                <Text variant="title">{name}</Text>
+                {kinds ? (
+                  <Text variant="subhead" color="muted">
+                    {kinds}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
           )}
         </Pressable>
 
-        <View style={{ gap: t.space.xs }}>
-          <TextLink
-            label={eyebrow}
-            onPress={openVenue}
-            variant="footnote"
-            color="muted"
-            underline={false}
-            accessibilityLabel={`${eyebrow}. View ${name}’s public profile`}
-          />
-          <TextLink
-            label={name}
-            onPress={openVenue}
-            variant="largeTitle"
-            underline={false}
-            accessibilityLabel={`${name}. View public profile`}
-          />
-          {kinds ? (
-            <Text variant="subhead" color="muted">
-              {kinds}
-            </Text>
-          ) : null}
-          <Text variant="headline" style={{ marginTop: t.space.xs }}>
-            {st.invited ? st.myRole : shiftLabel(s)}
-          </Text>
-        </View>
+        <Text variant="headline">{st.invited ? st.myRole : shiftLabel(s)}</Text>
 
         {bodyNote || shown.inline ? (
           <View style={{ gap: t.space.md }}>

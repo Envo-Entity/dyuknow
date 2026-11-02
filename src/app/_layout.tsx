@@ -109,12 +109,12 @@ function Navigator() {
           <Stack.Screen name="account" options={{ title: 'Account' }} />
           <Stack.Screen name="profile-edit" options={{ title: 'Edit profile', presentation: 'modal' }} />
 
-          <Stack.Screen name="sheet/which-days" options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
-          <Stack.Screen name="sheet/book-confirm" options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
-          <Stack.Screen name="sheet/cancel-days" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-          <Stack.Screen name="sheet/confirm-hours" options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
-          <Stack.Screen name="sheet/close-shift" options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
-          <Stack.Screen name="sheet/send-more" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+          <Stack.Screen name="sheet/which-days" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+          <Stack.Screen name="sheet/book-confirm" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+          <Stack.Screen name="sheet/cancel-days" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+          <Stack.Screen name="sheet/confirm-hours" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+          <Stack.Screen name="sheet/close-shift" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+          <Stack.Screen name="sheet/send-more" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={__DEV__}>

@@ -112,7 +112,7 @@ export function Empty({ title, message, icon, action, style }: EmptyProps) {
           {message}
         </Text>
       ) : null}
-      {action ? <Button label={action.label} onPress={action.onPress} style={{ alignSelf: 'center', marginTop: t.space.md }} /> : null}
+      {action ? <Button label={action.label} onPress={action.onPress} variant="secondary" style={{ alignSelf: 'center', marginTop: t.space.md }} /> : null}
     </View>
   );
 }
