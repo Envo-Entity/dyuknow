@@ -351,9 +351,14 @@
   color: #405936;
   margin-top: 4px;
 }
+/* Wide screens: a collage. The most-used team gets the big tall tile; the rest
+   mix wide and near-square shapes, and the whole set fits on one screen.
+   Row 1: [0 tall][1 wide][2]   Row 2: [0][3][4 wide] */
 .pv-role-mosaic {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  aspect-ratio: 1.8 / 1;
   gap: 16px;
 }
 .pv-role {
@@ -362,7 +367,14 @@
   position: relative;
   text-align: left;
   color: white;
-  aspect-ratio: 4 / 5;
+  min-height: 0;
+}
+.pv-role-0 {
+  grid-row: span 2;
+}
+.pv-role-1,
+.pv-role-4 {
+  grid-column: span 2;
 }
 .pv-role::after {
   content: "";
@@ -1608,13 +1620,18 @@
   }
   .pv-role-mosaic {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: none;
+    aspect-ratio: auto;
   }
   .pv-role {
     grid-column: span 2;
+    grid-row: auto;
+    aspect-ratio: 4 / 5;
   }
   .pv-role-0,
   .pv-role-1 {
     grid-column: span 3;
+    aspect-ratio: 6 / 5;
   }
   .pv-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1733,6 +1750,7 @@
   .pv-role,
   .pv-role-1 {
     grid-column: span 1;
+    aspect-ratio: 4 / 5;
   }
   .pv-role-0 {
     grid-column: span 2;
