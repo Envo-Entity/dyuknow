@@ -365,7 +365,7 @@ export function LandingPage() {
                 Soho, London
               </div>
               <span className="inline-flex items-center gap-2 rounded-[10px] bg-sage/[0.22] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.1em]">
-                Filled in minutes
+                Filled in 33 minutes
               </span>
             </div>
             <div className="rounded-[24px] bg-mist p-8">
