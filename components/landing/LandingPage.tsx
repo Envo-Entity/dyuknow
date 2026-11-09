@@ -222,6 +222,11 @@ export function LandingPage() {
     router.push("/login");
   }
 
+  function openJoin() {
+    setMobileOpen(false);
+    router.push("/login?mode=signup");
+  }
+
   return (
     <div className="bg-paper text-ink">
       {/* Mobile nav overlay */}
@@ -249,13 +254,22 @@ export function LandingPage() {
             {link.label}
           </a>
         ))}
-        <button
-          type="button"
-          onClick={openLogin}
-          className="mt-4 cursor-pointer rounded-[14px] bg-ink px-8 py-3.5 text-xs font-bold uppercase tracking-[0.07em] text-white"
-        >
-          Login
-        </button>
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            onClick={openLogin}
+            className="cursor-pointer rounded-[14px] border border-ink px-8 py-3.5 text-xs font-bold uppercase tracking-[0.07em] text-ink"
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={openJoin}
+            className="cursor-pointer rounded-[14px] bg-ink px-8 py-3.5 text-xs font-bold uppercase tracking-[0.07em] text-white"
+          >
+            Join
+          </button>
+        </div>
       </div>
 
       {/* Nav */}
@@ -278,13 +292,22 @@ export function LandingPage() {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={openLogin}
-            className="hidden cursor-pointer rounded-xl bg-ink px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-white transition-transform hover:-translate-y-0.5 lg:inline-flex"
-          >
-            Login
-          </button>
+          <div className="hidden items-center gap-2.5 lg:flex">
+            <button
+              type="button"
+              onClick={openLogin}
+              className="cursor-pointer rounded-xl border border-ink px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-ink transition-transform hover:-translate-y-0.5"
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={openJoin}
+              className="cursor-pointer rounded-xl border border-ink bg-ink px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-white transition-transform hover:-translate-y-0.5"
+            >
+              Join
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -341,9 +364,9 @@ export function LandingPage() {
                 </svg>
                 Soho, London
               </div>
-              <button className="w-full cursor-pointer rounded-xl bg-ink px-8 py-4 text-xs font-bold uppercase tracking-[0.07em] text-white">
-                Apply
-              </button>
+              <span className="inline-flex items-center gap-2 rounded-[10px] bg-sage/[0.22] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.1em]">
+                Filled in minutes
+              </span>
             </div>
             <div className="rounded-[24px] bg-mist p-8">
               <div className="mb-5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]">

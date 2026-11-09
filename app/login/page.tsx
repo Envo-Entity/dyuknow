@@ -4,6 +4,6 @@ import { LoginForm } from "@/components/auth/LoginForm";
 export const metadata: Metadata = { title: "Sign in · Dyuknow" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const { next } = await searchParams;
-  return <LoginForm next={typeof next === "string" ? next : null} />;
+  const { next, mode } = await searchParams;
+  return <LoginForm next={typeof next === "string" ? next : null} startOnSignup={mode === "signup"} />;
 }

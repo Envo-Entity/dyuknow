@@ -53,10 +53,10 @@ const primaryClass =
 const labelClass = "text-[11px] font-semibold uppercase tracking-[0.14em] text-label";
 const linkClass = "cursor-pointer font-semibold text-ink underline underline-offset-2 disabled:opacity-30";
 
-export function LoginForm({ next: rawNext }: { next: string | null }) {
+export function LoginForm({ next: rawNext, startOnSignup = false }: { next: string | null; startOnSignup?: boolean }) {
   const next = safeNext(rawNext);
   const [supabase] = useState(() => createClient());
-  const [stage, setStage] = useState<Stage>("signin");
+  const [stage, setStage] = useState<Stage>(startOnSignup ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
