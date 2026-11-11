@@ -16,7 +16,7 @@ export default function Index() {
     case 'no-member':
       return <Redirect href="/join" />;
     case 'admin-only':
-      return <Redirect href="/admin-only" />;
+      return <Redirect href="/admin" />;
     case 'ready':
       if (!live.approved) return <Redirect href={live.side === 'venue' ? '/v/profile' : '/t/profile'} />;
       return <Redirect href={live.side === 'venue' ? '/v/book' : '/t/shifts'} />;

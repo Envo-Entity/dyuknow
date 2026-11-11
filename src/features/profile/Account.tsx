@@ -1,5 +1,6 @@
 import { confirmLogout } from '@/features/shell/confirmLogout';
 import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
 import { ActionSheetIOS, Alert, Linking, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
 
@@ -292,7 +293,7 @@ function Help() {
 /* ------------------------------------------------------------------ Account */
 
 function AccountDetails({ me }: { me: Member }) {
-  const { email, run, logout } = useLive();
+  const { email, run, logout, isAdmin } = useLive();
   const deletion = me.account?.deletion;
 
   const askDelete = () => {
@@ -317,6 +318,7 @@ function AccountDetails({ me }: { me: Member }) {
       footer={deletion ? `Deletion requested ${clockLabel(deletion)}. Dyuknow will be in touch to confirm.` : undefined}
     >
       <Row icon="mail" title="Email" value={email ?? ''} />
+      {isAdmin ? <Row icon="people" title="Dyuknow admin" onPress={() => router.push('/admin')} /> : null}
       <Row icon="logout" title="Log out" chevron={false} onPress={() => confirmLogout(logout)} />
       {deletion ? (
         <Row icon="refresh" title="Keep my account" chevron={false} onPress={keep} />

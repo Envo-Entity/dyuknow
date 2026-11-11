@@ -69,7 +69,7 @@ The app starts (and returns to the foreground) through the same checks as `loadL
 After sign-in, `destinationAfterSignIn` (`components/auth/routing.ts`) decides the next screen:
 
 - A member row → the app.
-- An admin with no member row → the web's `/admin`. The mobile app has no admin, so treat this as "no member" → `join/index`. This case is open; see the report.
+- An admin with no member row → the app's `/admin` (see §11).
 - Anyone else → `join/index`.
 
 The `join/*` screens bounce a person who already has a member row to the app (`requireJoinViewer`).
@@ -1566,7 +1566,7 @@ Cards, in order:
 - **Reviews and ratings.** There are none, although onboarding asks venues to agree to "Rate honestly".
 - **Editing a posted shift.** A posted shift can't be edited. The venue can only send it to more people, close it (`close_shift`), or start a new one from it (`compose?again=`).
 - **Payments.** Pay amounts are shown only. The venue pays the talent directly ("paid by {venue}").
-- **Admin.** Approving members and checking documents happen only on the web `/admin`. The web's `/admin/onboarding` intake form is also outside the app.
+- **Admin intake form.** The web's `/admin/onboarding` intake form (writes to the archive tables) is not in the app. The rest of admin is (§11).
 - **Landing page.** Not in the app. It opens straight to sign-in.
 - **Demo-only features**, not rebuilt:
   - The Preview pill, account switcher, preview controls, walkthrough (Stories) and Undo on toasts.
@@ -1580,7 +1580,7 @@ Cards, in order:
 ## 10. Mobile decisions on the web's ambiguities
 Where the web app is unclear or inconsistent, the app does this:
 1. Sign-in is email + password; codes only confirm a new account and reset a password (as `LoginForm.tsx`).
-2. Admin with no member row → `admin-only`: "The Dyuknow team area is on the web." + Log out.
+2. Admin with no member row → the app opens straight into `/admin` (§11).
 3. Onboarding step 0 has Back to "Who are you?".
 4. "Available today?" stays on the form and pass as on web (not saved — the backend has no column).
 5. Documents follow Account.tsx; CV uploaded at onboarding is not listed in Account (as web).
@@ -1592,3 +1592,13 @@ Where the web app is unclear or inconsistent, the app does this:
 11. Bookings hub: a booking appears once — under "Needs you" if it needs you, otherwise Upcoming/Past.
 12. Back fallbacks go to the screen the person came from, else the side's home tab.
 13–18: as web.
+
+---
+
+## 11. Admin (added 11 Nov 2026)
+Mirrors the web `/admin` (`components/admin/AdminHome.tsx`, `MemberDrawer.tsx`, `DocumentCard.tsx`) with the same RPCs and copy: `am_i_admin`, `admin_list_members`, `admin_get_member`, `admin_list_documents`, `admin_set_approval`, `admin_review_document`, plus 300-second signed links from `member-documents`.
+- **Who gets in:** admins only (`Stack.Protected guard={isAdmin}`). An admin with no member row opens straight into `/admin`; an admin who is also a member reaches it from "Dyuknow admin" in Profile and Account.
+- **`/admin`:** "Admin" title, Segmented Waiting / Documents / All with counts, pull to refresh.
+- **`/admin/member/[id]`:** Postcard, deletion notice, email and joined dates, still missing, note for the log, documents, every profile answer. Approve / Take approval away in the action bar (taking away asks first).
+- **Documents:** View (in-app browser), Verify, Reject via `/admin/reject-document` with a required reason.
+- Member list rows show initials, because the list RPC returns no photo.

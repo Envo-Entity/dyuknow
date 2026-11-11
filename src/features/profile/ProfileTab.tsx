@@ -29,7 +29,7 @@ export function ProfileTab() {
 
 function ProfileView({ me }: { me: Member }) {
   const t = useTheme();
-  const { approved, badges, logout } = useLive();
+  const { approved, badges, logout, isAdmin } = useLive();
   const refresh = useRefresh();
   const photo = usePhotoChange();
 
@@ -116,6 +116,7 @@ function ProfileView({ me }: { me: Member }) {
           trailing={badges.accountAttention ? <Icon name="dot" size={10} color="danger" /> : undefined}
           onPress={() => router.push('/account')}
         />
+        {isAdmin ? <Row icon="people" title="Dyuknow admin" onPress={() => router.push('/admin')} /> : null}
         <Row icon="logout" title="Log out" chevron={false} onPress={() => confirmLogout(logout)} />
       </Section>
 
