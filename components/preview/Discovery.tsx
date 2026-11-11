@@ -14,7 +14,6 @@ import {
   firstName,
   venueSummary,
   endedLabel,
-  standing,
   teamOf,
   type Booking,
   type Data,
@@ -25,7 +24,7 @@ import {
 } from "@/lib/preview/model";
 import { usePreview } from "./context";
 import { AvailabilityEditor, VenueFacts, Verified } from "./MemberViews";
-import { DateTimeBar, TeamMosaic, savedWhen, whenDays, whenPath } from "./Booking";
+import { DateTimeBar, TeamMosaic, savedWhen, whenPath } from "./Booking";
 import {
   Badge,
   Button,
@@ -109,7 +108,6 @@ function upcomingFirst(data: Data, list: Booking[]) {
 export function VenueHome() {
   const { data, actor, go } = usePreview();
   const [when, setWhen] = useState(() => savedWhen(data.now));
-  const days = whenDays(when);
   const coming = upcomingFirst(data, myBookings(data, actor, "venue")).slice(
     0,
     3,
@@ -125,10 +123,12 @@ export function VenueHome() {
       />
       <DateTimeBar collapsible value={when} onChange={setWhen} />
       <TeamMosaic
-        caption={(team) => {
-          const free = team.filter((m) => standing(data, m.id, days) === "free").length;
-          return `${free} available`;
-        }}
+        // TEMPORARY: the tile counts everyone we have on the platform in this
+        // team, not who is free on the chosen dates. Live availability showed
+        // "0 available" too often while the roster is small, so we show the
+        // headcount instead (10 kitchen staff → "10 available"). Switch back to
+        // `standing(data, m.id, days) === "free"` once there are enough people.
+        caption={(team) => `${team.length} available`}
         onPick={(name) => go(whenPath(name, when.dates.length ? when : savedWhen(data.now)))}
       />
       {coming.length > 0 && (
