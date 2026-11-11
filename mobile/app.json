@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.dyuknow.app"
+      "bundleIdentifier": "com.dyuknow.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -36,7 +39,22 @@
         }
       ],
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Dyuknow uses your photos to add your profile picture and verification documents.",
+          "cameraPermission": "Dyuknow uses the camera to take your profile picture or photograph a document.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Dyuknow adds the days you're booked to your calendar.",
+          "remindersPermission": "Dyuknow adds the days you're booked to your calendar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
