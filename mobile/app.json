@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Dyuknow",
-    "slug": "dyuknow-mobile",
+    "slug": "dyuknow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -39,6 +39,17 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "d7504bb0-02fc-4a96-ae7d-1469aa0f46f9"
+      }
+    },
+    "owner": "envo-entity"
   }
 }
