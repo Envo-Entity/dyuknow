@@ -7,7 +7,7 @@ import type { AdminDocumentListItem, AdminMemberListItem } from '@/data/admin';
 import { useAdmin, type AdminTab } from '@/data/adminStore';
 import { confirmLogout } from '@/features/shell/confirmLogout';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Empty, ErrorState, GroupHeading, Loading, Notice, Row, Screen, Section, Segmented } from '@/ui';
+import { Badge, DetailRow, Empty, ErrorState, GroupHeading, Loading, Notice, Row, Screen, Section, Segmented } from '@/ui';
 
 import { DocumentTicket } from './DocumentTicket';
 import { formatDate, memberStatus, sideLabel, waitingFor } from './format';
@@ -80,7 +80,7 @@ export function AdminHome() {
 
       {adminOnly ? (
         <Section label="Account">
-          <Row icon="mail" title="Email" value={live.email ?? ''} />
+          <DetailRow label="Email" value={live.email ?? ''} />
           <Row icon="logout" title="Log out" chevron={false} onPress={() => confirmLogout(live.logout)} />
         </Section>
       ) : null}
@@ -95,7 +95,6 @@ function MembersList({ items, waiting }: { items: AdminMemberListItem[]; waiting
         const name = m.name?.trim() || m.email || 'No name yet';
         const missing = m.missing ?? [];
         const status = memberStatus(m);
-        const first = [sideLabel(m.side), m.email].filter(Boolean).join(' · ');
         const second =
           missing.length > 0 && !m.approved && !m.deleted_at
             ? `Missing: ${missing.join(', ')}`
@@ -108,7 +107,7 @@ function MembersList({ items, waiting }: { items: AdminMemberListItem[]; waiting
             photo={{ name }}
             title={name}
             titleSerif
-            subtitle={`${first}\n${second}`}
+            subtitle={[m.email, `${sideLabel(m.side)} · ${second}`].filter(Boolean).join('\n')}
             subtitleLines={2}
             trailing={<Badge label={status.label} tone={status.tone} icon={status.icon} numberOfLines={1} />}
             accessibilityLabel={`${name}, ${sideLabel(m.side)}, ${status.label}. ${second}`}
@@ -131,7 +130,6 @@ function DocumentsList({ items }: { items: AdminDocumentListItem[] }) {
           doc={d}
           memberId={d.member_id}
           owner={{ name: d.member_name?.trim() || 'No name yet', side: d.side }}
-          verifyPrimary
         />
       ))}
     </View>

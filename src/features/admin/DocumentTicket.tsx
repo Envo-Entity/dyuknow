@@ -135,6 +135,7 @@ export function DocumentTicket({
           <Button
             label="Verify"
             variant={verifyPrimary ? 'primary' : 'secondary'}
+            icon="check"
             loading={busy === 'verify'}
             disabled={busy !== null}
             onPress={() => void verify()}
