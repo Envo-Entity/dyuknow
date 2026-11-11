@@ -3,14 +3,14 @@ import { router, Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { LiveGate, useRefresh } from '@/data';
-import { activeDays, member, shiftLabel, standing, whenLine } from '@/domain';
+import { activeDays, member, shiftLabel, whenLine } from '@/domain';
 import { HeaderActions } from '@/features/shell/HeaderActions';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, GroupHeading, Headline, Row, Screen, Section } from '@/ui';
 
 import { upcomingBookings } from './parts';
 import { TeamMosaic } from './TeamMosaic';
-import { savedWhen, useWhen, whenDays, whenParams } from './when';
+import { savedWhen, useWhen, whenParams } from './when';
 import { WhenBar } from './WhenBar';
 
 const header = (
@@ -28,7 +28,6 @@ export function VenueBook() {
   return (
     <LiveGate header={header} loading={{ count: 2 }}>
       {({ data, me }) => {
-        const days = whenDays(when);
         const coming = upcomingBookings(data, me.id).slice(0, 3);
         return (
           // The serif hero is the page title: it sits right under the bar, like a tab root's title.
@@ -39,7 +38,11 @@ export function VenueBook() {
             <TeamMosaic
               data={data}
               venue={me.id}
-              caption={(team) => `${team.filter((m) => standing(data, m.id, days) === 'free').length} available`}
+              // TEMPORARY, matching the web (5171ec1): the tile counts everyone on the
+              // platform in this team, not who is free on the chosen dates, because the
+              // roster is still small and "0 available" showed too often. Switch back to
+              // `standing(data, m.id, whenDays(when)) === 'free'` once there are enough people.
+              caption={(team) => `${team.length} available`}
               onPick={(team) =>
                 router.push({ pathname: '/team/[team]', params: { team, ...whenParams(when.dates.length ? when : savedWhen()) } })
               }
