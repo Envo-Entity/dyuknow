@@ -69,7 +69,7 @@ eas build -p android --profile production && eas submit -p android --latest
 - **Android:** submits to the Play Console "internal testing" track (`eas.json` → `submit.production.android.track`). Promote it to production in the Play Console.
 
 ## One-off setup still to do
-1. **Bundle IDs.** Set `ios.bundleIdentifier` and `android.package` in `app.json` (for example `com.dyuknow.app`). They can never change after the first store upload.
+1. **Bundle IDs:** done. Both are `com.dyuknow.app` in `app.json`. They can never change after the first store upload.
 2. **iOS:** the first `eas build -p ios` asks to sign in to the Envo Apple Developer account and creates the certificates and profiles. EAS stores them; nothing to keep locally. The first `eas submit -p ios` creates the App Store Connect app if it doesn't exist.
 3. **Android:**
    - Create the app in the Google Play Console.
