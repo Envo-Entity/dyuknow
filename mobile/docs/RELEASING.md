@@ -79,3 +79,8 @@ eas build -p android --profile production && eas submit -p android --latest
 
 ## Expo Go still works
 `bunx expo start` and opening it in Expo Go still works, because the app uses no native code beyond what Expo Go ships. Dev builds are only needed for testing on a real build, or once a native module is added.
+
+## Signing credentials (where they live)
+- **iOS:** distribution certificate and App Store provisioning profile are stored on EAS (remote credentials) and on Envo's Apple team `BGV2P92TM3`. The certificate is **shared with Envo's other apps** (gudforus, app) and **expires 27 March 2027**. Renewing it means new profiles for every app using it; EAS offers this on the next build.
+- **Android:** the signing keystore was generated on EAS (12 Nov 2026). Keep one private backup outside git: `eas credentials -p android` → Download existing keystore. Installed APKs only update if every later APK uses the same key.
+- Nothing about signing is stored in this repo.
