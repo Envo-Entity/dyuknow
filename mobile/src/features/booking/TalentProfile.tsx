@@ -4,7 +4,7 @@ import { router, Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { LiveGate, useMessage, useRefresh } from '@/data';
-import { areaOf, displayDate, firstName, freeLabel, londonDate, money, verifiedDocs, workedWith, type Data, type Member } from '@/domain';
+import { areaOf, displayDate, documentStatuses, firstName, freeLabel, londonDate, money, workedWith, type Data, type DocStatus, type Member } from '@/domain';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, Chip, Empty, Icon, KeyValue, Postcard, Row, Screen, Section, StickyAction, Text } from '@/ui';
 
@@ -42,7 +42,7 @@ function Profile({ data, viewer, venue, p }: { data: Data; viewer: Member; venue
 
   const today = londonDate(data.now);
   const worked = venue && workedWith(data, viewer.id, p.id);
-  const docs = verifiedDocs(p);
+  const docs = documentStatuses(p);
   const freeOn = data.availability.filter((a) => a.member === p.id && a.kind === 'free' && a.date >= today).slice(0, 7);
   const anyFree = data.availability.some((a) => a.member === p.id && a.kind === 'free');
   const first = firstName(p);
@@ -72,11 +72,20 @@ function Profile({ data, viewer, venue, p }: { data: Data; viewer: Member; venue
           </View>
         ) : null}
         {docs.length ? (
-          <View style={[styles.row, { gap: t.space.xs }]} accessible accessibilityLabel={`Verified by Dyuknow · ${docs.join(' · ')}`}>
-            <Icon name="verified" size={14} color="sageText" />
-            <Text variant="footnote" color="sageText" style={{ flex: 1 }}>
-              {`Verified by Dyuknow · ${docs.join(' · ')}`}
-            </Text>
+          <View style={{ gap: t.space.xxs }} accessibilityLabel="Documents">
+            {docs.map((d) => (
+              <View
+                key={d.name}
+                style={[styles.row, { gap: t.space.xs }]}
+                accessible
+                accessibilityLabel={`${d.name} · ${DOC_STATUS_TEXT[d.status]}`}
+              >
+                {d.status === 'verified' ? <Icon name="verified" size={14} color="sageText" /> : null}
+                <Text variant="footnote" color={d.status === 'verified' ? 'sageText' : 'muted'} style={{ flex: 1 }}>
+                  {`${d.name} · ${DOC_STATUS_TEXT[d.status]}`}
+                </Text>
+              </View>
+            ))}
           </View>
         ) : null}
       </Postcard>
@@ -101,6 +110,13 @@ function Profile({ data, viewer, venue, p }: { data: Data; viewer: Member; venue
     </Screen>
   );
 }
+
+// What venues see of each document: never the file.
+const DOC_STATUS_TEXT: Record<DocStatus, string> = {
+  verified: 'Verified by Dyuknow',
+  review: 'Added, not checked yet',
+  missing: 'Not added',
+};
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },

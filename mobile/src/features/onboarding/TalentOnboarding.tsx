@@ -222,11 +222,11 @@ export function TalentOnboarding() {
       key: 'verification',
       eyebrow: 'Verification',
       title: "Prove you're good to work.",
-      description: 'Held privately for the owner to review.',
+      description: 'Optional, and you can add them later. Venues see whether you’ve added each one, never the file.',
       render: () => (
         <UploadRows
           items={[
-            { label: 'Right to Work (visa / passport)', value: id.rightToWork, onChange: (f) => patch({ rightToWork: f }) },
+            { label: 'Right to Work (visa / passport)', optional: true, note: 'recommended', value: id.rightToWork, onChange: (f) => patch({ rightToWork: f }) },
             ...(needsKitchenDocuments(id.positions)
               ? [{ label: 'Food Safety Certificate', optional: true, value: id.foodSafetyCert, onChange: (f: TalentIdentity['foodSafetyCert']) => patch({ foodSafetyCert: f }) }]
               : []),
@@ -303,7 +303,7 @@ export function TalentOnboarding() {
             ...(id.availableToday ? [{ label: 'Available', value: 'Today' }] : []),
           ]}
           headline={['Welcome aboard ', { em: 'profile ready.' }]}
-          body="Your profile is submitted for the owner to review. You can look around while you wait for approval."
+          body="You’re in. Add the days you’re free and venues can start booking you."
           status={submit.status}
           error={submit.error}
         />

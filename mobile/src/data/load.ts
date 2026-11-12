@@ -113,6 +113,15 @@ function placeholder(id: string, side: Member['side']): Member {
     venue: side === 'venue' ? { address: '', contactName: '', contactRole: '', types: [], cuisines: [], instagram: '' } : undefined,
   };
 }
+// A talent card's document statuses, in the account shape the screens use.
+const CARD_STATUS: Record<string, DocStatus> = { verified: 'verified', added: 'review', 'not-added': 'missing' };
+function cardAccount(c: TalentCardRow): Account {
+  if (!c.document_statuses) return verifiedAccount(c.verified_documents);
+  return {
+    texts: { messages: true, reminders: true },
+    docs: Object.fromEntries(c.document_statuses.map((d) => [d.label, { status: CARD_STATUS[d.status] ?? 'missing' }])),
+  };
+}
 function verifiedAccount(labels: string[] | null): Account {
   return {
     texts: { messages: true, reminders: true },
@@ -296,7 +305,7 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
         approved: c.active,
         alert: 'all',
         minRate: pounds(c.minimum_pay_pence),
-        account: verifiedAccount(c.verified_documents),
+        account: cardAccount(c),
       });
   for (const c of venueCards)
     if (c.member_id !== me.id)

@@ -8,6 +8,7 @@ import { HeaderActions } from '@/features/shell/HeaderActions';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, Button, Chip, Icon, Postcard, Row, Screen, Section, Text } from '@/ui';
 
+import { RightToWorkNudge } from './docUpload';
 import { usePhotoChange } from './PhotoChange';
 
 const header = (
@@ -47,6 +48,8 @@ function ProfileView({ me }: { me: Member }) {
         {!approved ? <Badge label="Waiting for approval" icon="waiting" style={{ alignSelf: 'flex-start' }} /> : null}
         {verified.length ? <VerifiedLine docs={verified} /> : null}
       </Postcard>
+
+      <RightToWorkNudge me={me} />
 
       <View style={{ flexDirection: 'row', gap: t.space.sm }}>
         <Button label="Edit profile" icon="edit" fullWidth style={{ flex: 1 }} onPress={() => router.push('/profile-edit')} />

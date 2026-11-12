@@ -1,11 +1,10 @@
 import { confirmLogout } from '@/features/shell/confirmLogout';
-import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
-import { ActionSheetIOS, Alert, Linking, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { Alert, Linking, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
 
-import { keepMyAccount, LiveGate, requestAccountDeletion, saveDocument, updateMySettings, useLive, useRefresh } from '@/data';
-import { accountOf, clockLabel, displayDate, SHIFT_ALERTS, type DocStatus, type Member, type ShiftAlert, type UploadedFile } from '@/domain';
+import { keepMyAccount, LiveGate, requestAccountDeletion, updateMySettings, useLive, useRefresh } from '@/data';
+import { accountOf, clockLabel, displayDate, SHIFT_ALERTS, type DocStatus, type Member, type ShiftAlert } from '@/domain';
 import { gutter } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import {
@@ -13,7 +12,6 @@ import {
   Button,
   haptics,
   KeyboardSpacer,
-  pickPhoto,
   Row,
   Screen,
   Section,
@@ -25,6 +23,8 @@ import {
   type BadgeTone,
   type IconName,
 } from '@/ui';
+
+import { RightToWorkNudge, useDocUpload } from './docUpload';
 
 const HELP_PHONE = '+44 20 7946 0000';
 const HELP_EMAIL = 'help@dyuknow.example';
@@ -73,6 +73,7 @@ function AccountView({ me }: { me: Member }) {
             <TextLink key={j} label={j} variant="subhead" color="muted" onPress={() => jumpTo(j)} accessibilityHint={`Scrolls to ${j}`} />
           ))}
         </View>
+        <RightToWorkNudge me={me} />
         {at('Verification', <Verification me={me} />)}
         {at('Notifications', <Notifications me={me} />)}
         <TextSize />
@@ -96,87 +97,27 @@ function docState(status: DocStatus, rejected: string | undefined, d: { file?: s
   if (status === 'verified')
     return { detail: `Checked ${d.updated ? displayDate(d.updated.slice(0, 10)) : ''}`.trim(), badge: 'Verified', tone: 'good', action: 'Replace' };
   if (status === 'review')
-    return { detail: `${d.file ?? ''} · usually within a day`, badge: 'Being checked', tone: 'neutral', icon: 'clock', action: 'Replace' };
-  return { detail: 'Upload a JPEG, PNG or PDF', badge: 'Needed', tone: 'attention', action: 'Upload' };
-}
-
-const MIME_BY_EXT: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', pdf: 'application/pdf' };
-const mimeOf = (name: string) => MIME_BY_EXT[name.split('.').pop()?.toLowerCase() ?? ''];
-
-/** Asks for a photo or a file; resolves the chosen file, or null. */
-function chooseFile(label: string): Promise<UploadedFile | null> {
-  return new Promise((resolve, reject) => {
-    const fromPhotos = async () => {
-      const r = await pickPhoto('library');
-      if (r.status === 'error') return reject(new Error(r.error));
-      if (r.status !== 'picked') return resolve(null);
-      const name = r.photo.uri.split('/').pop() || `${label}.jpg`;
-      resolve({ name, uri: r.photo.uri, mimeType: mimeOf(name) ?? 'image/jpeg' });
-    };
-    const fromFiles = async () => {
-      try {
-        const r = await DocumentPicker.getDocumentAsync({
-          type: ['image/jpeg', 'image/png', 'application/pdf'],
-          copyToCacheDirectory: true,
-          multiple: false,
-        });
-        if (r.canceled || !r.assets?.length) return resolve(null);
-        const a = r.assets[0];
-        resolve({ name: a.name, uri: a.uri, mimeType: a.mimeType || mimeOf(a.name) || '', size: a.size });
-      } catch {
-        resolve(null);
-      }
-    };
-    const options = ['Choose a photo', 'Choose a file', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({ title: label, options, cancelButtonIndex: 2 }, (i) => {
-        if (i === 0) void fromPhotos();
-        else if (i === 1) void fromFiles();
-        else resolve(null);
-      });
-    } else {
-      Alert.alert(label, undefined, [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-        { text: 'Choose a photo', onPress: () => void fromPhotos() },
-        { text: 'Choose a file', onPress: () => void fromFiles() },
-      ], { cancelable: true, onDismiss: () => resolve(null) });
-    }
-  });
+    return { detail: `${d.file ?? ''} · not checked yet`, badge: 'Added', tone: 'neutral', icon: 'clock', action: 'Replace' };
+  // Documents are optional, so a missing one is neutral, not a warning.
+  return { detail: 'Upload a JPEG, PNG or PDF', badge: 'Not added', tone: 'neutral', action: 'Upload' };
 }
 
 function Verification({ me }: { me: Member }) {
   const t = useTheme();
-  const { snapshot, userId, run } = useLive();
-  const toast = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
+  const { snapshot } = useLive();
+  const { upload, busy } = useDocUpload();
   const docs = accountOf(me).docs;
   const labels = Object.keys(docs);
-  const verified = labels.filter((l) => docs[l].status === 'verified').length;
   const rejected = snapshot?.rejected ?? {};
-
-  const upload = async (label: string) => {
-    if (busy || !userId) return;
-    let file: UploadedFile | null;
-    try {
-      file = await chooseFile(label);
-    } catch (e) {
-      toast.show((e as Error).message, { tone: 'error' });
-      haptics.warn();
-      return;
-    }
-    if (!file) return;
-    setBusy(label);
-    await run(`doc:${label}`, () => saveDocument(userId, snapshot?.docCodes[label], file), {
-      success: `${label} sent to Dyuknow to check.`,
-      args: { label, uri: file.uri },
-    });
-    setBusy(null);
-  };
 
   return (
     <Section
-      label={me.side === 'venue' ? 'Business verification' : 'Verification'}
-      footer={`${verified} of ${labels.length} checked. Your profile shows a tick, never the file.`}
+      label={me.side === 'venue' ? 'Business verification' : 'Documents'}
+      footer={
+        me.side === 'venue'
+          ? 'Optional. Your profile shows a tick once Dyuknow has checked one, never the file.'
+          : 'Optional. Venues see which ones you’ve added and which Dyuknow has checked, never the file. Your CV stays private.'
+      }
     >
       {labels.map((label) => {
         const s = docState(docs[label].status, label in rejected ? rejected[label] : undefined, docs[label]);

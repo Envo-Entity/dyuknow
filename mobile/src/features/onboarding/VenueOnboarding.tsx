@@ -214,7 +214,7 @@ export function VenueOnboarding() {
             ...(id.teamSize ? [{ label: 'Team', value: id.teamSize }] : []),
           ]}
           headline={['Welcome aboard — ', { em: 'venue ready.' }]}
-          body="Your venue is submitted for the owner to review. You can look around while you wait for approval."
+          body="You’re in. You can post jobs and send booking requests now."
           status={submit.status}
           error={submit.error}
         />
