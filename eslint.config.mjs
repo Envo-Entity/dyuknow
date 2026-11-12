@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Expo app has its own tooling.
     "mobile/**",
+    // Edge functions run on Deno, not Next.js.
+    "supabase/functions/**",
+    // Rendered email previews.
+    "scripts/emails/out/**",
   ]),
 ]);
 
