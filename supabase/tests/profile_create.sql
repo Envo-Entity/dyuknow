@@ -100,10 +100,12 @@ begin
   perform pg_temp.expect_error(format('select public.create_my_profile(%L, %L, null, %L)', 'talent', t,
     jsonb_build_array(jsonb_build_object('day_date', pg_temp.today() + 56, 'kind', 'not-free'))),
     'Choose dates in the next 8 weeks.');
-  perform pg_temp.expect_error(format('select public.create_my_profile(%L, %L, null, %L)', 'talent', t,
-    '[{"day_date":"2026-10-25","kind":"free","start_time":"01:30","end_time":"05:00"}]'),
-    case when pg_temp.today() <= date '2026-10-25' then 'That time happens twice when the clocks go back. Choose another.'
-         else null end);
+  -- Only while that date is still ahead: a past date is skipped, and the call would succeed.
+  if pg_temp.today() <= date '2026-10-25' then
+    perform pg_temp.expect_error(format('select public.create_my_profile(%L, %L, null, %L)', 'talent', t,
+      '[{"day_date":"2026-10-25","kind":"free","start_time":"01:30","end_time":"05:00"}]'),
+      'That time happens twice when the clocks go back. Choose another.');
+  end if;
   perform pg_temp.expect_error(format('select public.create_my_profile(%L, %L, null, %L)', 'talent', t,
     jsonb_build_array(jsonb_build_object('day_date', pg_temp.today() + 1, 'kind', 'free', 'start_time', '09:00', 'end_time', '09:00'))),
     'Choose different start and end times.');
@@ -151,8 +153,9 @@ begin
       jsonb_build_object('day_date', pg_temp.today() + 2, 'kind', 'free', 'start_time', '22:00', 'end_time', '02:00'),
       jsonb_build_object('day_date', pg_temp.today() + 3, 'kind', 'not-free', 'start_time', null, 'end_time', null))));
   m := (r->>'member_id')::uuid;
-  assert r->>'side' = 'talent' and (r->>'approved')::boolean = false, 'create result';
-  assert (select approved from public.members where id = m) = false, 'new member not approved';
+  assert r->>'side' = 'talent' and (r->>'approved')::boolean = true, 'create result';
+  assert (select approved and approved_at is not null from public.members where id = m), 'new member approved straight away';
+  assert not exists (select 1 from public.admin_actions where member_id = m), 'no admin action logged';
   select * into tal from public.talents where member_id = m;
   assert tal.full_name = 'Poppy Bertram', 'name trimmed';
   assert tal.home_area = 'TW9', 'home_area generated';
@@ -191,6 +194,53 @@ begin
   assert (select count(*) from public.documents where member_id = (r->>'member_id')::uuid) = 1, 'venue document';
 end $$;
 
+-- Document statuses on talent_cards ------------------------------------------
+-- Poppy (kitchen) added right to work and food hygiene; Spruce, a venue, sees
+-- each document's status, never the file.
+insert into storage.objects (bucket_id, name, owner, metadata) values
+  ('member-documents','a1111111-1111-1111-1111-111111111111/cv.pdf','a1111111-1111-1111-1111-111111111111','{"size":1000,"mimetype":"application/pdf"}');
+create temp table poppy_docs as
+  select m.id as member_id from public.members m where m.user_id = 'a1111111-1111-1111-1111-111111111111';
+grant select on poppy_docs to authenticated;
+select pg_temp.login('a2222222-2222-2222-2222-222222222222');
+set local role authenticated;
+do $$
+declare d jsonb;
+begin
+  select c.document_statuses into d from public.talent_cards c join poppy_docs p using (member_id);
+  assert d = '[{"label":"Right to work","status":"added"},{"label":"Photo ID","status":"not-added"},
+               {"label":"Food hygiene certificate","status":"added"}]'::jsonb, 'statuses: ' || coalesce(d::text, 'no card');
+end $$;
+reset role;
+do $$
+declare m uuid := (select member_id from poppy_docs);
+begin
+  update public.documents set status = 'verified', reviewed_at = now(), reviewed_by = 'a2222222-2222-2222-2222-222222222222'
+    where member_id = m and doc_type = 'right-to-work';
+  update public.documents set status = 'rejected', reviewed_at = now(), reviewed_by = 'a2222222-2222-2222-2222-222222222222',
+    reject_reason = 'Blurry' where member_id = m and doc_type = 'food-hygiene';
+  insert into public.documents (member_id, doc_type, storage_path, original_filename, content_type, size_bytes, status, uploaded_at)
+    values (m, 'cv', 'a1111111-1111-1111-1111-111111111111/cv.pdf', 'cv.pdf', 'application/pdf', 1000, 'review', now());
+end $$;
+set local role authenticated;
+do $$
+declare d jsonb;
+begin
+  select c.document_statuses into d from public.talent_cards c join poppy_docs p using (member_id);
+  -- Verified shows as verified; rejected reads as not added; the CV never shows.
+  assert d = '[{"label":"Right to work","status":"verified"},{"label":"Photo ID","status":"not-added"},
+               {"label":"Food hygiene certificate","status":"not-added"}]'::jsonb, 'statuses after review: ' || d::text;
+  assert d::text !~ '(storage_path|Blurry|rejected|cv\.pdf)', 'nothing private on the card';
+end $$;
+reset role;
+-- A member nobody can see gets no card at all.
+select pg_temp.login('a3333333-3333-3333-3333-333333333333');
+set local role authenticated;
+do $$ begin
+  assert not exists (select 1 from public.talent_cards c join poppy_docs p using (member_id)), 'no card without a member';
+end $$;
+reset role;
+
 -- Grants --------------------------------------------------------------------
 do $$
 begin
@@ -198,6 +248,7 @@ begin
   assert has_function_privilege('authenticated', 'public.create_my_profile(text, jsonb, jsonb, jsonb)', 'execute'), 'authenticated can call';
   assert not has_function_privilege('authenticated', 'private.clean_profile_answers(text, jsonb, text[])', 'execute'), 'helper closed';
   assert not has_function_privilege('authenticated', 'private.own_stored_file(text, text)', 'execute'), 'helper closed';
+  assert not has_function_privilege('anon', 'private.document_statuses(uuid, text[])', 'execute'), 'anon cannot read statuses';
 end $$;
 
 -- Onboarding archive untouched.
