@@ -119,6 +119,17 @@ function placeholder(id: string, side: Member["side"]): Member {
         : undefined,
   };
 }
+// A talent card's document statuses, as the demo's account shape.
+const CARD_STATUS: Record<string, DocStatus> = { verified: "verified", added: "review", "not-added": "missing" };
+function cardAccount(c: TalentCardRow): Account {
+  if (!c.document_statuses) return verifiedAccount(c.verified_documents);
+  return {
+    texts: { messages: true, reminders: true },
+    docs: Object.fromEntries(
+      c.document_statuses.map((d) => [d.label, { status: CARD_STATUS[d.status] ?? "missing" }]),
+    ),
+  };
+}
 function verifiedAccount(labels: string[] | null): Account {
   return {
     texts: { messages: true, reminders: true },
@@ -295,7 +306,7 @@ export async function loadLive(supabase: SupabaseClient): Promise<LoadResult> {
         approved: c.active,
         alert: "all",
         minRate: pounds(c.minimum_pay_pence),
-        account: verifiedAccount(c.verified_documents),
+        account: cardAccount(c),
       });
   for (const c of venueCards)
     if (c.member_id !== me.id)

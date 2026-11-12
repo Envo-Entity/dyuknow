@@ -52,6 +52,8 @@ export type TalentCardRow = {
   verified_documents: string[] | null;
   active: boolean;
   postcode: string | null;
+  // Each document venues can see, with its status. Never a file or reason.
+  document_statuses: { label: string; status: "verified" | "added" | "not-added" }[] | null;
 };
 export type VenueCardRow = {
   member_id: string;

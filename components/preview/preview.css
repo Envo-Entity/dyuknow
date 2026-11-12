@@ -4340,6 +4340,54 @@ dl.pv-arrival > div {
   background: var(--pv-ink);
   color: var(--pv-sage);
 }
+/* A talent's documents and their status, as venues see them. */
+.pv-doc-statuses {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.pv-doc-statuses li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #5d625c;
+}
+.pv-doc-statuses strong {
+  color: var(--pv-ink);
+  font-weight: 600;
+}
+.pv-doc-statuses svg {
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--pv-ink);
+  color: var(--pv-sage);
+}
+.pv-doc-statuses li.is-verified span {
+  color: var(--pv-ink);
+}
+/* Right to work nudge on Profile and Account. */
+.pv-nudge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 760px;
+  margin-top: 0;
+}
+.pv-nudge p {
+  flex: 1;
+}
+@media (max-width: 560px) {
+  .pv-nudge {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 /* Account */
 .pv-account-index {
   position: sticky;

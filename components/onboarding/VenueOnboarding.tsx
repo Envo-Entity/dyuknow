@@ -309,7 +309,7 @@ export function VenueOnboarding({ identity: identityProp, onPatch, onBack0, onDo
               Welcome aboard — <span className="font-serif font-normal italic">venue ready.</span>
             </>
           }
-          body="Your venue is submitted for the owner to review. You can look around while you wait for approval."
+          body="You’re in. You can post jobs and send booking requests now."
           saveStatus={saveStatus}
           error={submitError}
         >

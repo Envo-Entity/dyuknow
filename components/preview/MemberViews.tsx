@@ -28,6 +28,7 @@ import {
   offeredDates,
   responseLabel,
   verifiedDocs,
+  documentStatuses,
   type Data,
   type Member,
   type Message,
@@ -39,6 +40,7 @@ import { PhotoCropper } from "@/components/ui/PhotoCropper";
 import { usePreview } from "./context";
 import { Badge, Button, Empty, Field, Heading, Photo, ProfilePhoto, ProfileName } from "./ui";
 import { BookConfirm } from "./ShiftDetail";
+import { RightToWorkNudge } from "./Account";
 import { DatePicker, TimeSelect, familyOf, useMessage } from "./Booking";
 // The latest shift card in a conversation: what the pair is talking about.
 function latestShift(data: Data, thread: string) {
@@ -754,6 +756,7 @@ export function Profile() {
         <div>
           {!edit ? (
             <>
+              <RightToWorkNudge me={me!} />
               <Verified m={me!} />
               {me!.bio ? <p>{me!.bio}</p> : <p className="pv-muted">No bio yet.</p>}
               {side === "talent" ? (
@@ -922,8 +925,16 @@ export function Profile() {
   );
 }
 
-// Which documents Dyuknow has checked: ticks on a public profile.
+const DOC_STATUS_TEXT = {
+  verified: "Verified by Dyuknow",
+  review: "Added, not checked yet",
+  missing: "Not added",
+} as const;
+
+// Talent: each document and its status, as venues see it. Venues: ticks for
+// the documents Dyuknow has checked.
 export function Verified({ m }: { m: Member }) {
+  if (m.side === "talent") return <DocumentStatuses m={m} />;
   const docs = verifiedDocs(m);
   if (!docs.length) return null;
   return (
@@ -931,5 +942,20 @@ export function Verified({ m }: { m: Member }) {
       <CheckIcon size={12} />
       Verified by Dyuknow · {docs.join(" · ")}
     </p>
+  );
+}
+function DocumentStatuses({ m }: { m: Member }) {
+  const docs = documentStatuses(m);
+  if (!docs.length) return null;
+  return (
+    <ul className="pv-doc-statuses" aria-label="Documents">
+      {docs.map((d) => (
+        <li key={d.name} className={`is-${d.status}`}>
+          {d.status === "verified" && <CheckIcon size={12} />}
+          <strong>{d.name}</strong>
+          <span>· {DOC_STATUS_TEXT[d.status]}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

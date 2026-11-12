@@ -290,8 +290,8 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
 
       {step === 5 && (
         <div className="flex flex-col gap-6">
-          <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Held privately for the owner to review." />
-          <UploadRow label="Right to Work (visa / passport)" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
+          <StepHeader eyebrow="Verification" title="Prove you're good to work." description="Optional, and you can add them later. Venues see whether you’ve added each one, never the file." />
+          <UploadRow label="Right to Work (visa / passport)" optional note="recommended" value={rightToWork} onChange={(v) => setTalentIdentityFn({ rightToWork: v })} />
           {(!selfServe || needsKitchenDocuments(positions)) && (
             <UploadRow label="Food Safety Certificate" optional value={foodSafetyCert} onChange={(v) => setTalentIdentityFn({ foodSafetyCert: v })} />
           )}
@@ -347,7 +347,7 @@ export function TalentOnboarding({ identity: identityProp, onPatch, onBack0, onD
               Welcome aboard <span className="font-serif font-normal italic">profile ready.</span>
             </>
           }
-          body="Your profile is submitted for the owner to review. You can look around while you wait for approval."
+          body="You’re in. Add the days you’re free and venues can start booking you."
           saveStatus={saveStatus}
           error={submitError}
         >

@@ -8,6 +8,8 @@ import {
   accountOf,
   clockLabel,
   displayDate,
+  needsRightToWork,
+  RIGHT_TO_WORK,
   type Account,
   type DocStatus,
   type Member,
@@ -57,11 +59,59 @@ function Toggle({
     </label>
   );
 }
+// Documents are optional, so a missing one is neutral, not a warning.
 const DOC_LABEL: Record<DocStatus, string> = {
   verified: "Verified",
-  review: "Being checked",
-  missing: "Needed",
+  review: "Added",
+  missing: "Not added",
 };
+
+// The upload flow: a hidden file input, opened for one document at a time.
+function useDocUpload() {
+  const { actor, act, live } = usePreview();
+  const input = useRef<HTMLInputElement>(null);
+  const [doc, setDoc] = useState("");
+  const pick = (name: string) => {
+    setDoc(name);
+    input.current?.click();
+  };
+  // The demo keeps only the file's name; the real app uploads the file.
+  const field = (
+    <input
+      ref={input}
+      type="file"
+      accept={live ? "image/jpeg,image/png,application/pdf" : "image/*,application/pdf"}
+      hidden
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file && doc)
+          act(
+            { type: "upload-doc", actor, doc, file: file.name, blob: live ? file : undefined },
+            `${doc} added.`,
+          );
+        e.target.value = "";
+      }}
+    />
+  );
+  return { pick, field };
+}
+
+// Talent without a right to work document: a gentle nudge on Profile and Account.
+export function RightToWorkNudge({ me }: { me: Member }) {
+  const { live } = usePreview();
+  const upload = useDocUpload();
+  if (!needsRightToWork(me, live?.rejected)) return null;
+  return (
+    <div className="pv-callout pv-nudge">
+      <p>
+        Add your right to work. Venues can see whether you’ve added it, and it gives you a better
+        chance of being booked.
+      </p>
+      <Button onClick={() => upload.pick(RIGHT_TO_WORK)}>Upload</Button>
+      {upload.field}
+    </div>
+  );
+}
 
 export function AccountPage() {
   const { me, live } = usePreview();
@@ -71,7 +121,7 @@ export function AccountPage() {
       <Heading title="Account" />
       <nav className="pv-account-index" aria-label="Account sections">
         {[
-          ["verification", "Verification"],
+          ["verification", me.side === "venue" ? "Verification" : "Documents"],
           live ? ["notifications", "Notifications"] : ["texts", "Texts"],
           ["help", "Help"],
           ["details", "Account"],
@@ -84,6 +134,7 @@ export function AccountPage() {
           </a>
         ))}
       </nav>
+      <RightToWorkNudge me={me} />
       <div className="pv-account-cards">
         <Verification me={me} />
         {live ? <LiveNotices me={me} /> : <Texts me={me} />}
@@ -95,15 +146,15 @@ export function AccountPage() {
 }
 
 function Verification({ me }: { me: Member }) {
-  const { actor, act, live } = usePreview();
-  const input = useRef<HTMLInputElement>(null);
-  const [doc, setDoc] = useState("");
+  const { live } = usePreview();
+  const upload = useDocUpload();
   const docs = accountOf(me).docs;
-  const done = Object.values(docs).filter((d) => d.status === "verified").length;
   return (
-    <Card id="verification" title={me.side === "venue" ? "Business verification" : "Verification"}>
+    <Card id="verification" title={me.side === "venue" ? "Business verification" : "Documents"}>
       <p className="pv-muted">
-        {done} of {Object.keys(docs).length} checked. Your profile shows a tick, never the file.
+        {me.side === "venue"
+          ? "Optional. Your profile shows a tick once Dyuknow has checked one, never the file."
+          : "Optional. Venues see which ones you’ve added and which Dyuknow has checked, never the file. Your CV stays private."}
       </p>
       <div className="pv-doc-list">
         {Object.entries(docs).map(([name, d]) => {
@@ -119,21 +170,18 @@ function Verification({ me }: { me: Member }) {
                   : d.status === "verified"
                   ? `Checked ${d.updated ? displayDate(d.updated.slice(0, 10)) : ""}`
                   : d.status === "review"
-                    ? `${d.file} · usually within a day`
+                    ? `${d.file} · not checked yet`
                     : live
                       ? "Upload a JPEG, PNG or PDF"
                       : "Upload a photo or PDF"}
               </small>
             </span>
-            <Badge good={d.status === "verified"} attention={d.status === "missing"}>
+            <Badge good={d.status === "verified"} attention={rejected !== undefined}>
               {rejected !== undefined ? "Not accepted" : DOC_LABEL[d.status]}
             </Badge>
             <Button
               variant={d.status === "missing" ? "primary" : "secondary"}
-              onClick={() => {
-                setDoc(name);
-                input.current?.click();
-              }}
+              onClick={() => upload.pick(name)}
             >
               {d.status === "missing" && rejected === undefined ? "Upload" : "Replace"}
             </Button>
@@ -141,22 +189,7 @@ function Verification({ me }: { me: Member }) {
           );
         })}
       </div>
-      {/* The demo keeps only the file's name; the real app uploads the file. */}
-      <input
-        ref={input}
-        type="file"
-        accept={live ? "image/jpeg,image/png,application/pdf" : "image/*,application/pdf"}
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && doc)
-            act(
-              { type: "upload-doc", actor, doc, file: file.name, blob: live ? file : undefined },
-              `${doc} sent to Dyuknow to check.`,
-            );
-          e.target.value = "";
-        }}
-      />
+      {upload.field}
     </Card>
   );
 }

@@ -17,6 +17,8 @@ import {
   threadBetween,
   accountOf,
   verifiedDocs,
+  documentStatuses,
+  needsRightToWork,
   rankTalent,
   daysFor,
 } from "../lib/preview/model.ts";
@@ -581,6 +583,26 @@ test("account: documents wait for Dyuknow to check; texts can be switched off; d
   assert.ok(accountOf(d.members.find((m) => m.id === "theo")).deletion);
   d = transition(d, { type: "delete-account", actor: "theo", cancel: true });
   assert.equal(accountOf(d.members.find((m) => m.id === "theo")).deletion, undefined);
+});
+test("documents are optional: venues see each one's status, the CV stays private, right to work gets a nudge", () => {
+  const base = seed().members.find((m) => m.id === "noor");
+  const noor = { ...base, account: { texts: { messages: true, reminders: true }, docs: {
+    "Right to work": { status: "review", file: "rtw.pdf" },
+    CV: { status: "review", file: "cv.pdf" },
+  } } };
+  assert.deepEqual(documentStatuses(noor), [
+    { name: "Right to work", status: "review" },
+    { name: "Photo ID", status: "missing" },
+    { name: "Allergen awareness", status: "missing" },
+  ]);
+  // The talent's own Account lists the CV too.
+  assert.equal(accountOf(noor).docs.CV.status, "review");
+  assert.equal(needsRightToWork(noor), false);
+  const without = { ...noor, account: { ...noor.account, docs: {} } };
+  assert.equal(needsRightToWork(without), true);
+  // A rejected one counts as added: Account asks them to replace it instead.
+  assert.equal(needsRightToWork(without, { "Right to work": "Blurry" }), false);
+  assert.equal(needsRightToWork(seed().members.find((m) => m.side === "venue")), false);
 });
 test("a venue can't send a second ask to someone already answering one of its asks for those hours", () => {
   // Poppy said yes to Spruce's Friday job post.
