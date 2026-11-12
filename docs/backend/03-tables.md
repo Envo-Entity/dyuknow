@@ -192,7 +192,7 @@ These two read-only views are the only way members see each other's profiles. Th
 
 | View | Columns |
 |---|---|
-| talent_cards | member_id, full_name, photo_path, positions, skills, custom_skills, home_area, bio, minimum_pay_pence, verified_documents, active |
+| talent_cards | member_id, full_name, photo_path, positions, skills, custom_skills, home_area, bio, minimum_pay_pence, verified_documents, active, postcode, document_statuses |
 | venue_cards | member_id, display_name, photo_path, area, bio, venue_types, cuisines, instagram_handle, verified_documents, active |
 
 Which rows each viewer gets:
@@ -210,7 +210,8 @@ Which rows each viewer gets:
 - **Deleted members** in someone's history show with the name "Former member", no photo, every other column empty, and active false. No member is deleted in this build, but the views are ready for it.
 - **active** is true when members.approved is true and deleted_at is empty. The app offers asks and messages only on active cards.
 - **photo_path** is a path in the member-photos bucket.
-- **verified_documents** lists the labels of the member's verified documents whose type has public_tick.
+- **verified_documents** lists the labels of the member's verified documents whose type has public_tick. talent_cards keeps it for older app builds.
+- **document_statuses** (talent_cards only) lists each talent document type with public_tick that suits the talent's positions, plus any other one they've added, in sort_order, as label and status: verified, added (in review) or not-added. A rejected document reads as not-added. It never holds a file, path or reason, and never the CV.
 - **minimum_pay_pence** converts the chosen pay column to pence (open decision 2).
 - **How they are built.** Both views run with their owner's rights, because they read rows the viewer can't. Each checks the viewer itself, using the rows above.
 - They are created with security_barrier, so the database applies the view's own checks before any filter the app adds. Signed-in users get read access to them, and nobody else.
@@ -632,7 +633,7 @@ The documents Dyuknow may ask for, and who needs each one.
 | label | text | Required. What the app shows, such as "Food hygiene certificate". |
 | side | text | Required. talent or venue. |
 | applies_to | text | Required. everyone; kitchen (holds any Kitchen or Pastry position); or front-of-house (holds none). |
-| required | boolean | Required, default false. Whether the Account page lists it as needed. Set by the owner (open decision 1). |
+| required | boolean | Required, default false. False for every type: at launch all documents are optional, and the app never marks a missing one as needed. |
 | public_tick | boolean | Required, default true. Whether a verified one shows as a tick on the card. False for cv. |
 | sort_order | smallint | Required. The order on screen. |
 

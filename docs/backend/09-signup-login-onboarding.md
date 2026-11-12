@@ -1,6 +1,6 @@
 ## Sign-up, login and onboarding
 
-Everyone gets in the same way: their email, a 6-digit code, the full onboarding once, then the owner's approval. There are no passwords for real people, no Google button and no phone codes. The demo's in-app Setup, its fake "Sign in with Google" and its habit of reading who you are from the address all go.
+Everyone gets in the same way: their email, a 6-digit code, then the full onboarding once. At launch nobody waits for approval: a member is approved the moment they finish onboarding. Documents are optional. There are no passwords for real people, no Google button and no phone codes. The demo's in-app Setup, its fake "Sign in with Google" and its habit of reading who you are from the address all go.
 
 For testing, /login also shows a small email-and-password "test sign-in" form, but only when the app is built with NEXT_PUBLIC_DEV_LOGIN=true. Only the seeded fake accounts have passwords (see Fake data now, real users later).
 
@@ -11,8 +11,8 @@ The first release exists to make this story work for real. Each step names the d
 | Step | What happens | Saved by | Notice |
 |---|---|---|---|
 | 1 | Poppy opens /login, types her email, then the code she is sent. | Supabase Auth | None |
-| 2 | She fills the talent onboarding at /join/talent and submits. Her app shows "Waiting for approval". | create_my_profile | None: new profiles wait on the /admin list |
-| 3 | The owner checks her answers and documents in /admin and approves her. | admin_set_approval | approved, to Poppy |
+| 2 | She fills the talent onboarding at /join/talent and submits. She is approved straight away and her app opens. She skipped her right to work, so her Profile and Account show a nudge to add it. | create_my_profile | None: no approved notice is sent for a new member |
+| 3 | She uploads her right to work from the nudge. Venues now see "Right to work · Added, not checked yet" on her profile. | save_document | None |
 | 4 | Spruce posts a job for a CDP on Thursday, 17:00 to 23:00. | post_shift | job-posted, to each CDP whose shift alerts allow it |
 | 5 | Poppy taps I can do this. | say_yes | said-yes, to Spruce |
 | 6 | Spruce books her. The shift is now full, so anyone else who said yes is told. | book_talent | booked, to Poppy; shift-filled, to the others |
@@ -37,13 +37,18 @@ flowchart TD
     D -- "No" --> E["Who are you? Venue or talent"]
     E --> F["Onboarding form, draft kept on this device"]
     F --> G["Submit: member, profile, documents saved together"]
-    G --> H["Waiting for approval"]
-    D -- "Yes, waiting" --> H
-    H --> I["Owner approves in /admin"]
-    I --> J["Approved notice in the app"]
-    J --> K["Full app"]
+    G --> K["Full app: approved straight away"]
     D -- "Yes, approved" --> K
+    D -- "Yes, approval taken away" --> H["Waiting for approval"]
+    H --> I["Owner approves again in /admin"]
+    I --> J["Approved notice in the app"]
+    J --> K
 ```
+
+- **Approved on finishing.** create_my_profile saves the member with approved true and approved_at set. Saving a new member doesn't run the approval trigger, so no approved notice is sent and nothing is logged in admin_actions.
+- **Approval can still be taken away.** The owner can unapprove anyone with admin_set_approval, and every approval check stays in place. A member whose approval was taken away sees "Waiting for approval" until approved again; a new member never does.
+- **Documents are optional.** Right to work, photo ID, food hygiene or allergen awareness, and a CV can all be added during onboarding or later from Account. Talent who haven't added their right to work see a nudge on Profile and Account until they do. Venues see each talent document's status (see Who can see what → Documents).
+- **Nobody checks documents at launch.** Uploaded documents stay in review. The admin can still verify or reject them in /admin.
 
 ### Pages and addresses
 
@@ -55,7 +60,7 @@ Every page has a real address, and who the person is comes only from their sessi
 | /login | Anyone | Email, then code. Accepts ?next= (see below). Shows the test sign-in form only when NEXT_PUBLIC_DEV_LOGIN=true. |
 | /join | Signed in, no profile yet | "Who are you?", the existing venue or talent choice. |
 | /join/talent, /join/venue | Signed in, no profile yet | The onboarding forms, now filled in by the person. |
-| /app | Signed in with a profile | Home, as in the demo. Shows the waiting state until approved. |
+| /app | Signed in with a profile | Home, as in the demo. Shows the waiting state only if approval was taken away. |
 | /app/shift/`<shift id>` | The same | One shift. |
 | /app/booking/`<booking id>` | The same | One booking. |
 | /app/chat/`<conversation id>` | The same | One conversation. |
@@ -78,7 +83,7 @@ Every page has a real address, and who the person is comes only from their sessi
 
 /admin is a deliberate change from docs/mvp-user-flow.md, which removed the owner workspace and kept approval in database administration. Checking documents means opening private files through short-lived links, which needs a signed-in admin, so a small page is needed. It is kept to two lists:
 
-1. **Waiting for approval.** Members who aren't approved, with their answers and documents. Approve, or take approval away, with admin_set_approval.
+1. **Waiting for approval.** Members who aren't approved, with their answers and documents. At launch it is empty unless the owner took someone's approval away. Approve, or take approval away, with admin_set_approval.
 2. **Documents to check.** Documents with status review, oldest first. Open through a 5-minute signed link, then verify or reject with admin_review_document.
 
 The lists come from read functions that only admins can run: admin_list_members, admin_get_member and admin_list_documents (see Who can see what → Functions that only read). Everything else, such as adding an admin, stays in the Supabase dashboard.

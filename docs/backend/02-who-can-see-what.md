@@ -8,7 +8,7 @@ The app has four kinds of viewer, and the admin stands apart from them.
 
 - **Approved venue**: a signed-in venue member whose members.approved is true.
 - **Approved talent**: a signed-in talent member whose members.approved is true.
-- **Not approved**: a member still waiting for approval, or one whose approval was taken away (paused). Only a paused member can have any history.
+- **Not approved**: a member whose approval was taken away (paused). At launch new members are approved as soon as they finish onboarding, so nobody is left waiting. Only a paused member can have any history.
 - **Signed out**: anyone not signed in. Someone signed in without a profile is treated the same, except that they can create their own profile.
 - **Admin**: a login listed in admins (see Tables → admins). An admin who is also a member sees, in the app, only what that member would see.
 
@@ -19,7 +19,7 @@ The database enforces every line of this table, whatever the screens show.
 | What | Approved venue | Approved talent | Not approved | Signed out |
 |---|---|---|---|---|
 | Own profile, documents, settings and notifications | Yes | Yes | Yes | No |
-| Talent cards: name, photo, positions, skills, area, bio, minimum pay, verified document names | Approved talent, plus talent in their own conversations and bookings | Own card only | Own card, plus people in their own conversations and bookings | No |
+| Talent cards: name, photo, positions, skills, area, bio, minimum pay, each document's status | Approved talent, plus talent in their own conversations and bookings | Own card only | Own card, plus people in their own conversations and bookings | No |
 | Venue cards: name, photo, area, bio, types, cuisines, Instagram, verified document names | Own card only | Approved venues, plus venues in their own conversations and bookings | Own card, plus people in their own conversations and bookings | No |
 | Talent availability: free, not free, free hours | Approved talent | Own | Own, if talent | No |
 | When a talent is already booked, never where | Approved talent, up to 8 weeks ahead | Own bookings | No | No |
@@ -84,9 +84,9 @@ Onboarding answers that aren't on a card stay between the member and Dyuknow.
 
 Approval gates starting anything with other people, never ending it. An unapproved member can build their profile but can't be found, asked, booked or messaged.
 
-While waiting for approval, a member:
+While not approved (paused), a member:
 
-- can fill and edit their profile, add a photo, upload documents and, for talent, set availability, so everything is ready on approval;
+- can fill and edit their profile, add a photo, upload documents and, for talent, set availability, so everything is ready when approved again;
 - doesn't appear in team lists, booking request lists or job post alerts, and can't open anyone else's card;
 - sees no job posts, because anyone can sign up and job details stay with approved members.
 
@@ -109,7 +109,9 @@ Document files stay private between the member and Dyuknow. They sit in the priv
 
 - A member can open the files in their own folder, which are the ones they uploaded. Admins can open any of them.
 - Files sent through the old onboarding form stay in the onboarding buckets, which this build doesn't touch.
-- Other members see only the label of a verified document as a tick, such as "Right to work". They never see the file, or whether a document is missing, being checked or rejected.
+- Documents are optional. Venues see each talent document's status on the talent's card: "Verified by Dyuknow", "Added, not checked yet" or "Not added". It covers the documents with public_tick that suit the talent's positions (so never the CV), plus any other one they've added.
+- A rejected document shows to venues as "Not added". Venues never see the file, its name, a reject reason, or that it was rejected.
+- Talent see a venue's verified documents only, as a tick such as "Premises licence".
 
 ### Admin
 

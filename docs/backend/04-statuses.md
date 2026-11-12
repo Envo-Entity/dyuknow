@@ -172,14 +172,16 @@ stateDiagram-v2
 
 ### Documents: documents.status
 
-A document is either missing, being checked, verified or rejected.
+A document is either missing, added, verified or rejected. Every document is optional. Nobody checks documents at launch, so an upload stays in review.
 
-| Value | What it means | Member sees | What moves it here |
-|---|---|---|---|
-| no row | Not uploaded yet. | Needed (if required) | Nothing uploaded. |
-| review | Uploaded and waiting for Dyuknow. | Being checked | An upload, or a replacement from any status. A replacement removes the public tick until checked again. |
-| verified | Dyuknow checked it. | Verified, plus a tick on the card if public_tick | The admin verifies it. |
-| rejected | Dyuknow couldn't accept it. | Not accepted, with the reason (new wording) | The admin rejects it, with a reason. |
+| Value | What it means | Member sees | Venues see, for talent documents | What moves it here |
+|---|---|---|---|---|
+| no row | Not uploaded yet. | Not added (neutral, not a warning) | Not added | Nothing uploaded. |
+| review | Uploaded, not checked yet. | Added | Added, not checked yet | An upload, or a replacement from any status. A replacement removes the verified status until checked again. |
+| verified | Dyuknow checked it. | Verified | Verified by Dyuknow | The admin verifies it. |
+| rejected | Dyuknow couldn't accept it. | Not accepted, with the reason, and the Account red dot | Not added | The admin rejects it, with a reason. |
+
+The CV is never shown to venues. Talent without a right to work document see a nudge on Profile and Account; a rejected one counts as added there, since Account already asks them to replace it.
 
 ### Members: approval and account
 
@@ -187,10 +189,10 @@ Approval is stored in members.approved, and the account's life in members' delet
 
 | approved | What it means | Member sees | What moves it here |
 |---|---|---|---|
-| false | Waiting for approval, or paused. | Waiting for approval | Creating the member, which always starts here. Or the admin taps Unapprove (admin_set_approval). |
-| true | Approved. | Nothing extra | The admin taps Approve (admin_set_approval), or an edit in the dashboard. The approval trigger sets approved_at, logs it and sends the approved notification. |
+| false | Paused. | Waiting for approval | The admin taps Unapprove (admin_set_approval). |
+| true | Approved. | Nothing extra | Finishing onboarding: create_my_profile saves every new member approved, with approved_at set and no notice. Or the admin taps Approve (admin_set_approval), or an edit in the dashboard; the approval trigger then sets approved_at, logs it and sends the approved notification. |
 
-approved is never empty: the column is required, with default false.
+approved is never empty: the column is required. Its default is still false, but create_my_profile always sets it to true at launch.
 
 | Account | Stored as | What moves it here |
 |---|---|---|
