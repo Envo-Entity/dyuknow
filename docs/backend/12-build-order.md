@@ -68,7 +68,10 @@ Cancelling days, confirming hours and reminders belong in the first release, bec
 
 These come later, because nothing in this build depends on them.
 
-- Email: Resend set up as Supabase's email server, then a send-emails edge function, with notify() queueing an email for chosen kinds of notice.
+- ~~Email: a send-emails edge function, with notify() queueing an email for chosen kinds of notice.~~ Done: email_outbox, the welcome and complete-account emails, send-emails on a one-minute pg_cron, buttons that open the exact shift or booking (see Notifications → Email). Still to do:
+  - Turn off safety mode once the emails are reviewed: `select public.email_set_config('email_allowlist', '');`. Until then only the allowlisted address gets email.
+  - Supabase Auth SMTP through Resend and the sign-in code template, from the sign-in-code design in supabase/functions/send-emails/templates.mjs (see Secrets and setup you enter later → Supabase Auth).
+  - Email switches on Account → Notifications, and a round-up of unread chat, if wanted.
 - Inviting and importing real users: wipe the fake data, import the onboarding records, approve (see Fake data now, real users later → Later: real users).
 - Closing the anonymous insert rules on the onboarding archive.
 - Actually deleting accounts, with a delete-account edge function. Until then, members can only ask, and the owner acts by hand.
@@ -90,16 +93,17 @@ None of this is needed to build or test with fake data. The owner, or the develo
 
 **Supabase Auth**
 
-- [ ] Custom SMTP: host smtp.resend.com, port 465, username resend, password a Resend API key used only for this, sender name Dyuknow.
+- [ ] Custom SMTP: host smtp.resend.com, port 465, username resend, password a Resend API key used only for this, sender hi@dyuknow.com, sender name Dyuknow.
 - [ ] Email code length 6 and expiry 600 seconds.
-- [ ] Sign-in templates (Confirm signup, Magic link, Change email address) showing {{ .Token }} and no link, as in Sign-up, login and onboarding.
+- [ ] Sign-in templates (Confirm signup, Magic link, Reset password, Change email address) showing {{ .Token }} and no link, as in Sign-up, login and onboarding. The design is sign-in-code in supabase/functions/send-emails/templates.mjs: render it with the code "{{ .Token }}" and paste the HTML.
 - [ ] Site URL and redirect URLs.
 - [ ] Raise the auth email rate limit from 30 to 100 an hour.
 
 **Resend**
 
-- [ ] Verify the sending domain with SPF, DKIM and DMARC records.
-- [ ] Choose the sender address.
+- [x] Verify the sending domain with SPF, DKIM and DMARC records.
+- [x] Choose the sender address: Dyuknow <hi@dyuknow.com>.
+- [x] The send-emails key is in Vault (resend_api_key); see Notifications → Email.
 
 **App hosting environment variables**
 
@@ -153,7 +157,7 @@ Each line is a question for the owner, with the default this design assumes unti
 - [ ] Should the owner be told when someone signs up? Default: no; new profiles appear on the /admin waiting list.
 - [ ] Who are the admins? Default: the owner and the developer.
 - [ ] Do members stay signed in until they log out? Default: yes, on each device.
-- [ ] Which notices could later also become emails? Default: decided when email is added; in this build every notice is in-app.
+- [x] Which notices also become emails? booking-request, booked, days-cancelled, shift-closed, reminder, said-yes, accepted, declined and shift-unfilled (see Notifications → Email).
 - [ ] Which help contact does Account show, given the demo's phone and email are made up? Default: one real support email, no phone.
 - [ ] Keep the browser-only demo at /preview? Default: keep it until real users arrive, then remove it.
 - [ ] Build /admin, though docs/mvp-user-flow.md kept approval in database administration? Default: yes, kept to two lists, because document checks need signed links.

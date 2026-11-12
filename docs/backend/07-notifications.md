@@ -1,8 +1,8 @@
 ## Notifications
 
-Dyuknow tells members what happened inside the app: a notice in the bell's list, and red dots that show where to look. This build sends no emails and no texts about activity. The database call that saves a change also writes its notices, so nobody hears about something that wasn't saved.
+Dyuknow tells members what happened inside the app: a notice in the bell's list, and red dots that show where to look. The most important notices also go out as an email (see Email, at the end of this section). There are no texts. The database call that saves a change also writes its notices and queues its emails, so nobody hears about something that wasn't saved.
 
-This section is the one home for notice wording. Other sections refer to a notice by its kind, such as booking-request. The only emails in this build are sign-in codes, which Supabase Auth sends (see Sign-up, login and onboarding).
+This section is the one home for notice wording. Other sections refer to a notice by its kind, such as booking-request. Sign-in codes are emailed by Supabase Auth (see Sign-up, login and onboarding); every other email goes through the outbox described under Email.
 
 ### How a notice travels
 
@@ -30,6 +30,7 @@ private.notify(member, kind, about)    -- about: actor, shift, booking, days, re
     if the member is deleted: stop
     write title, body and target from this kind's row in Every event
     insert the notifications row, with actor_id, shift_id and booking_id
+    if this kind emails (see Email): queue the email in email_outbox
 ```
 
 booking_day is an optional part of about: the sweep passes it for a reminder, so the notice names that day.
@@ -264,11 +265,75 @@ The app and docs still promise texts in these places, and each must change befor
 
 Neutral lines such as "{name} is told and the day reopens" (ShiftDetail.tsx:1147) already work for notices and stay.
 
-### Later: email
+### Email
 
-Email notifications come after this build, without changing its tables.
+Nine kinds of notice, a welcome and a reminder to finish signing up also go out by email, through Resend, from "Dyuknow <hi@dyuknow.com>". Every email points back into the app and never carries chat text, documents, addresses or contact details.
 
-- notify() will also queue an email for chosen kinds, such as booking-request, booked and days-cancelled, in a new outbox table.
-- A send-emails edge function will send the queue through Resend (see Edge functions → Planned for later).
-- Unread chat texts may get a delayed round-up email, and members will get email switches on Account → Notifications.
-- Emails will point back into the app and never carry chat text, documents or contact details.
+#### Which emails, and when
+
+| Email | To | Queued by | When |
+|---|---|---|---|
+| booking-request | Talent | notify() | With the booking-request notice. |
+| booked | Talent | notify() | With the booked notice. Not when they book themselves by tapping Accept. |
+| days-cancelled-talent | Talent | notify() | With a days-cancelled notice to a talent. |
+| shift-closed | Talent | notify() | With the shift-closed notice. |
+| reminder | Talent | notify(), from the sweep | With the reminder notice. |
+| said-yes | Venue | notify() | With the said-yes notice. |
+| accepted | Venue | notify() | With the accepted notice. |
+| declined | Venue | notify() | With the declined notice. |
+| days-cancelled-venue | Venue | notify() | With a days-cancelled notice to a venue. |
+| shift-unfilled | Venue | notify(), from the sweep | With the shift-unfilled notice. |
+| welcome-talent, welcome-venue | The new member | A trigger on members | Once per member, when the members row is committed. |
+| complete-account | A login with no member | pg_cron, hourly | Once per login: confirmed address, signed up over 24 hours ago, no member, not an admin, not @example.com. |
+
+Every other notice stays in-app only: job-posted, days-added, filled-by-other, shift-filled, shift-started, withdrew, booked-elsewhere, unavailable, hours-confirmed, no-show, approved and the document notices. account-ready is sent by hand with scripts/send-welcome.mjs, and the approved and document-rejected templates are kept but paused.
+
+#### How an email travels
+
+```mermaid
+flowchart LR
+    A["Database function"] --> B["notify()"]
+    B --> C[("notifications row")]
+    B --> D[("email_outbox row")]
+    E["pg_cron, every minute"] -->|"only if something is due"| F["send-emails edge function"]
+    F -->|"email_claim"| D
+    F -->|"one request per email"| G["Resend"]
+    F -->|"email_mark"| D
+```
+
+1. notify() writes the notice and, for the kinds above, an email_outbox row in the same transaction. If the change is undone, so is the email. If building the email's data fails, the notice still stands and only the email is left out (with a warning in the database log), so an email can never block a booking.
+2. The row holds everything the template needs, worked out at that moment from the shift and booking: venue and talent names, the positions label, the dates label for every day involved, hours, pay, the cancelled days and the reason without its final full stop, the reminder's day, and the "k of n days" for a part yes. It also holds the recipient's side and member id and the notice's target, for the button.
+3. Every minute, pg_cron runs private.kick_send_emails(). If an email is due, it calls the send-emails edge function with a shared secret that lives only in Vault.
+4. The function claims up to 10 emails (email_claim, FOR UPDATE SKIP LOCKED, which also looks up the address in auth.users), renders each with supabase/functions/send-emails/templates.mjs and sends it through Resend with the outbox id as the Idempotency-Key, so a repeated run never sends a second copy.
+5. It records each result with email_mark: sent with Resend's id, skipped with a reason, or failed. Rate limits and Resend outages are retried after 1, 5, 25 and 125 minutes; after the 5th attempt the email is failed. A row stuck in sending for 10 minutes is claimed again.
+
+Skipped, never sent: @example.com addresses, the team logins (admin@dyuknow.com, james@dyuknow.com, hi@shivansh.pro), deleted members, paused kinds, and, while the allowlist is set, everyone not on it.
+
+#### The button
+
+The app routes by hash, /app#/{side}/{member id}/{path}, and only for the signed-in member, and the hash never reaches the server. So each button links to /login?next=/app#/{side}/{member id}/{path}. A signed-in member goes straight on; anyone else signs in first and then lands on the same screen. The path is the notice's target: shift/{id} or booking/{id}. days-cancelled-venue opens the shift, where the place has reopened; welcome-talent opens Availability and welcome-venue opens Book.
+
+#### Settings and safety mode
+
+The function reads its settings from Vault through public.email_config() (service role only). Function environment variables, when set, win over Vault.
+
+| Vault secret | Env var | What it is |
+|---|---|---|
+| send_emails_secret | none | The shared secret the cron job sends in x-dyuknow-secret. Made at random by the migration. |
+| send_emails_url | none | The function's address, for the cron job. |
+| resend_api_key | RESEND_API_KEY | The Resend API key. |
+| email_allowlist | EMAIL_ALLOWLIST | Safety mode: when set, only these addresses (comma or space separated) get email; everyone else's emails are marked skipped, "not in allowlist", and are never sent later. |
+
+Set or clear the key and the allowlist with `select public.email_set_config('email_allowlist', '');` in the SQL editor (an empty value removes it). To send an email again that the allowlist skipped, set its row back to pending: `update public.email_outbox set status = 'pending', next_try_at = now() where id = '…';`
+
+#### The outbox
+
+public.email_outbox has row rules switched on and no rules for members, so only the service role and database functions can read it. Each row has the member (or, for complete-account, the login), the kind, the template's data, the address once claimed, status (pending, sending, sent, failed or skipped), attempts, next_try_at, Resend's id, the last error and when it was sent. A unique index keeps it to one welcome per member and one complete-account per login.
+
+Templates are previewed locally with `node scripts/emails/preview.mjs` (writes scripts/emails/out/index.html) and sent as a set to one address with `--send you@example.com`.
+
+#### Not done yet
+
+- Members can't switch emails off. Account → Notifications has no email switches yet.
+- Unread chat texts don't email. A delayed round-up may come later.
+- Sign-in codes still use Supabase's built-in sender until Resend is set up as Auth's SMTP server (see Build order → After this build).
