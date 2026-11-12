@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Local browser review captures; retain them on disk, outside app commits.
 /.impeccable/review/
+
+# Rendered email previews (node scripts/emails/preview.mjs)
+/scripts/emails/out/
