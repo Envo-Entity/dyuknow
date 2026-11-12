@@ -63,6 +63,7 @@ export const icons = {
   mail: { ios: 'envelope', iosSelected: 'envelope.fill', android: 'mail' },
   lock: { ios: 'lock', iosSelected: 'lock.fill', android: 'lock' },
   eye: { ios: 'eye', iosSelected: 'eye.fill', android: 'visibility' },
+  eyeOff: { ios: 'eye.slash', iosSelected: 'eye.slash.fill', android: 'visibility_off' },
   textSize: { ios: 'textformat.size', iosSelected: 'textformat.size', android: 'format_size' },
   help: { ios: 'questionmark.circle', iosSelected: 'questionmark.circle.fill', android: 'help' },
   refresh: { ios: 'arrow.clockwise', iosSelected: 'arrow.clockwise', android: 'refresh' },

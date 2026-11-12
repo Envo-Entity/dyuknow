@@ -107,3 +107,22 @@ export function PlusIcon({ size = 14, className }: IconProps) {
     </svg>
   );
 }
+
+export function EyeIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M2.5 12 C4.8 7.6 8.1 5.5 12 5.5 C15.9 5.5 19.2 7.6 21.5 12 C19.2 16.4 15.9 18.5 12 18.5 C8.1 18.5 4.8 16.4 2.5 12 Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function EyeOffIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M2.5 12 C4.8 7.6 8.1 5.5 12 5.5 C15.9 5.5 19.2 7.6 21.5 12 C19.2 16.4 15.9 18.5 12 18.5 C8.1 18.5 4.8 16.4 2.5 12 Z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M4 4 L20 20" />
+    </svg>
+  );
+}

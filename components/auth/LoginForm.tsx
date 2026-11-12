@@ -6,6 +6,7 @@ import { isAuthApiError, isAuthRetryableFetchError, type AuthError } from "@supa
 import { createClient } from "@/utils/supabase/client";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { destinationAfterSignIn, safeNext } from "@/components/auth/routing";
+import { EyeIcon, EyeOffIcon } from "@/components/icons";
 
 // Sign in: email + password, straight in.
 // Create account: email + password, then a 6-digit code proves the email.
@@ -66,6 +67,7 @@ export function LoginForm({ next: rawNext, startOnSignup = false }: { next: stri
   const [sentAt, setSentAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [routing, setRouting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
 
   // Already signed in on this device: go straight to where they belong.
@@ -102,6 +104,7 @@ export function LoginForm({ next: rawNext, startOnSignup = false }: { next: stri
     setCode("");
     setPassword("");
     setConfirm("");
+    setShowPassword(false);
   }
 
   function cleanEmail(): string | null {
@@ -268,16 +271,29 @@ export function LoginForm({ next: rawNext, startOnSignup = false }: { next: stri
   const passwordField = (label: string, value: string, set: (v: string) => void, autoComplete: string) => (
     <label className="flex flex-col gap-2">
       <span className={labelClass}>{label}</span>
-      <input
-        className={inputClass}
-        type="password"
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => {
-          set(e.target.value);
-          if (error) setError(null);
-        }}
-      />
+      <span className="relative">
+        <input
+          className={`${inputClass} pr-12 lg:pr-14`}
+          type={showPassword ? "text" : "password"}
+          autoComplete={autoComplete}
+          autoCapitalize="none"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => {
+            set(e.target.value);
+            if (error) setError(null);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((s) => !s)}
+          aria-pressed={showPassword}
+          aria-label={showPassword ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          className="absolute inset-y-0 right-0 flex cursor-pointer items-center rounded-r-2xl border-none bg-transparent px-4 text-label hover:text-ink lg:px-5"
+        >
+          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+      </span>
     </label>
   );
 

@@ -93,10 +93,27 @@ export type TextRowProps = {
   suffix?: string;
 };
 
-export function TextRow({ label, value, onChangeText, placeholder, multiline, maxLength, error, editable = true, stacked, prefix, suffix, ...input }: TextRowProps) {
+export function TextRow({ label, value, onChangeText, placeholder, multiline, maxLength, error, editable = true, stacked, prefix, suffix, secureTextEntry, ...rest }: TextRowProps) {
   const t = useTheme();
   const row = useRowStyle();
   const ref = useRef<TextInputInstance>(null);
+  // Secure fields get a show/hide toggle so people can check what they typed.
+  const [revealed, setRevealed] = useState(false);
+  const input = { ...rest, secureTextEntry: !!secureTextEntry && !revealed };
+  const reveal = secureTextEntry ? (
+    <Pressable
+      onPress={() => {
+        tick();
+        setRevealed((r) => !r);
+      }}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={revealed ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+      style={{ paddingLeft: t.space.xs }}
+    >
+      <Icon name={revealed ? 'eyeOff' : 'eye'} size={18} color="muted" />
+    </Pressable>
+  ) : null;
   const font = t.text('body');
   const inputStyle = {
     ...font,
@@ -173,6 +190,7 @@ export function TextRow({ label, value, onChangeText, placeholder, multiline, ma
               style={[inputStyle, { flex: 1, color: editable ? t.c.text : t.c.muted, minHeight: t.hit - 12 }]}
             />
             {affix(suffix)}
+            {reveal}
           </View>
         </Pressable>
         {error ? <ErrorLine text={error} /> : null}
@@ -202,6 +220,7 @@ export function TextRow({ label, value, onChangeText, placeholder, multiline, ma
           style={[inputStyle, { flex: 1, textAlign: 'right', color: editable ? t.c.text : t.c.muted, minHeight: t.hit - 8 }]}
         />
         {affix(suffix)}
+        {reveal}
       </Pressable>
       {error ? <ErrorLine text={error} /> : null}
     </View>
